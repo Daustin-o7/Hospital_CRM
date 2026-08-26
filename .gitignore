@@ -1,0 +1,35 @@
+# .NET / C#
+bin/
+obj/
+out/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.userprefs
+
+# Node / React
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# Environment & Local Configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+appsettings.Development.json
+appsettings.Local.json
+
+# OS & System Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Antigravity & Scratch Files
+scratch/

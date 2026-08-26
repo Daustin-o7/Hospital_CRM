@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Operations Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F7F4; --card:#FFFFFF; --ink:#16232C; --muted:#6B7680;
+    --accent:#2E6659; --accent-soft:#C8DAD3; --line:#E4E7E2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .wrap{width:100%; max-width:560px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:36px 32px; box-shadow:0 1px 2px rgba(22,35,44,0.04);
+  }
+  .vitals{width:100%; height:34px; display:block; margin-bottom:28px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--accent); margin:0 0 14px; font-weight:500;
+  }
+  h1{font-size:26px; line-height:1.3; margin:0 0 14px; font-weight:600; letter-spacing:-0.01em;}
+  .body-text{color:var(--muted); font-size:15px; line-height:1.65; margin:0 0 28px;}
+  .question{font-size:20px; line-height:1.4; font-weight:600; margin:0 0 24px; letter-spacing:-0.01em;}
+  .options{display:flex; flex-direction:column; gap:10px;}
+  .option{
+    text-align:left; padding:14px 16px; border:1.5px solid var(--line); border-radius:10px;
+    background:var(--card); color:var(--ink); font-size:15px; font-family:inherit;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .option:hover{border-color:var(--accent);}
+  .option:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .option.selected{border-color:var(--accent); background:var(--accent-soft);}
+  input[type=text], input[type=tel]{
+    width:100%; padding:13px 14px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:15px; font-family:inherit; color:var(--ink); margin-bottom:12px; background:var(--card);
+  }
+  input[type=text]:focus, input[type=tel]:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);}
+  .btn{
+    padding:13px 22px; border-radius:10px; border:none; background:var(--accent); color:#fff;
+    font-size:15px; font-weight:500; font-family:inherit; cursor:pointer;
+  }
+  .btn:hover{opacity:0.92;}
+  .btn-start{width:100%;}
+  .skip{background:none; border:none; color:var(--muted); font-size:13px; margin-left:14px; cursor:pointer; text-decoration:underline; font-family:inherit;}
+  .back{
+    display:block; background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer;
+    font-family:inherit; margin-top:22px; padding:0;
+  }
+  .back:hover{color:var(--ink);}
+  @media (max-width:480px){
+    .card{padding:28px 22px;}
+    h1{font-size:22px;} .question{font-size:18px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .option, .btn, #vitalsFill{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <svg class="vitals" viewBox="0 0 400 34" preserveAspectRatio="none" aria-hidden="true">
+      <path id="vitalsTrack" fill="none" stroke="var(--line)" stroke-width="2"/>
+      <path id="vitalsFill" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    </svg>
+    <div id="app"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SETUP: paste your Google Apps Script Web App URL below.
+// See the deployment steps you were given for how to create it.
+// Until this is set, responses render fine but aren't saved anywhere.
+// ============================================================
+const ENDPOINT_URL = "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
+const QUESTIONS = [
+  {id:'q1', type:'choice', eyebrow:'About your practice', text:"What best describes your practice?",
+   options:['Solo practitioner','2\u20135 doctors','6\u201315 doctors','15+ doctors or hospital'], next:()=>'q2'},
+
+  {id:'q2', type:'choice', eyebrow:'About your practice', text:"What's your primary specialty?",
+   options:['General / Family Medicine','Dental','Pediatrics','Gynecology','Orthopedics','Dermatology','ENT','Ayurveda / Homeopathy / AYUSH','Multi-specialty','Other'], next:()=>'q3'},
+
+  {id:'q3', type:'choice', eyebrow:'About your practice', text:"Where is your practice located?",
+   options:['Metro city','Tier 2 city','Tier 3 city or town','Rural'], next:()=>'q4'},
+
+  {id:'q4', type:'choice', eyebrow:'About your practice', text:"How many non-doctor staff work with you (reception, nursing, etc.)?",
+   options:['Just me','1\u20132','3\u20135','6+'], next:()=>'q5'},
+
+  {id:'q5', type:'choice', eyebrow:'About your practice', text:"Do you have a pharmacy attached to your clinic?",
+   options:['Yes','No'], next:()=>'q6'},
+
+  {id:'q6', type:'choice', eyebrow:'Day-to-day operations', text:"How do you currently manage patient appointments and records?",
+   options:['Paper register','Excel or Google Sheets','WhatsApp only','A dedicated software','Other'],
+   next:(ans)=> ans==='A dedicated software' ? 'q6a' : 'q7'},
+
+  {id:'q6a', type:'text', eyebrow:'Day-to-day operations', text:"Which software do you use?",
+   placeholder:'Name of the software', next:()=>'q6b'},
+
+  {id:'q6b', type:'choice', eyebrow:'Day-to-day operations', text:"Roughly how much do you pay for it per month?",
+   options:['Free','Under \u20b92,000','\u20b92,000\u201310,000','\u20b910,000\u201325,000','\u20b925,000+','Not sure'], next:()=>'q6c'},
+
+  {id:'q6c', type:'text', eyebrow:'Day-to-day operations', text:"What frustrates you most about it, if anything?",
+   placeholder:'A word or two is fine', optional:true, next:()=>'q8'},
+
+  {id:'q7', type:'choice', eyebrow:'Day-to-day operations', text:"Have you ever seriously looked into buying a clinic management software and decided not to?",
+   options:['Yes','No'], next:(ans)=> ans==='Yes' ? 'q7a' : 'q8'},
+
+  {id:'q7a', type:'text', eyebrow:'Day-to-day operations', text:"What stopped you?",
+   placeholder:'A word or two is fine', optional:true, next:()=>'q8'},
+
+  {id:'q8', type:'text', eyebrow:'The real question', text:"What's the single most time-consuming or frustrating part of running the practice day to day \u2014 not the medicine, the operations?",
+   placeholder:'Type your answer', next:()=>'q9'},
+
+  {id:'q9', type:'choice', eyebrow:'Day-to-day operations', text:"In the last month, roughly how many patients did you lose track of for follow-up, or how many no-shows did you have?",
+   options:['None','1\u20135','6\u201315','16+','Not sure'], next:()=>'q10'},
+
+  {id:'q10', type:'choice', eyebrow:'Day-to-day operations', text:"How do you currently remind patients about follow-ups or appointments, if at all?",
+   options:['I call them myself','I message them on WhatsApp myself','Staff calls or messages them','SMS service','I don\u2019t','Other'], next:()=>'q11'},
+
+  {id:'q11', type:'choice', eyebrow:'Day-to-day operations', text:"Do you or your staff already use WhatsApp for anything related to patient communication?",
+   options:['Yes, regularly','Sometimes','No'], next:()=>'q12'},
+
+  {id:'q12', type:'choice', eyebrow:'Day-to-day operations', text:"Have you heard of ABDM / ABHA (Ayushman Bharat Digital Mission / Health ID)?",
+   options:["Yes, and I'm registered","Yes, but not registered",'No'], next:()=>'q13'},
+
+  {id:'q13', type:'choice', eyebrow:'Last thing', text:"Would you be open to a brief 10\u201315 minute call about how your practice runs? We'll share what we learn across clinics if useful.",
+   options:['Yes','No thanks'], next:(ans)=> ans==='Yes' ? 'q13a' : 'end'},
+
+  {id:'q13a', type:'contact', eyebrow:'Last thing', text:"How can we reach you?", next:()=>'end'},
+];
+
+const PROGRESS = {q1:5,q2:10,q3:15,q4:20,q5:25,q6:30,q6a:34,q6b:37,q6c:40,q7:34,q7a:38,q8:45,q9:55,q10:65,q11:75,q12:85,q13:93,q13a:97,end:100};
+
+let currentId = 'intro';
+let history = [];
+let answers = {};
+let submitted = false;
+
+const app = document.getElementById('app');
+const trackPath = document.getElementById('vitalsTrack');
+const fillPath = document.getElementById('vitalsFill');
+
+function ecgPath(width, height, spikeEvery){
+  let d = 'M0,' + (height/2);
+  for(let x=0; x<width; x+=spikeEvery){
+    d += ' L' + (x+spikeEvery*0.42) + ',' + (height/2);
+    d += ' L' + (x+spikeEvery*0.52) + ',' + (height*0.12);
+    d += ' L' + (x+spikeEvery*0.62) + ',' + (height*0.88);
+    d += ' L' + (x+spikeEvery*0.72) + ',' + (height/2);
+  }
+  d += ' L' + width + ',' + (height/2);
+  return d;
+}
+
+const VITALS_D = ecgPath(400, 34, 50);
+trackPath.setAttribute('d', VITALS_D);
+fillPath.setAttribute('d', VITALS_D);
+const totalLen = fillPath.getTotalLength();
+fillPath.style.strokeDasharray = totalLen;
+fillPath.style.strokeDashoffset = totalLen;
+fillPath.style.transition = 'stroke-dashoffset .35s ease';
+
+function setProgress(pct){
+  const offset = totalLen * (1 - (pct||0)/100);
+  fillPath.style.strokeDashoffset = offset;
+}
+
+function findQuestion(id){ return QUESTIONS.find(function(q){ return q.id === id; }); }
+
+function goTo(id){
+  currentId = id;
+  setProgress(PROGRESS[id]);
+  render();
+}
+
+function advance(id, value){
+  answers[id] = value;
+  history.push(currentId);
+  const q = findQuestion(id);
+  goTo(q.next(value));
+}
+
+function goBack(){
+  if(history.length===0) return;
+  currentId = history.pop();
+  setProgress(PROGRESS[currentId]);
+  render();
+}
+
+async function submitAnswers(){
+  if(submitted) return;
+  submitted = true;
+  if(!ENDPOINT_URL || ENDPOINT_URL.indexOf('PASTE_YOUR') === 0){
+    console.warn('ENDPOINT_URL not configured \u2014 response not saved. See setup instructions.');
+    return;
+  }
+  try{
+    await fetch(ENDPOINT_URL, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(answers)
+    });
+  }catch(err){
+    console.warn('Could not save response:', err);
+  }
+}
+
+function render(){
+  app.innerHTML = '';
+
+  if(currentId === 'intro'){
+    app.innerHTML =
+      '<p class="eyebrow">Independent Research</p>' +
+      '<h1>Clinic Operations Study</h1>' +
+      '<p class="body-text">A short, independent study on how clinics across India run day to day \u2014 what works, what doesn\u2019t, and where the friction really is. About 2 minutes, mostly one-tap questions. Nothing to buy, no sales pitch. Answers are used for research only.</p>' +
+      '<button class="btn btn-start" id="startBtn">Start</button>';
+    document.getElementById('startBtn').onclick = function(){ goTo('q1'); };
+    return;
+  }
+
+  if(currentId === 'end'){
+    submitAnswers();
+    const wantsCall = answers['q13'] === 'Yes';
+    const msg = wantsCall
+      ? "That's genuinely useful \u2014 appreciate you taking the time between patients. We'll be in touch to schedule that call."
+      : "That's genuinely useful \u2014 appreciate you taking the time between patients.";
+    app.innerHTML =
+      '<p class="eyebrow">Done</p>' +
+      '<h1>Thank you</h1>' +
+      '<p class="body-text">' + msg + '</p>';
+    return;
+  }
+
+  const q = findQuestion(currentId);
+  if(!q) return;
+
+  let html = '<p class="eyebrow">' + q.eyebrow + '</p><p class="question">' + q.text + '</p>';
+
+  if(q.type === 'choice'){
+    html += '<div class="options">';
+    q.options.forEach(function(opt){
+      html += '<button class="option" data-val="' + opt.replace(/"/g,'&quot;') + '">' + opt + '</button>';
+    });
+    html += '</div>';
+  } else if(q.type === 'text'){
+    html += '<input type="text" id="textInput" placeholder="' + (q.placeholder||'') + '" autocomplete="off">';
+    html += '<div><button class="btn" id="continueBtn">Continue</button>' + (q.optional ? '<button class="skip" id="skipBtn">Skip</button>' : '') + '</div>';
+  } else if(q.type === 'contact'){
+    html += '<input type="text" id="nameInput" placeholder="Name">';
+    html += '<input type="tel" id="phoneInput" placeholder="Phone / WhatsApp number">';
+    html += '<div><button class="btn" id="continueBtn">Continue</button></div>';
+  }
+
+  if(history.length > 0){
+    html += '<button class="back" id="backBtn">\u2190 Back</button>';
+  }
+
+  app.innerHTML = html;
+
+  if(q.type === 'choice'){
+    app.querySelectorAll('.option').forEach(function(btn){
+      btn.onclick = function(){
+        btn.classList.add('selected');
+        setTimeout(function(){ advance(q.id, btn.dataset.val); }, 120);
+      };
+    });
+  } else if(q.type === 'text'){
+    const input = document.getElementById('textInput');
+    input.focus();
+    const go = function(){ advance(q.id, input.value.trim()); };
+    document.getElementById('continueBtn').onclick = go;
+    if(q.optional){ document.getElementById('skipBtn').onclick = function(){ advance(q.id, ''); }; }
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter') go(); });
+  } else if(q.type === 'contact'){
+    const nameInput = document.getElementById('nameInput');
+    const phoneInput = document.getElementById('phoneInput');
+    nameInput.focus();
+    document.getElementById('continueBtn').onclick = function(){
+      answers['q13a_name'] = nameInput.value.trim();
+      answers['q13a_phone'] = phoneInput.value.trim();
+      history.push(currentId);
+      goTo(q.next());
+    };
+  }
+
+  const backBtn = document.getElementById('backBtn');
+  if(backBtn){ backBtn.onclick = goBack; }
+}
+
+render();
+</script>
+</body>
+</html>
