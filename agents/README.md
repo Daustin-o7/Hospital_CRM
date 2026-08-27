@@ -58,6 +58,7 @@ agents/
 │   ├── performance.md      # Response time NFRs (≤2s search, ≤3s load), query indexing
 │   ├── accessibility.md    # WCAG 2.1 AA standards, high-contrast, front-desk usability
 │   ├── uiux.md             # Mobile-first responsive PWA UX, fast onboarding rules
+│   ├── ponytail.md         # Ponytail minimal engineering discipline & command reference
 │   └── documentation.md    # Context system maintenance & anti-hallucination standards
 └── state/                  # Real-time system state & execution history
     ├── context.md          # High-level context & active project phase
