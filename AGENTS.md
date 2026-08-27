@@ -18,6 +18,7 @@ SAMSTACK AI is a doctor/clinic CRM. This checkout implements **Phase 1 only** �
 4. **Audit logs are append-only.** Enforce at the database role level (`REVOKE UPDATE, DELETE`), not only in application code — see FR-08.
 5. **Offline-tolerance (FR-22) applies specifically to registration and billing**, not the whole app. Client-side idempotency keys, not a general offline cache of patient data — see FR-22's security note on why.
 6. **Amendments, never overwrites, on clinical data.** FR-14/FR-15 — a saved consultation note or prescription is never silently edited. New version, original preserved, both visible.
+7. **Git Operations Control:** Never execute `git push` or commit changes automatically without explicit user approval. Always create a feature branch first before pushing to `main`. Allow the user to perform Git operations unless specifically requested to do so.
 
 ## Reference material
 - `samstack-implementation-reference.md` — Razorpay webhook verification, WhatsApp channel abstraction, JWT/RS256 setup, offline-sync pattern. Read before touching FR-18, FR-20/21, FR-01, or FR-22.

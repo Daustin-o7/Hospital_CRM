@@ -41,6 +41,9 @@ Applies to all AI assistants (ChatGPT, Codex, Claude Code, Antigravity, Cline, R
 8. **NEVER Break Backward Compatibility**: Keep API request/response contracts backward-compatible.
 9. **ALWAYS Read `/agents` First**: Read context files in `agents/` before starting work on any task.
 10. **ALWAYS Ask Before Destructive Changes**: Deleting code files, dropping tables, or altering primary keys requires explicit human confirmation.
+11. **NEVER Push to Git Without Approval**: Never execute `git push` or run automated Git commits without explicit user approval.
+12. **ALWAYS Create a Feature Branch First**: Always create a feature branch before committing or pushing changes to `main`.
+13. **USER Controls Git Operations**: Let the user execute Git operations; only perform Git operations when explicitly asked by the user.
 
 ---
 
