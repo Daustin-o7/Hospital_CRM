@@ -1,3 +1,23 @@
 {
-  "plugin": ["@dietrichgebert/ponytail"]
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@dietrichgebert/ponytail"
+  ],
+  "providers": {
+    "bai": {
+      "name": "B.AI",
+      "env": [
+        "BAI_API_KEY"
+      ],
+      "package": "@opencode-ai/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "https://b.ai"
+      },
+      "models": {
+        "default-model-id": {
+          "name": "BAI Model"
+        }
+      }
+    }
+  }
 }

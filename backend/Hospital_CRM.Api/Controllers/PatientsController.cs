@@ -1,0 +1,243 @@
+using System.Security.Claims;
+using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Entities;
+using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Hospital_CRM.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class PatientsController : ControllerBase
+{
+    private readonly HospitalCrmDbContext _db;
+
+    public PatientsController(HospitalCrmDbContext db)
+    {
+        _db = db;
+    }
+
+    [HttpPost]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> Register([FromBody] PatientRegisterRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Phone))
+            return BadRequest(new { error = "name_and_phone_required" });
+
+        if (request.Dob is null && request.ApproxAge is null)
+            return BadRequest(new { error = "either_dob_or_approxAge_required" });
+
+        if (request.Consent is null || !request.Consent.Accepted)
+            return BadRequest(new { error = "consent_required" });
+
+        // Idempotency check
+        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        {
+            var existing = await _db.Patients
+                .FirstOrDefaultAsync(p => p.IdempotencyKey == request.IdempotencyKey, ct);
+            if (existing is not null)
+                return Ok(new { patientId = existing.Id, possibleDuplicateOf = (Guid?)null });
+        }
+
+        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
+
+        var existingPatient = await _db.Patients
+            .FirstOrDefaultAsync(p => p.Phone == request.Phone, ct);
+
+        if (existingPatient is not null)
+            return Ok(new { patientId = existingPatient.Id, possibleDuplicateOf = existingPatient.Id });
+
+        var patient = new Patient
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name,
+            Phone = request.Phone,
+            DobHasValue = request.Dob.HasValue,
+            Dob = request.Dob,
+            ApproxAge = request.ApproxAge,
+            Gender = ParseGender(request.Gender),
+            Address = request.Address,
+            CreatedBy = userId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            IdempotencyKey = request.IdempotencyKey
+        };
+
+        var consent = new PatientConsent
+        {
+            Id = Guid.NewGuid(),
+            PatientId = patient.Id,
+            Purpose = request.Consent.Purpose,
+            CapturedBy = userId,
+            CapturedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Patients.Add(patient);
+        _db.PatientConsents.Add(consent);
+        await _db.SaveChangesAsync(ct);
+
+        return StatusCode(201, new { patientId = patient.Id, possibleDuplicateOf = (Guid?)null });
+    }
+
+    [HttpGet("search")]
+    [Authorize]
+    public async Task<IActionResult> Search([FromQuery] string q, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.Length < 3)
+            return BadRequest(new { error = "query_must_be_at_least_3_characters" });
+
+        var patients = await _db.Patients
+            .Where(p => p.Name.Contains(q) || p.Phone.StartsWith(q))
+            .OrderBy(p => p.Name)
+            .Take(50)
+            .Select(p => new
+            {
+                id = p.Id,
+                name = p.Name,
+                phone = p.Phone,
+                age = p.Dob.HasValue
+                    ? DateOnly.FromDateTime(DateTime.Today).Year - p.Dob.Value.Year
+                    : p.ApproxAge ?? 0
+            })
+            .ToListAsync(ct);
+
+        return Ok(patients);
+    }
+
+    [HttpGet("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var patient = await _db.Patients
+            .Include(p => p.Consents)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+
+        if (patient is null)
+            return NotFound(new { error = "patient_not_found" });
+
+        var role = User.FindFirst("role")?.Value;
+        var isReceptionist = string.Equals(role, "receptionist", StringComparison.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, object?>
+        {
+            ["id"] = patient.Id,
+            ["name"] = patient.Name,
+            ["phone"] = patient.Phone,
+            ["dobHasValue"] = patient.DobHasValue,
+            ["dob"] = patient.Dob?.ToString("yyyy-MM-dd"),
+            ["approxAge"] = patient.ApproxAge,
+            ["gender"] = patient.Gender.ToString().ToLower(),
+            ["address"] = patient.Address,
+            ["createdAt"] = patient.CreatedAt
+        };
+
+        if (!isReceptionist)
+        {
+            var consultations = await _db.Consultations
+                .Where(c => c.Appointment.PatientId == id)
+                .OrderByDescending(c => c.CreatedAt)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    diagnosis = c.Diagnosis,
+                    chiefComplaint = c.ChiefComplaint,
+                    createdAt = c.CreatedAt
+                })
+                .ToListAsync(ct);
+
+            result["consultations"] = consultations;
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPatch("{id:guid}")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> Patch(Guid id, [FromBody] PatientPatchRequest request, CancellationToken ct)
+    {
+        var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (patient is null)
+            return NotFound(new { error = "patient_not_found" });
+
+        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
+        var now = DateTimeOffset.UtcNow;
+
+        if (request.Phone is not null && request.Phone != patient.Phone)
+        {
+            var phoneTaken = await _db.Patients.AnyAsync(p => p.Phone == request.Phone && p.Id != id, ct);
+            if (phoneTaken)
+                return Conflict(new { error = "phone_already_in_use" });
+
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "phone", patient.Phone, request.Phone, ct);
+            patient.Phone = request.Phone;
+        }
+
+        if (request.Name is not null && request.Name != patient.Name)
+        {
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "name", patient.Name, request.Name, ct);
+            patient.Name = request.Name;
+        }
+
+        if (request.Dob.HasValue && request.Dob.Value != patient.Dob)
+        {
+            var oldDob = patient.Dob?.ToString("yyyy-MM-dd") ?? "";
+            var newDob = request.Dob.Value.ToString("yyyy-MM-dd");
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "dob", oldDob, newDob, ct);
+            patient.Dob = request.Dob;
+            patient.DobHasValue = true;
+        }
+
+        if (request.Gender is not null)
+        {
+            var newGender = ParseGender(request.Gender);
+            if (newGender != patient.Gender)
+            {
+                await AuditService.LogChangeAsync(_db, "Patient", id, userId, "gender", patient.Gender.ToString(), newGender.ToString(), ct);
+                patient.Gender = newGender;
+            }
+        }
+
+        if (request.Address is not null && request.Address != patient.Address)
+        {
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "address", patient.Address ?? "", request.Address, ct);
+            patient.Address = request.Address;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { patientId = patient.Id, updatedAt = now });
+    }
+
+    private static Gender ParseGender(string? gender)
+    {
+        return gender?.ToLower() switch
+        {
+            "male" => Gender.Male,
+            "female" => Gender.Female,
+            "other" => Gender.Other,
+            _ => Gender.PreferNotToSay
+        };
+    }
+}
+
+public record PatientRegisterRequest(
+    string Name,
+    string Phone,
+    DateOnly? Dob,
+    int? ApproxAge,
+    string? Gender,
+    string? Address,
+    ConsentRequest? Consent,
+    string? IdempotencyKey);
+
+public record ConsentRequest(bool Accepted, string Purpose);
+
+public record PatientPatchRequest(
+    string? Name,
+    string? Phone,
+    DateOnly? Dob,
+    string? Gender,
+    string? Address);

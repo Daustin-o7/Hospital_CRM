@@ -1,0 +1,6 @@
+@SamStack.Api_HostAddress = http://localhost:5244
+
+GET {{SamStack.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
