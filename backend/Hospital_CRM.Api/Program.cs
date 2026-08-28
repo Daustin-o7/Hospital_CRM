@@ -8,6 +8,7 @@ using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
@@ -28,32 +29,37 @@ builder.Services.AddDbContext<HospitalCrmDbContext>(options =>
 
 builder.Services.AddMemoryCache();
 
-// Register RSA Key Service for RS256 JWT Asymmetric Signing & JWKS (BUG-030)
-builder.Services.AddSingleton<IRsaKeyService, RsaKeyService>();
+// JWT static config validation
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? (builder.Environment.IsDevelopment() ? "Hospital_CRM"
+        : throw new InvalidOperationException("Jwt:Issuer configuration is missing."));
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? (builder.Environment.IsDevelopment() ? "Hospital_CRM"
+        : throw new InvalidOperationException("Jwt:Audience configuration is missing."));
 
-// JWT Startup Validation & RS256 Setup (BUG-002, BUG-003, BUG-030)
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
-
-if (string.IsNullOrWhiteSpace(jwtIssuer))
+// Register IPersistentKeyService — chosen by Jwt:KeySource config.
+// PemFileKeyService: auto-generates a key on first run in Development,
+//                    fails fast in non-Development environments.
+// AzureKeyVaultKeyService: loads from Key Vault; private key never leaves vault.
+var keySource = builder.Configuration["Jwt:KeySource"] ?? (builder.Environment.IsDevelopment() ? "PemFile" : throw new InvalidOperationException("Jwt:KeySource configuration is missing."));
+builder.Services.AddSingleton<IPersistentKeyService>(sp =>
 {
-    if (builder.Environment.IsDevelopment()) jwtIssuer = "Hospital_CRM";
-    else throw new InvalidOperationException("Jwt:Issuer configuration is missing.");
-}
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    return keySource.ToLowerInvariant() switch
+    {
+        "pemfile" => new PemFileKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<PemFileKeyService>>()),
+        "azurekeyvault" => new AzureKeyVaultKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<AzureKeyVaultKeyService>>()),
+        _ => throw new InvalidOperationException($"Unknown Jwt:KeySource '{keySource}'. Supported: PemFile, AzureKeyVault.")
+    };
+});
 
-if (string.IsNullOrWhiteSpace(jwtAudience))
-{
-    if (builder.Environment.IsDevelopment()) jwtAudience = "Hospital_CRM";
-    else throw new InvalidOperationException("Jwt:Audience configuration is missing.");
-}
-
+// JWT Bearer auth — IssuerSigningKey is resolved per-request from the
+// already-loaded IPersistentKeyService via OnCreatingTicket. This avoids
+// the BuildServiceProvider() anti-pattern and works correctly when the
+// key service is a singleton.
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // The RSA keys are shared as static inside RsaKeyService, so any
-        // instance resolves to the same public key for validation as
-        // AuthController uses for signing.
-        var rsaKeyService = new RsaKeyService(builder.Configuration);
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -62,10 +68,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            IssuerSigningKey = rsaKeyService.GetPublicKey(),
             ClockSkew = TimeSpan.Zero
         };
     });
+
+// IPostConfigureOptions runs after all singletons (including IPersistentKeyService)
+// are registered. This injects the RS256 public key without BuildServiceProvider().
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Hospital_CRM.Api.JwtBearerOptionsConfig>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -100,6 +109,17 @@ builder.Services.AddHostedService<ReminderSchedulerService>();
 
 var app = builder.Build();
 
+// Load the persistent RS256 key BEFORE serving any traffic.
+// - PemFile: reads from disk (auto-generates in Development on first run).
+// - AzureKeyVault: fetches public key + remote signing endpoint.
+// Failures here crash startup — better than running with no signing key.
+using (var scope = app.Services.CreateScope())
+{
+    var keyService = scope.ServiceProvider.GetRequiredService<IPersistentKeyService>();
+    await keyService.LoadAsync();
+    Log.Information("JWT signing key loaded (source: {Source})", keyService.KeySource);
+}
+
 if (app.Environment.IsDevelopment())
 {
     var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
@@ -119,7 +139,6 @@ if (app.Environment.IsDevelopment())
         await db.Database.MigrateAsync();
         await SeedDevelopmentDataAsync(db);
     }
-
     app.MapOpenApi();
 }
 

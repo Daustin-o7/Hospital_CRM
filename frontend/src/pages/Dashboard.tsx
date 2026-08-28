@@ -63,8 +63,8 @@ export default function Dashboard() {
       try {
         const todayISO = new Date().toISOString().split('T')[0]
         const [apptRes, invoiceRes] = await Promise.allSettled([
-          api.get<any[]>(`/v1/appointments?date=${todayISO}`),
-          api.get<any[]>('/v1/invoices'),
+          api.get<any[]>(`/appointments?date=${todayISO}`),
+          api.get<any[]>('/invoices'),
         ])
 
         const appts = apptRes.status === 'fulfilled' ? apptRes.value.data ?? [] : []

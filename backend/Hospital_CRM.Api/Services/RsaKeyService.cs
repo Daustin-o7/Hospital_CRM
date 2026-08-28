@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Hospital_CRM.Api.Services;
@@ -10,59 +9,25 @@ public interface IRsaKeyService
     object GetJwks();
 }
 
-public class RsaKeyService : IRsaKeyService
+/// <summary>
+/// Persistent key service used at startup. Implementations load/derive the
+/// key from a durable source (PEM file, Azure Key Vault) so the same key
+/// is shared across restarts and instances. Also exposes SignAsync so that
+/// backends whose private key cannot leave the vault (Azure Key Vault)
+/// can still produce signatures without exposing the key material.
+/// </summary>
+public interface IPersistentKeyService : IRsaKeyService
 {
-    // Shared key material — only one set of keys per process so that
-    // tokens signed by AuthController validate against the same public key.
-    private static RSA? _sharedRsa;
-    private static RsaSecurityKey? _sharedPrivateKey;
-    private static RsaSecurityKey? _sharedPublicKey;
-    private static string? _sharedKeyId;
-    private static readonly object _lock = new();
+    /// <summary>Load or generate the key. Called once at startup.</summary>
+    Task LoadAsync(CancellationToken ct = default);
 
-    private readonly RSA _rsa;
-    private readonly RsaSecurityKey _privateKey;
-    private readonly RsaSecurityKey _publicKey;
-    private readonly string _keyId;
+    /// <summary>Source identifier for diagnostics / logs.</summary>
+    string KeySource { get; }
 
-    public RsaKeyService(IConfiguration config)
-    {
-        lock (_lock)
-        {
-            if (_sharedRsa is null)
-            {
-                _sharedRsa = RSA.Create(2048);
-                _sharedKeyId = config["Jwt:KeyId"] ?? "hospital-crm-rsa-key-1";
-                _sharedPrivateKey = new RsaSecurityKey(_sharedRsa) { KeyId = _sharedKeyId };
-                _sharedPublicKey = new RsaSecurityKey(_sharedRsa.ExportParameters(false)) { KeyId = _sharedKeyId };
-            }
-        }
-        _rsa = _sharedRsa!;
-        _privateKey = _sharedPrivateKey!;
-        _publicKey = _sharedPublicKey!;
-        _keyId = _sharedKeyId!;
-    }
-
-    public RsaSecurityKey GetPrivateKey() => _privateKey;
-    public RsaSecurityKey GetPublicKey() => _publicKey;
-
-    public object GetJwks()
-    {
-        var parameters = _rsa.ExportParameters(false);
-        return new
-        {
-            keys = new[]
-            {
-                new
-                {
-                    kty = "RSA",
-                    use = "sig",
-                    alg = "RS256",
-                    kid = _keyId,
-                    n = Base64UrlEncoder.Encode(parameters.Modulus),
-                    e = Base64UrlEncoder.Encode(parameters.Exponent)
-                }
-            }
-        };
-    }
+    /// <summary>
+    /// Sign the given data with RS256. For PemFile this signs in-memory;
+    /// for AzureKeyVault this calls CryptographyClient.SignAsync and the
+    /// private key never leaves the vault.
+    /// </summary>
+    Task<byte[]> SignAsync(byte[] data, CancellationToken ct = default);
 }

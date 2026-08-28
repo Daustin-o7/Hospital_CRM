@@ -1,5 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
@@ -15,13 +17,13 @@ public class AuthController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly IConfiguration _config;
-    private readonly IRsaKeyService _rsaKeyService;
+    private readonly IPersistentKeyService _keyService;
 
-    public AuthController(HospitalCrmDbContext db, IConfiguration config, IRsaKeyService rsaKeyService)
+    public AuthController(HospitalCrmDbContext db, IConfiguration config, IPersistentKeyService keyService)
     {
         _db = db;
         _config = config;
-        _rsaKeyService = rsaKeyService;
+        _keyService = keyService;
     }
 
     [HttpPost("login")]
@@ -44,7 +46,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
             refreshExpiryDays = 7;
 
-        var accessToken = GenerateJwt(user.Id, user.Email, user.Role.ToString(), tokenExpiry);
+        var accessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), tokenExpiry, ct);
         var refreshToken = Guid.NewGuid().ToString("N");
 
         _db.RefreshTokens.Add(new RefreshToken
@@ -100,7 +102,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
             refreshExpiryDays = 7;
 
-        var newAccessToken = GenerateJwt(user.Id, user.Email, user.Role.ToString(), tokenExpiry);
+        var newAccessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), tokenExpiry, ct);
         var newRefreshToken = Guid.NewGuid().ToString("N");
 
         _db.RefreshTokens.Add(new RefreshToken
@@ -127,33 +129,44 @@ public class AuthController : ControllerBase
     [HttpGet(".well-known/jwks.json")]
     public IActionResult GetJwks()
     {
-        return Ok(_rsaKeyService.GetJwks());
+        return Ok(_keyService.GetJwks());
     }
 
-    private string GenerateJwt(Guid userId, string email, string role, int expiryMinutes)
+    private async Task<string> GenerateJwtAsync(Guid userId, string email, string role, int expiryMinutes, CancellationToken ct)
     {
-        var signingCredentials = new SigningCredentials(_rsaKeyService.GetPrivateKey(), SecurityAlgorithms.RsaSha256);
-
         var issuer = _config["Jwt:Issuer"] ?? "Hospital_CRM";
         var audience = _config["Jwt:Audience"] ?? "Hospital_CRM";
+        var keyId = _config["Jwt:KeyId"] ?? "hospital-crm-rsa-key-1";
+        var expires = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        var claims = new[]
+        var header = JsonSerializer.SerializeToElement(new { alg = "RS256", typ = "JWT", kid = keyId });
+        var payload = JsonSerializer.SerializeToElement(new
         {
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim("role", role),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
+            sub = userId.ToString(),
+            email,
+            role,
+            jti = Guid.NewGuid().ToString(),
+            iss = issuer,
+            aud = audience,
+            exp = expires,
+            iat = now
+        });
 
-        var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
-            claims: claims,
-            expires: DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).UtcDateTime,
-            signingCredentials: signingCredentials);
+        var headerB64 = Base64UrlEncode(header.GetRawText());
+        var payloadB64 = Base64UrlEncode(payload.GetRawText());
+        var signingInput = $"{headerB64}.{payloadB64}";
+        var signature = await _keyService.SignAsync(Encoding.UTF8.GetBytes(signingInput), ct);
+        var signatureB64 = Base64UrlEncode(signature);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return $"{signingInput}.{signatureB64}";
     }
+
+    private static string Base64UrlEncode(byte[] data) =>
+        Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static string Base64UrlEncode(string text) =>
+        Base64UrlEncode(Encoding.UTF8.GetBytes(text));
 }
 
 public record LoginRequest(string Email, string Password);

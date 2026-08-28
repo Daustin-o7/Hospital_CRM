@@ -107,7 +107,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       setLoading(true)
-      const res = await api.get('/v1/clinic/profile')
+      const res = await api.get('/clinic/profile')
       const data = res.data
       const resolved: OrganizationBranding = {
         organizationName: data.name || data.organizationName || SAMSTACK_DEFAULTS.organizationName,

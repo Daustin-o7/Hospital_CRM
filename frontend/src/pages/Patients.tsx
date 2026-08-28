@@ -70,7 +70,7 @@ export default function Patients() {
   const fetchPatients = useCallback(async (query = '') => {
     setLoading(true)
     try {
-      const res = await api.get(`/v1/patients/search?q=${encodeURIComponent(query)}`)
+      const res = await api.get(`/patients/search?q=${encodeURIComponent(query)}`)
       setPatients(Array.isArray(res.data) ? res.data : [])
     } catch {
       setPatients([])
@@ -81,7 +81,7 @@ export default function Patients() {
 
   const openPatient = useCallback(async (id: string) => {
     try {
-      const res = await api.get(`/v1/patients/${id}`)
+      const res = await api.get(`/patients/${id}`)
       setViewingPatient(res.data)
     } catch {
       const found = patients.find(p => p.id === id)
@@ -93,7 +93,7 @@ export default function Patients() {
     setSubmitError('')
     try {
       const idempotencyKey = `IDEMP-PAT-${Date.now()}`
-      const res = await api.post('/v1/patients', { ...data, idempotencyKey })
+      const res = await api.post('/patients', { ...data, idempotencyKey })
       setPatients(prev => [res.data, ...prev])
       reset({ consent: { accepted: false, purpose: 'care_delivery' } })
       setShowRegister(false)

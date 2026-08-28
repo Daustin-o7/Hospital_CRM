@@ -61,7 +61,7 @@ export default function Billing() {
   const fetchInvoices = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/v1/invoices')
+      const res = await api.get('/invoices')
       setInvoices(Array.isArray(res.data) ? res.data : [])
     } catch {
       setInvoices([])
@@ -76,7 +76,7 @@ export default function Billing() {
     const gstAmt = Math.round(sub * 0.18)
     const tot = sub + gstAmt
     try {
-      const res = await api.post('/v1/invoices', data)
+      const res = await api.post('/invoices', data)
       setInvoices(prev => [res.data ?? {
         invoiceId: `inv-${Date.now()}`,
         invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
@@ -93,7 +93,7 @@ export default function Billing() {
 
   const handleMarkPaid = async (inv: Invoice) => {
     try {
-      await api.post(`/v1/invoices/${inv.invoiceId}/payment`, { method: 'cash', amount: inv.total })
+      await api.post(`/invoices/${inv.invoiceId}/payment`, { method: 'cash', amount: inv.total })
       setInvoices(prev => prev.map(i => i.invoiceId === inv.invoiceId ? { ...i, status: 'paid', paidAt: new Date().toISOString() } : i))
       setViewInv(prev => prev?.invoiceId === inv.invoiceId ? { ...prev, status: 'paid', paidAt: new Date().toISOString() } : prev)
     } catch {}

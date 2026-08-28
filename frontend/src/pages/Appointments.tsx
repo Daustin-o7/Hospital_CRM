@@ -63,7 +63,7 @@ export default function Appointments() {
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get(`/v1/appointments?date=${selectedDate}`)
+      const res = await api.get(`/appointments?date=${selectedDate}`)
       setAppointments(Array.isArray(res.data) ? res.data : [])
     } catch {
       setAppointments([])
@@ -74,8 +74,8 @@ export default function Appointments() {
 
   const fetchMeta = useCallback(async () => {
     const [docRes, patRes] = await Promise.allSettled([
-      api.get('/v1/users?role=doctor'),
-      api.get('/v1/patients/search?q='),
+      api.get('/users?role=doctor'),
+      api.get('/patients/search?q='),
     ])
     if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) setDoctors(docRes.value.data)
     if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) setPatients(patRes.value.data)
@@ -83,7 +83,7 @@ export default function Appointments() {
 
   const handleCheckIn = async (aptId: string) => {
     try {
-      const res = await api.post(`/v1/appointments/${aptId}/check-in`)
+      const res = await api.post(`/appointments/${aptId}/check-in`)
       const token = res.data?.queueToken ?? null
       setAppointments(prev => prev.map(a =>
         a.appointmentId === aptId ? { ...a, status: 'checked_in', queueToken: token } : a
@@ -96,7 +96,7 @@ export default function Appointments() {
     const p = patients.find(pt => pt.id === data.patientId)
     const d = doctors.find(dc => dc.id === data.doctorId)
     try {
-      const res = await api.post('/v1/appointments', { ...data, timeSlot: data.time })
+      const res = await api.post('/appointments', { ...data, timeSlot: data.time })
       setAppointments(prev => [
         res.data ?? {
           appointmentId: `apt-${Date.now()}`,

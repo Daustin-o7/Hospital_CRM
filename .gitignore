@@ -25,6 +25,9 @@ build/
 appsettings.Development.json
 appsettings.Local.json
 
+# Sensitive local files (never commit)
+keys/
+
 # OS & System Files
 .DS_Store
 Thumbs.db

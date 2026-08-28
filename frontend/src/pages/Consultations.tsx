@@ -63,7 +63,7 @@ export default function Consultations() {
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/v1/appointments?date=' + new Date().toISOString().split('T')[0])
+      const res = await api.get('/appointments?date=' + new Date().toISOString().split('T')[0])
       const all = Array.isArray(res.data) ? res.data : []
       setAppointments(all)
       if (all.length > 0 && !selectedAppointment) setSelectedAppointment(all[0].appointmentId)
@@ -76,7 +76,7 @@ export default function Consultations() {
 
   const fetchConsultations = useCallback(async (aptId: string) => {
     try {
-      const res = await api.get(`/v1/appointments/${aptId}/consultation`)
+      const res = await api.get(`/appointments/${aptId}/consultation`)
       setConsultations(Array.isArray(res.data) ? res.data : [res.data].filter(Boolean))
     } catch {
       setConsultations([])
@@ -88,7 +88,7 @@ export default function Consultations() {
     setConsultError('')
     try {
       const latest = consultations[0]
-      const res = await api.post(`/v1/appointments/${selectedAppointment}/consultation`, {
+      const res = await api.post(`/appointments/${selectedAppointment}/consultation`, {
         ...data, previousVersionId: latest?.id ?? null,
       })
       const newC: Consultation = res.data ?? {
@@ -108,7 +108,7 @@ export default function Consultations() {
     const latest = consultations[0]
     if (!latest) return
     try {
-      await api.post(`/v1/consultations/${latest.id}/prescriptions`, data)
+      await api.post(`/consultations/${latest.id}/prescriptions`, data)
       setConsultations(prev => prev.map((c, i) => i === 0 ? { ...c, prescriptions: data.items } : c))
       setActiveTab('history')
     } catch {}

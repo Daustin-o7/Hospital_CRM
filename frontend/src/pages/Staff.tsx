@@ -45,7 +45,7 @@ export default function Staff() {
   const fetchStaff = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/v1/staff')
+      const res = await api.get('/staff')
       setStaff(Array.isArray(res.data) ? res.data : [])
     } catch {
       setStaff([])
@@ -57,7 +57,7 @@ export default function Staff() {
   const onSubmit = useCallback(async (data: StaffForm) => {
     setSubmitError('')
     try {
-      await api.post('/v1/staff/invite', data)
+      await api.post('/staff/invite', data)
       setStaff(prev => [{
         id: `st-${Date.now()}`, name: data.name, email: data.email,
         role: data.role, status: 'Invited', joinedAt: new Date().toISOString(),

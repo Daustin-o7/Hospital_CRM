@@ -28,7 +28,7 @@ export default function Queue() {
   const fetchQueue = useCallback(async () => {
     try {
       const todayISO = new Date().toISOString().split('T')[0]
-      const res = await api.get(`/v1/appointments?date=${todayISO}`)
+      const res = await api.get(`/appointments?date=${todayISO}`)
       const all = Array.isArray(res.data) ? res.data : []
       const queued = all
         .filter((a: any) => ['checked_in', 'checkedin', 'inprogress', 'booked', 'scheduled'].includes(String(a.status).toLowerCase()))
@@ -52,7 +52,7 @@ export default function Queue() {
 
   const handleCallNext = async (entry: QueueEntry) => {
     try {
-      await api.post(`/v1/appointments/${entry.appointmentId}/start`)
+      await api.post(`/appointments/${entry.appointmentId}/start`)
       setQueue(prev => prev.map(e =>
         e.appointmentId === entry.appointmentId ? { ...e, status: 'inprogress' } : e
       ))
@@ -61,7 +61,7 @@ export default function Queue() {
 
   const handleComplete = async (entry: QueueEntry) => {
     try {
-      await api.post(`/v1/appointments/${entry.appointmentId}/complete`)
+      await api.post(`/appointments/${entry.appointmentId}/complete`)
       setQueue(prev => prev.filter(e => e.appointmentId !== entry.appointmentId))
     } catch {}
   }
