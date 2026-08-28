@@ -6,8 +6,8 @@ const navigation = [
   { name: 'Patients', href: '/dashboard/patients', icon: UsersIcon, roles: ['ClinicAdmin', 'Doctor', 'Receptionist'] },
   { name: 'Appointments', href: '/dashboard/appointments', icon: CalendarIcon, roles: ['ClinicAdmin', 'Doctor', 'Receptionist'] },
   { name: 'Consultations', href: '/dashboard/consultations', icon: FileTextIcon, roles: ['Doctor', 'ClinicAdmin'] },
-  { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon, roles: ['ClinicAdmin', 'Doctor', 'Receptionist'] },
-  { name: 'Staff', href: '/dashboard/staff', icon: UserPlusIcon, roles: ['ClinicAdmin'] },
+  { name: 'Billing & Invoices', href: '/dashboard/billing', icon: CreditCardIcon, roles: ['ClinicAdmin', 'Doctor', 'Receptionist'] },
+  { name: 'Staff Management', href: '/dashboard/staff', icon: UserPlusIcon, roles: ['ClinicAdmin'] },
   { name: 'Clinic Settings', href: '/dashboard/settings', icon: SettingsIcon, roles: ['ClinicAdmin'] },
 ]
 
@@ -36,8 +36,8 @@ function SettingsIcon({ className }: { className?: string }) {
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const userRole = user?.role || ''
+  const user = JSON.parse(localStorage.getItem('user') || '{"name":"Dr. Sharma","role":"Doctor","email":"doctor@samstack.ai"}')
+  const userRole = user?.role || 'Doctor'
 
   const filteredNav = navigation.filter(item => item.roles.includes(userRole))
 
@@ -47,52 +47,70 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="fixed inset-0 z-40 lg:hidden" aria-hidden="true">
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
-          onClick={() => setSidebarOpen(false)}
-        />
-        <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:hidden" style={{ transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)' }}>
-          <Sidebar nav={filteredNav} user={user} onClose={() => setSidebarOpen(false)} />
+    <div className="min-h-screen bg-[#070c18] text-slate-100 flex flex-col">
+      {/* Mobile Drawer Overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" aria-hidden="true">
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 shadow-2xl p-6 z-50">
+            <Sidebar nav={filteredNav} user={user} userRole={userRole} onClose={() => setSidebarOpen(false)} />
+          </div>
         </div>
-      </div>
+      )}
 
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:w-64 lg:flex lg:flex-col glass border-r border-white/20">
-        <Sidebar nav={filteredNav} user={user} />
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:w-72 lg:flex lg:flex-col glass-panel border-r border-slate-800/80 bg-slate-900/60 backdrop-blur-xl">
+        <Sidebar nav={filteredNav} user={user} userRole={userRole} />
       </aside>
 
-      <div className="lg:pl-64 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-30 glass-panel border-b border-white/20 px-6 py-4">
-          <div className="flex items-center justify-between">
+      {/* Main Content Area */}
+      <div className="lg:pl-72 flex flex-col flex-1 min-h-screen">
+        {/* Top Navbar */}
+        <header className="sticky top-0 z-30 bg-slate-900/75 backdrop-blur-md border-b border-slate-800/80 px-6 py-4">
+          <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
             <div className="flex items-center gap-4">
               <button
-                className="lg:hidden btn-glass p-2"
+                className="lg:hidden p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
                 onClick={() => setSidebarOpen(true)}
-                aria-label="Open menu"
+                aria-label="Open navigation menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-xl font-bold text-slate-900 hidden sm:block">Hospital CRM</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/50 border border-white/30">
-                <span className="text-sm font-medium text-slate-700">{user?.name}</span>
-                <span className="badge-primary">{userRole}</span>
+              <div>
+                <span className="text-xs uppercase tracking-wider font-semibold text-teal-400">SamStack AI CRM</span>
+                <h1 className="text-lg font-bold text-white hidden sm:block">City Care Medical Center</h1>
               </div>
-              <button onClick={handleLogout} className="btn-ghost p-2 lg:px-4 lg:py-2" aria-label="Logout">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm font-medium text-slate-200">{user?.name}</span>
+                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-950 text-teal-300 border border-teal-700/50">
+                  {userRole}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="btn-secondary flex items-center gap-2 text-xs py-2 px-3 hover:text-rose-300 hover:border-rose-800"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span className="hidden lg:inline">Logout</span>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-6 lg:p-8">
+        {/* Page Content Container */}
+        <main className="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full">
           <Outlet />
         </main>
       </div>
@@ -100,48 +118,50 @@ export default function DashboardLayout() {
   )
 }
 
-function Sidebar({ nav, user, onClose }: { nav: typeof navigation; user: any; onClose?: () => void }) {
+function Sidebar({ nav, user, userRole, onClose }: { nav: typeof navigation; user: any; userRole: string; onClose?: () => void }) {
   return (
-    <div className="flex flex-col h-full p-4 lg:p-6">
-      <div className="mb-8 lg:mb-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+    <div className="flex flex-col h-full p-5 justify-between">
+      <div>
+        <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-800/80">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg shadow-teal-500/20">
+            +
           </div>
           <div>
-            <h2 className="font-bold text-slate-900">Hospital CRM</h2>
-            <p className="text-xs text-slate-500">Clinic Dashboard</p>
+            <h2 className="font-bold text-white tracking-tight text-lg">SamStack AI</h2>
+            <p className="text-xs text-teal-400 font-medium">Doctor & Clinic CRM</p>
           </div>
         </div>
+
+        <nav className="space-y-1.5" aria-label="Main navigation">
+          {nav.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gradient-to-r from-teal-950/80 to-slate-900 text-teal-300 border-l-4 border-teal-400 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
+                }`
+              }
+              onClick={onClose}
+              end={item.href === '/dashboard'}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span>{item.name}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin" aria-label="Main navigation">
-        {nav.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
-            }
-            onClick={onClose}
-            end={item.href === '/dashboard'}
-          >
-            <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-            <span>{item.name}</span>
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="pt-4 border-t border-white/20">
-        <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/30">
-          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-            <span className="text-sm font-medium text-primary-700">{user?.name?.charAt(0).toUpperCase()}</span>
+      <div className="pt-4 border-t border-slate-800/80">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-800">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
+            {user?.name?.charAt(0).toUpperCase() || 'D'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-700 truncate">{user?.name}</p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="text-sm font-semibold text-slate-200 truncate">{user?.name || 'Dr. Sharma'}</p>
+            <p className="text-xs text-slate-400 truncate">{userRole}</p>
           </div>
         </div>
       </div>

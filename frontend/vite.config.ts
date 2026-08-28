@@ -9,15 +9,14 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'icons.svg'],
       manifest: {
-        name: 'Hospital CRM',
-        short_name: 'HospitalCRM',
-        description: 'Doctor/ Clinic CRM by Samstack',
-        theme_color: '#1e40af',
+        name: 'SamStack AI - Hospital CRM',
+        short_name: 'SamStackCRM',
+        description: 'Doctor / Clinic CRM by Samstack',
+        theme_color: '#0d9488',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+          { src: '/favicon.svg', sizes: '192x192', type: 'image/svg+xml' }
         ]
       }
     })
@@ -25,7 +24,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'https://localhost:7001'
+      '/api': {
+        target: 'https://localhost:7001',
+        changeOrigin: true,
+        secure: false
+      }
     }
   }
 })

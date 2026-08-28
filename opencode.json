@@ -3,14 +3,13 @@
   "plugin": [
     "@dietrichgebert/ponytail"
   ],
-  "providers": {
+  "provider": {
     "bai": {
       "name": "B.AI",
       "env": [
         "BAI_API_KEY"
       ],
-      "package": "@opencode-ai/ai/providers/openai-compatible",
-      "settings": {
+      "options": {
         "baseURL": "https://b.ai"
       },
       "models": {
