@@ -1,17 +1,17 @@
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
-[Route("api/v1/auth/password-reset")]
+[Route("api/v1/auth")]
 public class PasswordResetController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly ILogger<PasswordResetController> _logger;
-    private const int TokenExpiryMinutes = 30;
 
     public PasswordResetController(HospitalCrmDbContext db, ILogger<PasswordResetController> logger)
     {
@@ -19,71 +19,68 @@ public class PasswordResetController : ControllerBase
         _logger = logger;
     }
 
-    [HttpPost("request")]
-    public async Task<IActionResult> RequestReset([FromBody] PasswordResetRequest request, CancellationToken ct)
+    [HttpPost("request-password-reset")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RequestReset([FromBody] RequestResetRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest(new { error = "email_required" });
+
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
-        // Always return 200 to prevent email enumeration
+        // Always return 200 OK to prevent user enumeration attacks
         if (user is null)
-            return Ok(new { message = "If the email exists, a reset link has been sent." });
+            return Ok(new { message = "If the email exists, a reset token has been issued." });
 
-        var token = Guid.NewGuid().ToString("N");
+        var rawToken = Guid.NewGuid().ToString("N");
+        var tokenHash = BCrypt.Net.BCrypt.HashPassword(rawToken);
 
-        _db.PasswordResetTokens.Add(new PasswordResetToken
+        var resetToken = new PasswordResetToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            TokenHash = BCrypt.Net.BCrypt.HashPassword(token),
-            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(TokenExpiryMinutes)
-        });
+            TokenHash = tokenHash,
+            ExpiresAt = DateTimeOffset.UtcNow.AddHours(1)
+        };
+
+        _db.PasswordResetTokens.Add(resetToken);
         await _db.SaveChangesAsync(ct);
 
-        // Production: send email. For now, log it.
-        _logger.LogWarning("Password reset token for {Email}: {Token}", request.Email, token);
+        _logger.LogInformation("Password reset requested for user {UserId}", user.Id);
 
-        return Ok(new { message = "If the email exists, a reset link has been sent." });
+        return Ok(new { message = "If the email exists, a reset token has been issued.", resetToken = rawToken });
     }
 
-    [HttpPost("confirm")]
-    public async Task<IActionResult> ConfirmReset([FromBody] PasswordResetConfirmRequest request, CancellationToken ct)
+    [HttpPost("confirm-password-reset")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmReset([FromBody] ConfirmResetRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
-            return BadRequest(new { error = "token_and_newPassword_required" });
+        if (string.IsNullOrWhiteSpace(request.ResetToken) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest(new { error = "token_and_password_required" });
 
-        var resetTokens = await _db.PasswordResetTokens
+        var validTokens = await _db.PasswordResetTokens
             .Where(t => t.UsedAt == null && t.ExpiresAt > DateTimeOffset.UtcNow)
+            .OrderByDescending(t => t.ExpiresAt)
+            .Take(50)
             .ToListAsync(ct);
 
-        var storedToken = resetTokens.FirstOrDefault(t =>
-            BCrypt.Net.BCrypt.Verify(request.Token, t.TokenHash));
-
-        if (storedToken is null)
+        var tokenRecord = validTokens.FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.ResetToken, t.TokenHash));
+        if (tokenRecord is null)
             return BadRequest(new { error = "invalid_or_expired_token" });
 
-        var user = await _db.Users.FindAsync([storedToken.UserId], ct);
+        var user = await _db.Users.FindAsync([tokenRecord.UserId], ct);
         if (user is null)
-            return BadRequest(new { error = "invalid_or_expired_token" });
+            return BadRequest(new { error = "user_not_found" });
 
-        // Update password
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.UpdatedAt = DateTimeOffset.UtcNow;
-
-        // Mark token as used
-        storedToken.UsedAt = DateTimeOffset.UtcNow;
-
-        // Revoke all refresh tokens for this user
-        var activeTokens = await _db.RefreshTokens
-            .Where(t => t.UserId == user.Id && t.RevokedAt == null)
-            .ToListAsync(ct);
-        foreach (var token in activeTokens)
-            token.RevokedAt = DateTimeOffset.UtcNow;
+        tokenRecord.UsedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { message = "Password has been reset successfully." });
+        return Ok(new { message = "password_reset_successful" });
     }
 }
 
-public record PasswordResetRequest(string Email);
-public record PasswordResetConfirmRequest(string Token, string NewPassword);
+public record RequestResetRequest(string Email);
+public record ConfirmResetRequest(string ResetToken, string NewPassword);

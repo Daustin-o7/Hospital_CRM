@@ -14,6 +14,7 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<Clinic> Clinics => Set<Clinic>();
     public DbSet<ClinicHours> ClinicHours => Set<ClinicHours>();
     public DbSet<ClinicHoliday> ClinicHolidays => Set<ClinicHoliday>();
+    public DbSet<ClinicSpecialHour> ClinicSpecialHours => Set<ClinicSpecialHour>();
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<PatientConsent> PatientConsents => Set<PatientConsent>();
     public DbSet<PatientAuditLog> PatientAuditLogs => Set<PatientAuditLog>();
@@ -78,6 +79,27 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.OrganizationType).HasMaxLength(100);
+            e.Property(x => x.LegalName).HasMaxLength(255);
+            e.Property(x => x.Address).HasMaxLength(500);
+            e.Property(x => x.Phone).HasMaxLength(20);
+            e.Property(x => x.Email).HasMaxLength(255);
+            e.Property(x => x.Website).HasMaxLength(255);
+            e.Property(x => x.Timezone).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+            e.Property(x => x.DateFormat).HasMaxLength(20).IsRequired();
+            e.Property(x => x.TimeFormat).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Language).HasMaxLength(10);
+            e.Property(x => x.LogoUrl).HasMaxLength(500);
+            e.Property(x => x.DarkLogoUrl).HasMaxLength(500);
+            e.Property(x => x.LightLogoUrl).HasMaxLength(500);
+            e.Property(x => x.FaviconUrl).HasMaxLength(500);
+            e.Property(x => x.PrimaryColor).HasMaxLength(20);
+            e.Property(x => x.SecondaryColor).HasMaxLength(20);
+            e.Property(x => x.AccentColor).HasMaxLength(20);
+            e.Property(x => x.InvoicePrefix).HasMaxLength(20);
+            e.Property(x => x.TokenFormat).HasMaxLength(20);
+            e.Property(x => x.TokenResetFrequency).HasMaxLength(20);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
@@ -85,7 +107,8 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<ClinicHours>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.ClinicId, x.DayOfWeek }).IsUnique();
+            // Allow multiple shifts per day (e.g., 09:00–13:00 and 14:00–18:00)
+            e.HasIndex(x => new { x.ClinicId, x.DayOfWeek, x.ShiftIndex }).IsUnique();
             e.Property(x => x.OpenTime).HasMaxLength(10);
             e.Property(x => x.CloseTime).HasMaxLength(10);
             e.HasOne(x => x.Clinic).WithMany(c => c.WorkingHours).HasForeignKey(x => x.ClinicId);
@@ -94,15 +117,28 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<ClinicHoliday>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.StartDate).HasMaxLength(255);
+            e.Property(x => x.EndDate).HasMaxLength(255);
+            e.Property(x => x.InternalNote).HasMaxLength(500);
+            e.HasOne(x => x.Clinic).WithMany(c => c.Holidays).HasForeignKey(x => x.ClinicId);
+        });
+
+        modelBuilder.Entity<ClinicSpecialHour>(e =>
+        {
+            e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.ClinicId, x.Date }).IsUnique();
             e.Property(x => x.Date).HasMaxLength(255);
-            e.HasOne(x => x.Clinic).WithMany(c => c.Holidays).HasForeignKey(x => x.ClinicId);
+            e.Property(x => x.OpenTime).HasMaxLength(10);
+            e.Property(x => x.CloseTime).HasMaxLength(10);
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne(x => x.Clinic).WithMany(c => c.SpecialHours).HasForeignKey(x => x.ClinicId);
         });
 
         modelBuilder.Entity<Patient>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => x.Phone);
+            e.HasIndex(x => x.Phone).IsUnique();
             e.HasIndex(x => x.Name); // trigram GIN index added via migration separately
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.Name).HasMaxLength(255);
@@ -135,7 +171,7 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<Appointment>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.DoctorId, x.Date, x.TimeSlot }).IsUnique();
+            e.HasIndex(x => new { x.DoctorId, x.Date, x.TimeSlot }).IsUnique().HasFilter("\"Status\" <> 3");
             e.HasIndex(x => new { x.PatientId, x.Date });
             e.Property(x => x.TimeSlot).HasMaxLength(10);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);

@@ -3,6 +3,7 @@ using System;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hospital_CRM.Infrastructure.Migrations
 {
     [DbContext(typeof(HospitalCrmDbContext))]
-    partial class HospitalCrmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828112933_AddClinicConfiguration")]
+    partial class AddClinicConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

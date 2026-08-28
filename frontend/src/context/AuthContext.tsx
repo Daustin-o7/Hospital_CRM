@@ -30,32 +30,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return roles.includes(user.role)
   }, [user])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post('/auth/login', { email, password })
-    const { accessToken, refreshToken, user: userData } = res.data
-    
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(userData))
-    
-    setUser(userData)
-    navigate('/dashboard')
-  }, [navigate])
-
   const logout = useCallback(() => {
     localStorage.clear()
     setUser(null)
     navigate('/login')
   }, [navigate])
 
+  const scheduleProactiveRefresh = useCallback((expiresInSeconds: number = 900) => {
+    // Schedule refresh 2 minutes (120s) before expiry
+    const refreshDelayMs = Math.max((expiresInSeconds - 120) * 1000, 10000)
+    
+    const timer = setTimeout(async () => {
+      try {
+        const refreshToken = localStorage.getItem('refreshToken')
+        if (refreshToken) {
+          const res = await api.post('/auth/refresh', { refreshToken })
+          const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
+          localStorage.setItem('accessToken', accessToken)
+          localStorage.setItem('refreshToken', newRefreshToken)
+          scheduleProactiveRefresh(expiresIn || 900)
+        }
+      } catch {
+        // If refresh fails, fall back to reactive interceptor or logout
+      }
+    }, refreshDelayMs)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await api.post('/auth/login', { email, password })
+    const { accessToken, refreshToken, expiresIn, user: userData } = res.data
+
+    localStorage.setItem('accessToken', accessToken)
+    localStorage.setItem('refreshToken', refreshToken)
+    localStorage.setItem('user', JSON.stringify(userData))
+
+    setUser(userData)
+    scheduleProactiveRefresh(expiresIn || 900)
+    navigate('/dashboard')
+  }, [navigate, scheduleProactiveRefresh])
+
   useEffect(() => {
     const initAuth = () => {
       const storedUser = localStorage.getItem('user')
       const token = localStorage.getItem('accessToken')
-      
+
       if (storedUser && token) {
         try {
           setUser(JSON.parse(storedUser))
+          scheduleProactiveRefresh(900)
         } catch {
           localStorage.clear()
         }
@@ -63,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
     initAuth()
-  }, [])
+  }, [scheduleProactiveRefresh])
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user, hasRole }}>

@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Suppress EF Design tooling transitive vulnerability warnings (build-time only) -->
+    <NoWarn>$(NoWarn);NU1608;NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

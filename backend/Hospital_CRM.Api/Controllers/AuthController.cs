@@ -1,11 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
+using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Entities;
+using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Hospital_CRM.Domain.Entities;
-using Hospital_CRM.Infrastructure.Data;
 
 namespace Hospital_CRM.Api.Controllers;
 
@@ -15,16 +15,21 @@ public class AuthController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly IConfiguration _config;
+    private readonly IRsaKeyService _rsaKeyService;
 
-    public AuthController(HospitalCrmDbContext db, IConfiguration config)
+    public AuthController(HospitalCrmDbContext db, IConfiguration config, IRsaKeyService rsaKeyService)
     {
         _db = db;
         _config = config;
+        _rsaKeyService = rsaKeyService;
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest(new { error = "invalid_credentials" });
+
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
@@ -33,8 +38,11 @@ public class AuthController : ControllerBase
         if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTimeOffset.UtcNow)
             return StatusCode(423, new { error = "account_locked", retryAfterSeconds = (int)(user.LockedUntil.Value - DateTimeOffset.UtcNow).TotalSeconds });
 
-        var tokenExpiry = int.Parse(_config["Jwt:AccessTokenExpiryMinutes"] ?? "15");
-        var refreshExpiryDays = int.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
+        if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
+            tokenExpiry = 15;
+
+        if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
+            refreshExpiryDays = 7;
 
         var accessToken = GenerateJwt(user.Id, user.Email, user.Role.ToString(), tokenExpiry);
         var refreshToken = Guid.NewGuid().ToString("N");
@@ -69,12 +77,13 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return Unauthorized(new { error = "invalid_refresh_token" });
 
-        var allTokens = await _db.RefreshTokens
-            .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow)
+        var candidateTokens = await _db.RefreshTokens
+            .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow && t.RevokedAt == null)
+            .OrderByDescending(t => t.IssuedAt)
+            .Take(100)
             .ToListAsync(ct);
 
-        var storedToken = allTokens.FirstOrDefault(t =>
-            t.RevokedAt == null && BCrypt.Net.BCrypt.Verify(request.RefreshToken, t.TokenHash));
+        var storedToken = candidateTokens.FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.RefreshToken, t.TokenHash));
 
         if (storedToken is null)
             return Unauthorized(new { error = "invalid_refresh_token" });
@@ -83,12 +92,13 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized(new { error = "invalid_refresh_token" });
 
-        // Revoke old token
         storedToken.RevokedAt = DateTimeOffset.UtcNow;
 
-        // Issue new pair
-        var tokenExpiry = int.Parse(_config["Jwt:AccessTokenExpiryMinutes"] ?? "15");
-        var refreshExpiryDays = int.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
+        if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
+            tokenExpiry = 15;
+
+        if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
+            refreshExpiryDays = 7;
 
         var newAccessToken = GenerateJwt(user.Id, user.Email, user.Role.ToString(), tokenExpiry);
         var newRefreshToken = Guid.NewGuid().ToString("N");
@@ -114,10 +124,18 @@ public class AuthController : ControllerBase
         });
     }
 
+    [HttpGet(".well-known/jwks.json")]
+    public IActionResult GetJwks()
+    {
+        return Ok(_rsaKeyService.GetJwks());
+    }
+
     private string GenerateJwt(Guid userId, string email, string role, int expiryMinutes)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var signingCredentials = new SigningCredentials(_rsaKeyService.GetPrivateKey(), SecurityAlgorithms.RsaSha256);
+
+        var issuer = _config["Jwt:Issuer"] ?? "Hospital_CRM";
+        var audience = _config["Jwt:Audience"] ?? "Hospital_CRM";
 
         var claims = new[]
         {
@@ -128,11 +146,11 @@ public class AuthController : ControllerBase
         };
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
+            issuer: issuer,
+            audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
-            signingCredentials: creds);
+            expires: DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).UtcDateTime,
+            signingCredentials: signingCredentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

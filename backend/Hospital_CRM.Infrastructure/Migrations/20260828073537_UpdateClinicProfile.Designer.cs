@@ -3,6 +3,7 @@ using System;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hospital_CRM.Infrastructure.Migrations
 {
     [DbContext(typeof(HospitalCrmDbContext))]
-    partial class HospitalCrmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828073537_UpdateClinicProfile")]
+    partial class UpdateClinicProfile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -118,163 +121,20 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccentColor")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("BufferMinutes")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("CancellationWindowHours")
-                        .HasColumnType("integer");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("DarkLogoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("DateFormat")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("DefaultAppointmentDurationMinutes")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("DefaultConsultationFee")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal>("DefaultGstRate")
-                        .HasColumnType("numeric");
-
-                    b.Property<bool>("DefaultInvoiceStatus")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("FaviconUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("InvoicePrefix")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("LegalName")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("LightLogoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("LogoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("MaxAdvanceBookingDays")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("MinAdvanceBookingHours")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<bool>("NoShowHandlingEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("OrganizationType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("OverbookingAllowed")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("PrimaryColor")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<bool>("QueueEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ReschedulingAllowed")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("SameDayBookingAllowed")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("SecondaryColor")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<Guid>("TenantId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.Property<string>("TimeFormat")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Timezone")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("TokenFormat")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("TokenResetFrequency")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("TokenStartNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("WalkInsAllowed")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Website")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
 
                     b.HasKey("Id");
 
@@ -290,37 +150,15 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<Guid>("ClinicId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EndDate")
+                    b.Property<string>("Date")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
-
-                    b.Property<string>("InternalNote")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<bool>("RecurringAnnually")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("StartDate")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicId");
+                    b.HasIndex("ClinicId", "Date")
+                        .IsUnique();
 
                     b.ToTable("ClinicHolidays");
                 });
@@ -339,9 +177,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("integer");
 
@@ -350,60 +185,12 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
-                    b.Property<int>("ShiftIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicId", "DayOfWeek", "ShiftIndex")
+                    b.HasIndex("ClinicId", "DayOfWeek")
                         .IsUnique();
 
                     b.ToTable("ClinicHours");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ClinicSpecialHour", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("CloseTime")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Date")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("OpenTime")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClinicId", "Date")
-                        .IsUnique();
-
-                    b.ToTable("ClinicSpecialHours");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Consultation", b =>
@@ -644,8 +431,7 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasIndex("Name");
 
-                    b.HasIndex("Phone")
-                        .IsUnique();
+                    b.HasIndex("Phone");
 
                     b.ToTable("Patients");
                 });
@@ -1028,17 +814,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Navigation("Clinic");
                 });
 
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ClinicSpecialHour", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.Clinic", "Clinic")
-                        .WithMany("SpecialHours")
-                        .HasForeignKey("ClinicId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Clinic");
-                });
-
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Consultation", b =>
                 {
                     b.HasOne("Hospital_CRM.Domain.Entities.Appointment", "Appointment")
@@ -1234,8 +1009,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Clinic", b =>
                 {
                     b.Navigation("Holidays");
-
-                    b.Navigation("SpecialHours");
 
                     b.Navigation("StaffInvites");
 

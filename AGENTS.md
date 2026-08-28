@@ -25,6 +25,7 @@ Hospital_CRM is a doctor/clinic CRM by Samstack. This checkout implements **Phas
 - `samstack-implementation-reference.md` — Razorpay webhook verification, WhatsApp channel abstraction, JWT/RS256 setup, offline-sync pattern. Read before FR-18, FR-20/21, FR-01, FR-22.
 - `.opencode/skills/new-fr/SKILL.md` — repeatable build sequence for every FR-XX (migration → endpoint → role check → audit hook → UI → test)
 - `TOOLING-SETUP.md` — ponytail install; `/ponytail-review` before marking any FR done
+- **`.agents/skills/frontend-design/SKILL.md`** — ⚡ MUST READ before editing any `.tsx`, `.css`, or UI file. Synthesises taste-skill + Vercel guidelines + design-craft rules. Covers colour tokens, typography scale, interaction quality, anti-patterns checklist, and page-specific patterns for Hospital CRM.
 
 ## What NOT to Build Yet
 Pharmacy, Lab, Inventory, Wishlist, ITR ledger, any AI feature, IPD, UAE adapter, Dedicated DB/Instance tenancy — all explicitly out of scope (FRD §5.2).
@@ -133,6 +134,9 @@ npm run lint
 - `AGENTS.md` — this file
 - `.opencode/skills/new-fr/SKILL.md` — build sequence
 - `.opencode/skills/coding-standards/SKILL.md` — coding philosophy
+- **`.agents/skills/frontend-design/SKILL.md`** — frontend design system (read for any UI edit)
+- `.agents/skills/ponytail/SKILL.md` — lean code discipline
+- `.agents/skills/coding-standards/SKILL.md` — unified coding standards
 - `agents/state/current.md` — active workstream
 - `docs/technical/TOOLING-SETUP.md` — ponytail commands
 

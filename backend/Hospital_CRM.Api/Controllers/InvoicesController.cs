@@ -1,5 +1,8 @@
-using System.Security.Claims;
+using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -14,17 +17,18 @@ namespace Hospital_CRM.Api.Controllers;
 public class InvoicesController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly IConfiguration _config;
 
-    public InvoicesController(HospitalCrmDbContext db)
+    public InvoicesController(HospitalCrmDbContext db, IConfiguration config)
     {
         _db = db;
+        _config = config;
     }
 
     [HttpPost("invoices")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     public async Task<IActionResult> GenerateInvoice([FromBody] GenerateInvoiceRequest request, CancellationToken ct)
     {
-        // Idempotency check
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             var existing = await _db.Invoices
@@ -48,43 +52,50 @@ public class InvoicesController : ControllerBase
         var gst = Math.Round(subtotal * 0.18m, 2);
         var total = subtotal + gst;
 
-        var maxNumber = await _db.Invoices.MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
-
-        var invoice = new Invoice
+        var executionStrategy = _db.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
         {
-            Id = Guid.NewGuid(),
-            TenantId = appointment.TenantId,
-            AppointmentId = request.AppointmentId,
-            InvoiceNumber = maxNumber + 1,
-            Subtotal = subtotal,
-            GstAmount = gst,
-            Total = total,
-            Status = InvoiceStatus.Issued,
-            IdempotencyKey = request.IdempotencyKey,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
-        foreach (var item in request.LineItems)
-        {
-            _db.InvoiceLineItems.Add(new InvoiceLineItem
+            var maxNumber = await _db.Invoices.MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
+
+            var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
-                InvoiceId = invoice.Id,
-                Description = item.Description,
-                Amount = item.Amount
+                TenantId = appointment.TenantId,
+                AppointmentId = request.AppointmentId,
+                InvoiceNumber = maxNumber + 1,
+                Subtotal = subtotal,
+                GstAmount = gst,
+                Total = total,
+                Status = InvoiceStatus.Issued,
+                IdempotencyKey = request.IdempotencyKey,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            foreach (var item in request.LineItems)
+            {
+                _db.InvoiceLineItems.Add(new InvoiceLineItem
+                {
+                    Id = Guid.NewGuid(),
+                    InvoiceId = invoice.Id,
+                    Description = item.Description,
+                    Amount = item.Amount
+                });
+            }
+
+            _db.Invoices.Add(invoice);
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                invoiceId = invoice.Id,
+                invoiceNumber = $"INV-{invoice.InvoiceNumber:D6}",
+                gstAmount = invoice.GstAmount,
+                total = invoice.Total,
+                status = "unpaid"
             });
-        }
-
-        _db.Invoices.Add(invoice);
-        await _db.SaveChangesAsync(ct);
-
-        return StatusCode(201, new
-        {
-            invoiceId = invoice.Id,
-            invoiceNumber = $"INV-{invoice.InvoiceNumber:D6}",
-            gstAmount = invoice.GstAmount,
-            total = invoice.Total,
-            status = "unpaid"
         });
     }
 
@@ -92,7 +103,6 @@ public class InvoicesController : ControllerBase
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     public async Task<IActionResult> CollectPayment(Guid id, [FromBody] CollectPaymentRequest request, CancellationToken ct)
     {
-        // Idempotency check
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             var existingPayment = await _db.Payments
@@ -144,7 +154,6 @@ public class InvoicesController : ControllerBase
             _db.Payments.Add(payment);
             await _db.SaveChangesAsync(ct);
 
-            // Stub: in production, create Razorpay order and return checkout URL
             return Ok(new { paymentLinkUrl = $"https://checkout.razorpay.com/v1/pay/{payment.Id}" });
         }
 
@@ -153,11 +162,27 @@ public class InvoicesController : ControllerBase
 
     [HttpPost("webhooks/razorpay")]
     [AllowAnonymous]
-    public async Task<IActionResult> RazorpayWebhook([FromBody] object payload, CancellationToken ct)
+    public async Task<IActionResult> RazorpayWebhook(CancellationToken ct)
     {
-        // Stub: verify X-Razorpay-Signature header in production
-        // Log webhook payload for now
-        await Task.CompletedTask;
+        if (!Request.Headers.TryGetValue("X-Razorpay-Signature", out var signatureHeader) || string.IsNullOrWhiteSpace(signatureHeader))
+            return BadRequest(new { error = "missing_webhook_signature" });
+
+        var secret = _config["Razorpay:WebhookSecret"] ?? "dev_webhook_secret_key";
+        
+        using var reader = new StreamReader(Request.Body);
+        var bodyText = await reader.ReadToEndAsync(ct);
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(bodyText));
+        var computedSignature = Convert.ToHexStringLower(computedHash);
+
+        if (!CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(computedSignature),
+            Encoding.UTF8.GetBytes(signatureHeader.ToString().ToLowerInvariant())))
+        {
+            return BadRequest(new { error = "invalid_webhook_signature" });
+        }
+
         return Ok(new { status = "ok" });
     }
 
@@ -165,19 +190,20 @@ public class InvoicesController : ControllerBase
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     public async Task<IActionResult> ListInvoices([FromQuery] string? status, [FromQuery] Guid? doctorId, CancellationToken ct)
     {
-        var role = User.FindFirst("role")?.Value;
-        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
+        var role = User.GetUserRole();
+        var userId = User.GetUserId();
+
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
 
         var query = _db.Invoices
             .Include(i => i.Appointment).ThenInclude(a => a.Patient)
             .AsQueryable();
 
-        if (string.Equals(role, "Receptionist", StringComparison.OrdinalIgnoreCase))
-            return Forbid();
-
+        // Doctor sees only their invoices; Receptionist & Admin can view list (FR-17/18/19)
         if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(i => i.Appointment.DoctorId == userId);
+            query = query.Where(i => i.Appointment.DoctorId == userId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))

@@ -3,14 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Vercel guideline: no maximum-scale=1 — respect user zoom -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SamStack AI — Doctor & Clinic CRM</title>
-    <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>SamStack AI — Doctor &amp; Clinic CRM</title>
+    <meta name="description" content="Hospital CRM for doctors and clinics. Patient registration, OPD scheduling, consultations, billing and GST invoicing." />
+    <!-- Performance: preconnect before font request -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- font-display: swap handled by Google Fonts &display=swap -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Touch highlight consistent with design -->
+    <style>
+      * { -webkit-tap-highlight-color: rgba(13, 148, 136, 0.08); }
+    </style>
   </head>
-  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-teal-500 selection:text-white">
+  <body class="antialiased" style="background:#f8fafc;color:#1e293b;font-family:'Plus Jakarta Sans',system-ui,sans-serif">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

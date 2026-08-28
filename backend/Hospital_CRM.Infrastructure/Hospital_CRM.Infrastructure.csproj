@@ -1,16 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Suppress EF Design tooling transitive vulnerability warnings (build-time only) -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-preview.7.25380.108" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-preview.7.25380.108" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-preview.7.25380.108">
+    <!-- Pin all EF Core packages to same stable version to eliminate NU1608 mismatch -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

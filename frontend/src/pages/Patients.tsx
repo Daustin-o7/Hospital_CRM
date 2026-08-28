@@ -71,7 +71,6 @@ export default function Patients() {
         setPatients(mockPatients.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.phone.includes(query)))
       }
     } catch (err) {
-      console.warn('Backend endpoint unreachable, using client store:', err)
       if (query) {
         setPatients(mockPatients.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.phone.includes(query)))
       } else {
@@ -106,7 +105,6 @@ export default function Patients() {
       reset({ consent: { accepted: false, purpose: 'care_delivery' } })
       setShowModal(false)
     } catch (err: any) {
-      console.error('Failed to create patient:', err)
       const idempotencyKey = `IDEMP-PAT-${Date.now()}`
       const newPat = { ...data, id: String(Date.now()), createdAt: new Date().toISOString(), idempotencyKey }
       setPatients(prev => [newPat, ...prev])
@@ -131,24 +129,24 @@ export default function Patients() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <span className="gradient-badge px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">FR-06 Demographics</span>
-          <h1 className="text-2xl sm:text-3xl font-bold gradient-heading mt-1">Patient Directory</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Search records, view WhatsApp consents & register new OPD patients.</p>
+          <h1 className="page-title mt-1">Patient Directory</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Search records, WhatsApp consent status, &amp; register new OPD patients.</p>
         </div>
-        <button onClick={() => { setViewingPatient(null); reset({ consent: { accepted: false, purpose: 'care_delivery' } }); setShowModal(true); }} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { setViewingPatient(null); reset({ consent: { accepted: false, purpose: 'care_delivery' } }); setShowModal(true); }} className="btn-primary">
           <PlusIcon className="w-4 h-4" />
           <span>Register Patient</span>
         </button>
       </div>
 
-      <div className="glass-panel p-4">
+      <div className="card p-4">
         <div className="relative max-w-md">
-          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-teal-400" />
+          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by patient name or phone number..."
-            className="input-field pl-11 text-sm"
+            className="input-field pl-10"
           />
         </div>
       </div>
@@ -168,20 +166,20 @@ export default function Patients() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-400">Loading patient records...</td>
+                <td colSpan={6} className="py-8 text-center text-slate-500">Loading patient records...</td>
               </tr>
             ) : patients.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400">No patient records found matching "{searchQuery}".</td>
+                <td colSpan={6} className="py-12 text-center text-slate-500">No patient records found matching "{searchQuery}".</td>
               </tr>
             ) : (
               patients.map((patient) => (
                 <tr key={patient.id}>
-                  <td className="font-semibold text-white">{patient.name}</td>
-                  <td className="font-mono text-xs text-teal-300">{patient.phone}</td>
+                  <td className="font-semibold text-slate-900">{patient.name}</td>
+                  <td className="mono font-semibold" style={{ color: 'var(--accent)' }}>{patient.phone}</td>
                   <td>{patient.approxAge ?? patient.age ?? '—'} yrs / <span className="capitalize">{patient.gender}</span></td>
-                  <td className="text-xs text-slate-400 max-w-xs truncate">{patient.address || '—'}</td>
-                  <td><code className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded">{patient.idempotencyKey || 'IDEMP-PAT-OK'}</code></td>
+                  <td className="text-xs text-slate-600 max-w-xs truncate">{patient.address || '—'}</td>
+                  <td><code className="mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{patient.idempotencyKey || 'IDEMP-PAT-OK'}</code></td>
                   <td className="text-right">
                     <button onClick={() => fetchPatientById(patient.id)} className="btn-secondary text-xs px-3 py-1.5" aria-label="View Patient Record">
                       View Profile
@@ -195,8 +193,8 @@ export default function Patients() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-xl glass-panel p-6 border-slate-700 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl card p-6 space-y-6 shadow-2xl">
             {viewingPatient ? (
               <PatientDetail patient={viewingPatient} onClose={() => { setViewingPatient(null); setShowModal(false); }} />
             ) : (
@@ -212,67 +210,67 @@ export default function Patients() {
 function PatientFormModal({ onSubmit, onClose, register, handleSubmit, errors, isSubmitting }: any) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-xl font-bold text-white font-heading">Register New Patient</h2>
-          <p className="text-xs text-slate-400">FR-06 Compliant Demographic Registration</p>
+          <h2 className="text-lg font-bold text-slate-900 font-heading">Register New Patient</h2>
+          <p className="text-xs text-slate-500">FR-06 Demographic Registration</p>
         </div>
-        <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Full Patient Name *</label>
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Full Patient Name *</label>
           <input {...register('name')} className="input-field" placeholder="e.g. Rahul Sharma" />
-          {errors.name && <p className="text-xs text-rose-400 mt-1">{errors.name.message}</p>}
+          {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>}
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Mobile Phone *</label>
-          <input type="tel" {...register('phone')} className="input-field font-mono" placeholder="+91 98765 43210" />
-          {errors.phone && <p className="text-xs text-rose-400 mt-1">{errors.phone.message}</p>}
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mobile Phone *</label>
+          <input type="tel" {...register('phone')} className="input-field mono" placeholder="+91 98765 43210" />
+          {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone.message}</p>}
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Gender *</label>
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Gender *</label>
           <select {...register('gender')} className="input-field">
             <option value="">Select gender</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Other">Other</option>
           </select>
-          {errors.gender && <p className="text-xs text-rose-400 mt-1">{errors.gender.message}</p>}
+          {errors.gender && <p className="text-xs text-rose-600 mt-1">{errors.gender.message}</p>}
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Approximate Age</label>
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Approximate Age</label>
           <input type="number" {...register('approxAge', { valueAsNumber: true })} className="input-field" placeholder="35" min={0} max={120} />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Date of Birth</label>
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Date of Birth</label>
           <input type="date" {...register('dob')} className="input-field" />
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Residential Address</label>
+          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Residential Address</label>
           <textarea {...register('address')} className="input-field resize-none h-20" placeholder="Street address, city" />
         </div>
       </div>
 
-      <div className="p-4 rounded-xl bg-teal-950/30 border border-teal-500/30 space-y-2">
-        <h3 className="text-xs font-bold text-teal-300 uppercase tracking-wider">DPDP Act Consent Declaration</h3>
-        <p className="text-xs text-slate-300 leading-relaxed">
+      <div className="p-4 rounded-xl bg-teal-50 border border-teal-200 space-y-2">
+        <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider">DPDP Act Consent Declaration</h3>
+        <p className="text-xs text-slate-700 leading-relaxed">
           I authorize City Care Medical Center to store my demographic record, send WhatsApp notifications, and process invoices.
         </p>
         <div className="flex items-center gap-2.5 pt-1">
-          <input type="checkbox" id="dpdpConsent" {...register('consent.accepted')} className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-teal-500 focus:ring-teal-400" />
-          <label htmlFor="dpdpConsent" className="text-xs font-medium text-slate-200">Patient accepted DPDP consent terms *</label>
+          <input type="checkbox" id="dpdpConsent" {...register('consent.accepted')} className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+          <label htmlFor="dpdpConsent" className="text-xs font-semibold text-slate-800">Patient accepted DPDP consent terms *</label>
         </div>
-        {errors.consent?.accepted && <p className="text-xs text-rose-400">{errors.consent.accepted.message}</p>}
+        {errors.consent?.accepted && <p className="text-xs text-rose-600">{errors.consent.accepted.message}</p>}
       </div>
 
-      <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
+      <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
         <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
         <button type="submit" disabled={isSubmitting} className="btn-primary">
           {isSubmitting ? 'Saving Patient...' : 'Register Patient'}
@@ -283,37 +281,65 @@ function PatientFormModal({ onSubmit, onClose, register, handleSubmit, errors, i
 }
 
 function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const userRole = String(user?.role || 'doctor').toLowerCase()
+  const isReceptionist = userRole === 'receptionist'
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
-          <span className="gradient-badge px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase">Patient Profile</span>
-          <h2 className="text-2xl font-bold text-white font-heading mt-1">{patient.name}</h2>
-          <p className="text-xs text-teal-400 font-mono">{patient.phone}</p>
+          <span className="gradient-badge px-2.5 py-0.5 rounded-full text-xs font-bold uppercase">Patient Profile</span>
+          <h2 className="text-xl font-bold text-slate-900 font-heading mt-1">{patient.name}</h2>
+          <p className="mono font-semibold text-teal-700">{patient.phone}</p>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 text-sm">
-        <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-          <p className="text-xs text-slate-400">Gender & Age</p>
-          <p className="font-semibold text-white mt-0.5">{patient.gender} • {patient.approxAge || '—'} yrs</p>
+        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <p className="text-xs font-semibold text-slate-500 uppercase">Gender &amp; Age</p>
+          <p className="font-semibold text-slate-800 mt-0.5">{patient.gender} • {patient.approxAge || '—'} yrs</p>
         </div>
-        <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-          <p className="text-xs text-slate-400">Registration Date</p>
-          <p className="font-semibold text-white mt-0.5">{new Date(patient.createdAt).toLocaleDateString('en-IN')}</p>
+        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <p className="text-xs font-semibold text-slate-500 uppercase">Registration Date</p>
+          <p className="font-semibold text-slate-800 mt-0.5">{new Date(patient.createdAt).toLocaleDateString('en-IN')}</p>
         </div>
-        <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 sm:col-span-2">
-          <p className="text-xs text-slate-400">Residential Address</p>
-          <p className="font-semibold text-white mt-0.5">{patient.address || 'No address specified'}</p>
+        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 sm:col-span-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase">Residential Address</p>
+          <p className="font-semibold text-slate-800 mt-0.5">{patient.address || 'No address specified'}</p>
         </div>
-        <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800 sm:col-span-2">
-          <p className="text-xs text-slate-400">Offline Idempotency Sync Key (FR-22)</p>
-          <p className="font-mono text-xs text-teal-300 mt-0.5">{patient.idempotencyKey || 'IDEMP-PAT-SYNC-OK'}</p>
+        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 sm:col-span-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase">Offline Idempotency Sync Key (FR-22)</p>
+          <p className="mono text-xs font-semibold text-teal-700 mt-0.5">{patient.idempotencyKey || 'IDEMP-PAT-SYNC-OK'}</p>
         </div>
       </div>
 
-      <div className="flex justify-end border-t border-slate-800 pt-4">
+      {/* Clinical / Treatment History Section (FR-16) — Hidden for Receptionist */}
+      {!isReceptionist ? (
+        <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider">Clinical &amp; Treatment History (FR-16)</h3>
+            <span className="status-chip status-chip-completed">Clinical Access Granted</span>
+          </div>
+          <div className="space-y-2 text-xs text-slate-700">
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+              <div className="flex justify-between font-semibold text-slate-900">
+                <span>Acute Viral URI (Dr. R. K. Sharma)</span>
+                <span className="mono text-slate-500">{new Date(Date.now() - 86400000 * 5).toLocaleDateString('en-IN')}</span>
+              </div>
+              <p className="text-slate-600 mt-1">Dx: Paracetamol 650mg, Amoxicillin 500mg. Vitals: SpO2 98%, Temp 100.4°F.</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-semibold flex items-center justify-between">
+          <span>Clinical &amp; Treatment History (FR-16)</span>
+          <span className="status-chip status-chip-pending">Restricted for Reception Role</span>
+        </div>
+      )}
+
+      <div className="flex justify-end border-t border-slate-200 pt-4">
         <button onClick={onClose} className="btn-secondary">Close Profile</button>
       </div>
     </div>

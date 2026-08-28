@@ -7,23 +7,27 @@ public class Patient
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
-    
+
+    [Required]
     [MaxLength(255)]
     public string Name { get; set; } = string.Empty;
-    
+
+    [Required]
     [MaxLength(50)]
     public string Phone { get; set; } = string.Empty;
-    
+
     public bool DobHasValue { get; set; }
     public DateOnly? Dob { get; set; }
     public int? ApproxAge { get; set; }
+
+    [Required]
     public Gender Gender { get; set; }
     public string? Address { get; set; }
-    
+
     public Guid CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string? IdempotencyKey { get; set; }
-    
+
     // Navigation
     public virtual User CreatedByUser { get; set; } = null!;
     public virtual ICollection<PatientConsent> Consents { get; set; } = [];

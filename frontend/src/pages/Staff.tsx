@@ -44,12 +44,9 @@ export default function Staff() {
   const fetchStaff = useCallback(async () => {
     try {
       const res = await api.get('/staff')
-      if (res.data && res.data.length > 0) {
-        setStaff(res.data)
-      } else {
-        setStaff(mockStaff)
-      }
-    } catch (err) {
+      if (res.data && res.data.length > 0) setStaff(res.data)
+      else setStaff(mockStaff)
+    } catch {
       setStaff(mockStaff)
     }
   }, [])
@@ -68,7 +65,7 @@ export default function Staff() {
       setStaff(prev => [newStaff, ...prev])
       reset({ name: '', email: '', role: 'Doctor' })
       setShowModal(false)
-    } catch (err: any) {
+    } catch {
       const newStaff: StaffMember = {
         id: `st-${Date.now()}`,
         name: data.name,
@@ -92,45 +89,45 @@ export default function Staff() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <span className="gradient-badge px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">FR-02 Staff Onboarding</span>
-          <h1 className="text-2xl sm:text-3xl font-bold gradient-heading mt-1">Clinic Staff Directory</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Manage doctor profiles, receptionists & send invitation tokens.</p>
+          <h1 className="page-title mt-1">Clinic Staff Directory</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Manage doctor profiles, receptionists &amp; send invitation tokens.</p>
         </div>
-        <button onClick={() => { reset({ name: '', email: '', role: 'Doctor' }); setShowModal(true); }} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { reset({ name: '', email: '', role: 'Doctor' }); setShowModal(true); }} className="btn-primary">
           <PlusIcon className="w-4 h-4" />
           <span>Invite New Staff</span>
         </button>
       </div>
 
-      <div className="glass-panel p-6 space-y-4">
-        <h2 className="text-lg font-bold text-white font-heading">Active Clinic Personnel</h2>
+      <div className="card p-6 space-y-4">
+        <h2 className="section-title">Active Clinic Personnel</h2>
 
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Staff Name</th>
+                <th>Name</th>
                 <th>Email Address</th>
-                <th>Assigned Role</th>
+                <th>Role</th>
+                <th>Status</th>
                 <th>Joined Date</th>
-                <th className="text-right">Status</th>
               </tr>
             </thead>
             <tbody>
               {staff.map((s) => (
                 <tr key={s.id}>
-                  <td className="font-semibold text-white">{s.name}</td>
-                  <td className="font-mono text-xs text-teal-300">{s.email}</td>
+                  <td className="font-semibold text-slate-900">{s.name}</td>
+                  <td className="mono text-xs text-slate-700">{s.email}</td>
                   <td>
-                    <span className={s.role === 'Doctor' ? 'bg-teal-500/15 border border-teal-500/30 text-teal-300 px-2.5 py-0.5 rounded-full text-xs font-medium' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 px-2.5 py-0.5 rounded-full text-xs font-medium'}>
+                    <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
                       {s.role}
                     </span>
                   </td>
-                  <td className="text-xs text-slate-400">{new Date(s.joinedAt).toLocaleDateString('en-IN')}</td>
-                  <td className="text-right">
-                    <span className={s.status === 'Active' ? 'status-chip-completed px-2.5 py-0.5 rounded-full text-xs font-medium' : 'status-chip-scheduled px-2.5 py-0.5 rounded-full text-xs font-medium'}>
+                  <td>
+                    <span className={s.status === 'Active' ? 'status-chip status-chip-completed' : 'status-chip status-chip-pending'}>
                       {s.status}
                     </span>
                   </td>
+                  <td className="text-xs text-slate-500">{new Date(s.joinedAt).toLocaleDateString('en-IN')}</td>
                 </tr>
               ))}
             </tbody>
@@ -139,41 +136,41 @@ export default function Staff() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md glass-panel p-6 border-slate-700 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md card p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
               <div>
-                <h2 className="text-xl font-bold text-white font-heading">Invite Staff Member</h2>
-                <p className="text-xs text-slate-400">FR-02 Role-Based Access Invitation</p>
+                <h2 className="text-lg font-bold text-slate-900 font-heading">Invite Staff Member</h2>
+                <p className="text-xs text-slate-500">FR-02 Email Invite Token</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">&times;</button>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Full Name *</label>
-                <input {...register('name')} className="input-field" placeholder="e.g. Dr. Meera Deshmukh" />
-                {errors.name && <p className="text-xs text-rose-400 mt-1">{errors.name.message}</p>}
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Full Name *</label>
+                <input {...register('name')} className="input-field" placeholder="e.g. Dr. Priya Nair" />
+                {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Email Address *</label>
-                <input type="email" {...register('email')} className="input-field font-mono" placeholder="dr.meera@citycare.com" />
-                {errors.email && <p className="text-xs text-rose-400 mt-1">{errors.email.message}</p>}
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Email Address *</label>
+                <input type="email" {...register('email')} className="input-field mono" placeholder="doctor@citycare.com" />
+                {errors.email && <p className="text-xs text-rose-600 mt-1">{errors.email.message}</p>}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">System Role *</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Assigned Role *</label>
                 <select {...register('role')} className="input-field">
-                  <option value="Doctor">Doctor (Consultations & Prescriptions)</option>
-                  <option value="Receptionist">Receptionist (Registration & Billing)</option>
+                  <option value="Doctor">Doctor</option>
+                  <option value="Receptionist">Receptionist</option>
                 </select>
               </div>
 
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="btn-primary">
-                  {isSubmitting ? 'Sending Token...' : 'Send Invitation Link'}
+                  {isSubmitting ? 'Sending Invite...' : 'Send Invitation'}
                 </button>
               </div>
             </form>

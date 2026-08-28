@@ -1,7 +1,6 @@
-using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
-using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,87 +23,113 @@ public class ConsultationsController : ControllerBase
     [AuthorizeRoles("Doctor")]
     public async Task<IActionResult> CreateConsultation(Guid appointmentId, [FromBody] CreateConsultationRequest request, CancellationToken ct)
     {
+        var doctorId = User.GetUserId();
+        if (!doctorId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
         var appointment = await _db.Appointments.FindAsync([appointmentId], ct);
         if (appointment is null)
             return NotFound(new { error = "appointment_not_found" });
 
-        if (appointment.Status != AppointmentStatus.CheckedIn)
-            return BadRequest(new { error = "appointment_not_checked_in" });
+        if (appointment.DoctorId != doctorId.Value)
+            return Forbid();
 
-        var doctorId = Guid.Parse(User.FindFirst("sub")!.Value);
+        var version = 1;
+        if (request.PreviousVersionId.HasValue)
+        {
+            var prev = await _db.Consultations.FindAsync([request.PreviousVersionId.Value], ct);
+            if (prev is null)
+                return BadRequest(new { error = "previous_version_not_found" });
+            version = prev.Version + 1;
+        }
 
         var consultation = new Consultation
         {
             Id = Guid.NewGuid(),
             AppointmentId = appointmentId,
-            DoctorId = doctorId,
+            DoctorId = doctorId.Value,
             ChiefComplaint = request.ChiefComplaint,
             Observations = request.Observations,
             Diagnosis = request.Diagnosis,
-            Version = 1,
-            PreviousVersionId = null,
+            Version = version,
+            PreviousVersionId = request.PreviousVersionId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
         _db.Consultations.Add(consultation);
         await _db.SaveChangesAsync(ct);
 
-        return StatusCode(201, new { consultationId = consultation.Id, version = 1 });
+        return StatusCode(201, new
+        {
+            consultationId = consultation.Id,
+            version = consultation.Version,
+            createdAt = consultation.CreatedAt
+        });
     }
 
-    [HttpPatch("consultations/{id:guid}")]
+    [HttpPost("consultations/{consultationId:guid}/amend")]
     [AuthorizeRoles("Doctor")]
-    public async Task<IActionResult> AmendConsultation(Guid id, [FromBody] AmendConsultationRequest request, CancellationToken ct)
+    public async Task<IActionResult> AmendConsultation(Guid consultationId, [FromBody] CreateConsultationRequest request, CancellationToken ct)
     {
-        var original = await _db.Consultations.FindAsync([id], ct);
-        if (original is null)
+        var doctorId = User.GetUserId();
+        if (!doctorId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
+        var existing = await _db.Consultations.FindAsync([consultationId], ct);
+        if (existing is null)
             return NotFound(new { error = "consultation_not_found" });
 
-        var doctorId = Guid.Parse(User.FindFirst("sub")!.Value);
+        var authorUser = await _db.Users.FindAsync([existing.DoctorId], ct);
+        var currentUser = await _db.Users.FindAsync([doctorId.Value], ct);
 
-        // Verify same clinic (doctor must belong to same clinic as original author)
-        var author = await _db.Users.FindAsync([original.DoctorId], ct);
-        var amendee = await _db.Users.FindAsync([doctorId], ct);
-        if (author?.ClinicId != amendee?.ClinicId)
+        if (authorUser is null || currentUser is null)
             return Forbid();
 
-        var amended = new Consultation
+        if (authorUser.ClinicId is null || currentUser.ClinicId is null || authorUser.ClinicId != currentUser.ClinicId)
+            return Forbid();
+
+        var newVersion = new Consultation
         {
             Id = Guid.NewGuid(),
-            AppointmentId = original.AppointmentId,
-            DoctorId = doctorId,
-            ChiefComplaint = request.Amendment,
-            Observations = original.Observations,
-            Diagnosis = original.Diagnosis,
-            Version = original.Version + 1,
-            PreviousVersionId = original.Id,
+            AppointmentId = existing.AppointmentId,
+            DoctorId = doctorId.Value,
+            ChiefComplaint = request.ChiefComplaint ?? existing.ChiefComplaint,
+            Observations = request.Observations ?? existing.Observations,
+            Diagnosis = request.Diagnosis ?? existing.Diagnosis,
+            Version = existing.Version + 1,
+            PreviousVersionId = existing.Id,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        _db.Consultations.Add(amended);
+        _db.Consultations.Add(newVersion);
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { consultationId = amended.Id, version = amended.Version });
+        return StatusCode(201, new
+        {
+            consultationId = newVersion.Id,
+            version = newVersion.Version,
+            createdAt = newVersion.CreatedAt
+        });
     }
 
-    [HttpPost("consultations/{id:guid}/prescription")]
+    [HttpPost("consultations/{consultationId:guid}/prescriptions")]
     [AuthorizeRoles("Doctor")]
-    public async Task<IActionResult> WritePrescription(Guid id, [FromBody] WritePrescriptionRequest request, CancellationToken ct)
+    public async Task<IActionResult> AddPrescription(Guid consultationId, [FromBody] AddPrescriptionRequest request, CancellationToken ct)
     {
-        var consultation = await _db.Consultations.FindAsync([id], ct);
+        var consultation = await _db.Consultations.FindAsync([consultationId], ct);
         if (consultation is null)
             return NotFound(new { error = "consultation_not_found" });
 
         var prescription = new Prescription
         {
             Id = Guid.NewGuid(),
-            ConsultationId = id,
+            ConsultationId = consultationId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
         foreach (var item in request.Items)
         {
-            prescription.Items.Add(new PrescriptionItem
+            _db.PrescriptionItems.Add(new PrescriptionItem
             {
                 Id = Guid.NewGuid(),
                 PrescriptionId = prescription.Id,
@@ -118,56 +143,10 @@ public class ConsultationsController : ControllerBase
         _db.Prescriptions.Add(prescription);
         await _db.SaveChangesAsync(ct);
 
-        return StatusCode(201, new { prescriptionId = prescription.Id, consultationId = consultation.Id });
-    }
-
-    [HttpGet("patients/{patientId:guid}/history")]
-    [AuthorizeRoles("Doctor", "ClinicAdmin")]
-    public async Task<IActionResult> GetTreatmentHistory(Guid patientId, CancellationToken ct)
-    {
-        var consultations = await _db.Consultations
-            .Where(c => c.Appointment.PatientId == patientId)
-            .OrderByDescending(c => c.CreatedAt)
-            .Select(c => new
-            {
-                consultationId = c.Id,
-                date = c.CreatedAt,
-                doctorName = c.Doctor.Name,
-                chiefComplaint = c.ChiefComplaint,
-                diagnosis = c.Diagnosis,
-                version = c.Version,
-                prescriptions = c.Prescriptions.Select(p => new
-                {
-                    prescriptionId = p.Id,
-                    items = p.Items.Select(pi => new
-                    {
-                        medicine = pi.MedicineText,
-                        dosage = pi.DosageText,
-                        frequency = pi.FrequencyText,
-                        duration = pi.DurationText
-                    })
-                })
-            })
-            .ToListAsync(ct);
-
-        return Ok(consultations);
+        return StatusCode(201, new { prescriptionId = prescription.Id });
     }
 }
 
-public record CreateConsultationRequest(
-    string? ChiefComplaint,
-    string? Observations,
-    string? Diagnosis);
-
-public record AmendConsultationRequest(
-    string Amendment,
-    string? Reason);
-
-public record WritePrescriptionRequest(
-    List<PrescriptionItemRequest> Items);
-
-public record PrescriptionItemRequest(
-    string Medicine,
-    string Dosage,
-    string Frequency,
-    string Duration);
+public record CreateConsultationRequest(string? ChiefComplaint, string? Observations, string? Diagnosis, Guid? PreviousVersionId);
+public record AddPrescriptionRequest(List<PrescriptionItemRequest> Items);
+public record PrescriptionItemRequest(string Medicine, string Dosage, string Frequency, string Duration);

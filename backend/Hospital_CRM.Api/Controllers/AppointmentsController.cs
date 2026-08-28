@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
-using Hospital_CRM.Api.Services;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -15,216 +15,247 @@ namespace Hospital_CRM.Api.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
-    private readonly INotificationService _notificationService;
 
-    public AppointmentsController(HospitalCrmDbContext db, INotificationService notificationService)
+    public AppointmentsController(HospitalCrmDbContext db)
     {
         _db = db;
-        _notificationService = notificationService;
     }
 
     [HttpPost]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     public async Task<IActionResult> Book([FromBody] BookAppointmentRequest request, CancellationToken ct)
     {
+        if (!DateOnly.TryParse(request.Date, out var appointmentDate))
+            return BadRequest(new { error = "invalid_date_format" });
+
         var patient = await _db.Patients.FindAsync([request.PatientId], ct);
         if (patient is null)
             return NotFound(new { error = "patient_not_found" });
 
-        var doctor = await _db.Users.FindAsync([request.DoctorId], ct);
+        var doctor = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.DoctorId && u.Role == UserRole.Doctor, ct);
         if (doctor is null)
             return NotFound(new { error = "doctor_not_found" });
 
-        if (!DateOnly.TryParse(request.Date, out var date))
-            return BadRequest(new { error = "invalid_date" });
+        var clinic = await _db.Clinics
+            .Include(c => c.WorkingHours)
+            .Include(c => c.Holidays)
+            .Include(c => c.SpecialHours)
+            .FirstOrDefaultAsync(c => c.Id == doctor.ClinicId, ct);
 
-        var slot = request.Time;
-        var type = request.Type?.ToLower() == "walkin" ? AppointmentType.WalkIn : AppointmentType.Scheduled;
+        if (clinic is null)
+            return BadRequest(new { error = "doctor_has_no_clinic" });
 
-        // Check slot availability (excluding cancelled appointments)
-        var slotTaken = await _db.Appointments
-            .AnyAsync(a => a.DoctorId == request.DoctorId
-                && a.Date == date
-                && a.TimeSlot == slot
-                && a.Status != AppointmentStatus.Cancelled, ct);
-
-        if (slotTaken)
-            return Conflict(new { error = "slot_unavailable" });
-
-        var appointment = new Appointment
+        // Check if the requested date falls within a holiday range (exact date or recurring annually MM-dd)
+        var requestDate = appointmentDate.ToString("yyyy-MM-dd");
+        var requestMonthDay = appointmentDate.ToString("MM-dd");
+        var isHoliday = clinic.Holidays.Any(h =>
         {
-            Id = Guid.NewGuid(),
-            PatientId = request.PatientId,
-            DoctorId = request.DoctorId,
-            Date = date,
-            TimeSlot = slot,
-            Type = type,
-            Status = AppointmentStatus.Booked,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        _db.Appointments.Add(appointment);
-        await _db.SaveChangesAsync(ct);
-
-        // Fire-and-forget notification (don't block response)
-        _ = Task.Run(async () =>
-        {
-            try
+            if (h.RecurringAnnually && h.StartDate.Length >= 10 && h.EndDate.Length >= 10)
             {
-                var clinic = await _db.Clinics.FindAsync(appointment.ClinicId);
-                var dateTime = appointment.Date.ToDateTime(TimeOnly.Parse(appointment.TimeSlot));
-                await _notificationService.SendAppointmentConfirmationAsync(
-                    appointment.Id,
-                    patient.Phone,
-                    clinic?.Name ?? "Clinic",
-                    dateTime);
+                var startMd = h.StartDate.Substring(5, 5);
+                var endMd = h.EndDate.Substring(5, 5);
+                return string.Compare(requestMonthDay, startMd, StringComparison.Ordinal) >= 0 &&
+                       string.Compare(requestMonthDay, endMd, StringComparison.Ordinal) <= 0;
             }
-            catch (Exception ex)
-            {
-                // Notification failure must NOT fail the booking
-                Console.WriteLine($"[NOTIFICATION FAILED] {ex.Message}");
-            }
+
+            return string.Compare(requestDate, h.StartDate, StringComparison.Ordinal) >= 0 &&
+                   string.Compare(requestDate, h.EndDate, StringComparison.Ordinal) <= 0;
         });
 
-        return StatusCode(201, new { appointmentId = appointment.Id, queueToken = (int?)null });
+        if (isHoliday)
+            return BadRequest(new { error = "clinic_closed_on_selected_date" });
+
+        var dayOfWeek = (int)appointmentDate.DayOfWeek;
+
+        // Check if there's a special opening hour override for this date
+        var specialHour = clinic.SpecialHours.FirstOrDefault(s => s.Date == requestDate);
+        if (specialHour is not null)
+        {
+            // Special hours override normal schedule
+            if (string.CompareOrdinal(request.TimeSlot, specialHour.OpenTime) < 0 ||
+                string.CompareOrdinal(request.TimeSlot, specialHour.CloseTime) >= 0)
+            {
+                return BadRequest(new { error = "time_slot_outside_special_working_hours" });
+            }
+        }
+        else
+        {
+            // Use the normal weekly schedule — check if this day has any working shifts
+            var workingShifts = clinic.WorkingHours
+                .Where(h => h.DayOfWeek == dayOfWeek)
+                .OrderBy(h => h.ShiftIndex)
+                .ToList();
+
+            if (workingShifts.Count == 0)
+                return BadRequest(new { error = "clinic_closed_on_selected_day" });
+
+            // Verify the time slot falls within at least one of the shifts
+            var isInAnyShift = workingShifts.Any(s =>
+                string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
+                string.CompareOrdinal(request.TimeSlot, s.CloseTime) < 0);
+
+            if (!isInAnyShift)
+                return BadRequest(new { error = "time_slot_outside_working_hours" });
+        }
+
+        var executionStrategy = _db.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            var slotTaken = await _db.Appointments.AnyAsync(a =>
+                a.DoctorId == request.DoctorId &&
+                a.Date == appointmentDate &&
+                a.TimeSlot == request.TimeSlot &&
+                a.Status != AppointmentStatus.Cancelled, ct);
+
+            if (slotTaken)
+                return Conflict(new { error = "slot_already_booked" });
+
+            var typeEnum = string.Equals(request.Type, "walkin", StringComparison.OrdinalIgnoreCase)
+                ? AppointmentType.WalkIn
+                : AppointmentType.Scheduled;
+
+            var appointment = new Appointment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = clinic.TenantId,
+                PatientId = request.PatientId,
+                DoctorId = request.DoctorId,
+                ClinicId = clinic.Id,
+                Date = appointmentDate,
+                TimeSlot = request.TimeSlot,
+                Type = typeEnum,
+                Status = AppointmentStatus.Booked,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            _db.Appointments.Add(appointment);
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                appointmentId = appointment.Id,
+                status = "booked",
+                queueToken = (int?)null
+            });
+        });
+    }
+
+    [HttpPost("{id:guid}/check-in")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> CheckIn(Guid id, CancellationToken ct)
+    {
+        var executionStrategy = _db.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            var appointment = await _db.Appointments.FindAsync([id], ct);
+            if (appointment is null)
+                return NotFound(new { error = "appointment_not_found" });
+
+            if (appointment.Status == AppointmentStatus.CheckedIn)
+                return Ok(new { status = "checked_in", queueToken = appointment.QueueToken });
+
+            if (appointment.Status == AppointmentStatus.Completed || appointment.Status == AppointmentStatus.Cancelled)
+                return BadRequest(new { error = "cannot_check_in_completed_or_cancelled_appointment" });
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var maxToken = await _db.Appointments
+                .Where(a => a.ClinicId == appointment.ClinicId && a.Date == today && a.QueueToken.HasValue)
+                .MaxAsync(a => (int?)a.QueueToken, ct) ?? 0;
+
+            appointment.Status = AppointmentStatus.CheckedIn;
+            appointment.QueueToken = maxToken + 1;
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return Ok(new { status = "checked_in", queueToken = appointment.QueueToken });
+        });
+    }
+
+    [HttpPut("{id:guid}")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAppointmentRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
+        var appointment = await _db.Appointments.FindAsync([id], ct);
+        if (appointment is null)
+            return NotFound(new { error = "appointment_not_found" });
+
+        var newStatus = parseStatus(request.Status);
+        if (newStatus is null)
+            return BadRequest(new { error = "invalid_status" });
+
+        var history = new AppointmentHistory
+        {
+            Id = Guid.NewGuid(),
+            AppointmentId = appointment.Id,
+            PreviousDate = appointment.Date,
+            PreviousTimeSlot = appointment.TimeSlot,
+            PreviousStatus = appointment.Status,
+            ChangedBy = userId.Value,
+            ChangedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.AppointmentHistories.Add(history);
+        appointment.Status = newStatus.Value;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { appointmentId = appointment.Id, status = appointment.Status.ToString().ToLower() });
     }
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> GetDailySchedule([FromQuery] string date, [FromQuery] Guid? doctorId, CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] string? date, [FromQuery] Guid? doctorId, CancellationToken ct)
     {
-        if (!DateOnly.TryParse(date, out var queryDate))
-            return BadRequest(new { error = "invalid_date" });
-
         var query = _db.Appointments
             .Include(a => a.Patient)
-            .Where(a => a.Date == queryDate && a.Status != AppointmentStatus.Cancelled);
+            .Include(a => a.Doctor)
+            .AsQueryable();
+
+        if (DateOnly.TryParse(date, out var parsedDate))
+            query = query.Where(a => a.Date == parsedDate);
 
         if (doctorId.HasValue)
             query = query.Where(a => a.DoctorId == doctorId.Value);
 
-        var appointments = await query
-            .OrderBy(a => a.TimeSlot)
+        var list = await query
+            .OrderBy(a => a.Date)
+            .ThenBy(a => a.TimeSlot)
             .Select(a => new
             {
                 appointmentId = a.Id,
                 patientName = a.Patient.Name,
+                doctorName = a.Doctor.Name,
                 time = a.TimeSlot,
                 status = a.Status.ToString().ToLower(),
-                queueToken = a.QueueToken
+                queueToken = a.QueueToken,
+                type = a.Type.ToString().ToLower()
             })
             .ToListAsync(ct);
 
-        return Ok(appointments);
+        return Ok(list);
     }
 
-    [HttpPost("{id:guid}/checkin")]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
-    public async Task<IActionResult> CheckIn(Guid id, CancellationToken ct)
+    private static AppointmentStatus? parseStatus(string status)
     {
-        var appointment = await _db.Appointments.FindAsync([id], ct);
-        if (appointment is null)
-            return NotFound(new { error = "appointment_not_found" });
-
-        if (appointment.Status != AppointmentStatus.Booked)
-            return BadRequest(new { error = "appointment_not_booked" });
-
-        // Next sequential queue token for the day
-        var maxToken = await _db.Appointments
-            .Where(a => a.Date == appointment.Date && a.QueueToken != null)
-            .MaxAsync(a => (int?)a.QueueToken, ct) ?? 0;
-
-        appointment.QueueToken = maxToken + 1;
-        appointment.Status = AppointmentStatus.CheckedIn;
-
-        await _db.SaveChangesAsync(ct);
-
-        return Ok(new { queueToken = appointment.QueueToken });
-    }
-
-    [HttpPatch("{id:guid}")]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAppointmentRequest request, CancellationToken ct)
-    {
-        var appointment = await _db.Appointments.FindAsync([id], ct);
-        if (appointment is null)
-            return NotFound(new { error = "appointment_not_found" });
-
-        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
-        var now = DateTimeOffset.UtcNow;
-
-        if (string.Equals(request.Action, "reschedule", StringComparison.OrdinalIgnoreCase))
+        return status.ToLower() switch
         {
-            if (appointment.Status == AppointmentStatus.Completed || appointment.Status == AppointmentStatus.Cancelled)
-                return BadRequest(new { error = "appointment_not_reschedulable" });
-
-            if (!DateOnly.TryParse(request.NewDate, out var newDate) || string.IsNullOrWhiteSpace(request.NewTime))
-                return BadRequest(new { error = "new_date_and_time_required" });
-
-            // Validate new slot
-            var slotTaken = await _db.Appointments
-                .AnyAsync(a => a.DoctorId == appointment.DoctorId
-                    && a.Date == newDate
-                    && a.TimeSlot == request.NewTime
-                    && a.Status != AppointmentStatus.Cancelled
-                    && a.Id != id, ct);
-
-            if (slotTaken)
-                return Conflict(new { error = "slot_unavailable" });
-
-            _db.AppointmentHistories.Add(new AppointmentHistory
-            {
-                Id = Guid.NewGuid(),
-                AppointmentId = id,
-                PreviousDate = appointment.Date,
-                PreviousTimeSlot = appointment.TimeSlot,
-                PreviousStatus = appointment.Status,
-                ChangedBy = userId,
-                ChangedAt = now
-            });
-
-            appointment.Date = newDate;
-            appointment.TimeSlot = request.NewTime;
-
-            await _db.SaveChangesAsync(ct);
-            return Ok(new { appointmentId = appointment.Id, status = appointment.Status.ToString().ToLower() });
-        }
-
-        if (string.Equals(request.Action, "cancel", StringComparison.OrdinalIgnoreCase))
-        {
-            if (appointment.Status == AppointmentStatus.Completed || appointment.Status == AppointmentStatus.Cancelled)
-                return BadRequest(new { error = "appointment_not_cancellable" });
-
-            _db.AppointmentHistories.Add(new AppointmentHistory
-            {
-                Id = Guid.NewGuid(),
-                AppointmentId = id,
-                PreviousDate = appointment.Date,
-                PreviousTimeSlot = appointment.TimeSlot,
-                PreviousStatus = appointment.Status,
-                ChangedBy = userId,
-                ChangedAt = now
-            });
-
-            appointment.Status = AppointmentStatus.Cancelled;
-
-            await _db.SaveChangesAsync(ct);
-            return Ok(new { appointmentId = appointment.Id, status = appointment.Status.ToString().ToLower() });
-        }
-
-        return BadRequest(new { error = "invalid_action" });
+            "booked" => AppointmentStatus.Booked,
+            "checked_in" or "checkedin" => AppointmentStatus.CheckedIn,
+            "completed" => AppointmentStatus.Completed,
+            "cancelled" => AppointmentStatus.Cancelled,
+            "noshow" => AppointmentStatus.NoShow,
+            _ => null
+        };
     }
 }
 
-public record BookAppointmentRequest(
-    Guid PatientId,
-    Guid DoctorId,
-    string Date,
-    string Time,
-    string? Type);
-
-public record UpdateAppointmentRequest(
-    string Action,
-    string? NewDate,
-    string? NewTime,
-    string? Reason);
+public record BookAppointmentRequest(Guid PatientId, Guid DoctorId, string Date, string TimeSlot, string Type);
+public record UpdateAppointmentRequest(string Status);

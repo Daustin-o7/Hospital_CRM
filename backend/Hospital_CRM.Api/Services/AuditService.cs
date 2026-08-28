@@ -12,11 +12,11 @@ public static class AuditService
         Guid entityId,
         Guid userId,
         string fieldName,
-        string oldValue,
-        string newValue,
+        string? oldValue,
+        string? newValue,
         CancellationToken ct = default)
     {
-        if (entityType == "Patient")
+        if (string.Equals(entityType, "Patient", StringComparison.OrdinalIgnoreCase))
         {
             context.PatientAuditLogs.Add(new PatientAuditLog
             {
@@ -28,7 +28,42 @@ public static class AuditService
                 NewValue = newValue ?? string.Empty,
                 ChangedAt = DateTimeOffset.UtcNow
             });
-            await context.SaveChangesAsync(ct);
         }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    public static async Task LogEntityAuditAsync<TEntity>(
+        HospitalCrmDbContext context,
+        TEntity entity,
+        Guid userId,
+        string action,
+        CancellationToken ct = default) where TEntity : class
+    {
+        var entityName = typeof(TEntity).Name;
+        var entry = context.Entry(entity);
+        var primaryKey = entry.Property("Id").CurrentValue?.ToString() ?? Guid.NewGuid().ToString();
+
+        if (Guid.TryParse(primaryKey, out var entityGuid) && entityName == "Patient")
+        {
+            foreach (var prop in entry.Properties)
+            {
+                if (prop.IsModified)
+                {
+                    context.PatientAuditLogs.Add(new PatientAuditLog
+                    {
+                        Id = Guid.NewGuid(),
+                        PatientId = entityGuid,
+                        ChangedBy = userId,
+                        FieldName = prop.Metadata.Name,
+                        OldValue = prop.OriginalValue?.ToString() ?? string.Empty,
+                        NewValue = prop.CurrentValue?.ToString() ?? string.Empty,
+                        ChangedAt = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 }

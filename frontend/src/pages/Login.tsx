@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
-  const [email, setEmail] = useState('doctor@samstack.ai')
-  const [password, setPassword] = useState('DoctorPass123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -16,7 +17,7 @@ export default function Login() {
     try {
       await login(email, password)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Authentication credentials failed. Enter email & password.')
+      setError(err.response?.data?.error || 'Authentication failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -28,86 +29,93 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-[#070c18]">
-      {/* Glow Effects */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/15 rounded-full blur-3xl animate-pulse delay-1000" />
-
-      <div className="relative w-full max-w-md glass-panel p-8 sm:p-10 border-slate-800 space-y-6 shadow-2xl">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: 'linear-gradient(135deg, #f0fdf4 0%, #f0fdfa 50%, #eff6ff 100%)',
+      }}
+    >
+      <div className="w-full max-w-md card p-8 sm:p-10 space-y-6 shadow-xl border-slate-200">
+        {/* Brand */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-cyan-500 text-white font-bold text-2xl shadow-lg shadow-teal-500/30">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-cyan-500 text-white font-bold text-2xl shadow-lg">
             +
           </div>
-          <h1 className="text-2xl font-bold text-white font-heading">SamStack AI</h1>
-          <p className="text-xs text-teal-400 font-semibold uppercase tracking-wider">Doctor & Clinic CRM (Phase 1)</p>
+          <h1 className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'Outfit, sans-serif' }}>SamStack AI</h1>
+          <p className="text-xs text-teal-600 font-bold uppercase tracking-wider">Doctor &amp; Clinic CRM · Phase 1</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs font-semibold">
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Email Address</label>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="input-field font-mono text-sm"
-              placeholder="user@samstack.ai"
+              className="input-field mono"
+              placeholder="doctor@samstack.ai"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="input-field text-sm"
-              placeholder="••••••••"
-              disabled={loading}
-            />
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input-field pr-10"
+                placeholder="••••••••"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-medium"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2"
+            className="btn-primary w-full justify-center py-3"
           >
-            {loading ? (
-              <span>Authenticating...</span>
-            ) : (
-              <span>Sign In to EMR Dashboard &rarr;</span>
-            )}
+            {loading ? 'Authenticating...' : 'Sign In to EMR Dashboard →'}
           </button>
         </form>
 
-        <div className="pt-4 border-t border-slate-800 space-y-2">
-          <p className="text-xs font-semibold uppercase text-slate-400 text-center">Quick Role Access Presets</p>
+        <div className="pt-4 border-t border-slate-100 space-y-2">
+          <p className="text-xs font-bold uppercase text-slate-400 text-center">Quick Role Access (Dev Presets)</p>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => applyPreset('admin@samstack.ai', 'AdminPass123!')}
-              className="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white hover:border-teal-500/50"
+              className="px-2 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-colors font-medium"
             >
-              Clinic Admin
+              Admin
             </button>
             <button
               onClick={() => applyPreset('doctor@samstack.ai', 'DoctorPass123!')}
-              className="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-teal-300 border-teal-500/30"
+              className="px-2 py-2 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700 font-semibold"
             >
               Doctor
             </button>
             <button
               onClick={() => applyPreset('reception@samstack.ai', 'ReceptPass123!')}
-              className="px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 hover:text-white hover:border-teal-500/50"
+              className="px-2 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-colors font-medium"
             >
-              Receptionist
+              Reception
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -25,6 +26,10 @@ public class PatientsController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
     public async Task<IActionResult> Register([FromBody] PatientRegisterRequest request, CancellationToken ct)
     {
+        var userId = User.GetUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Phone))
             return BadRequest(new { error = "name_and_phone_required" });
 
@@ -34,7 +39,14 @@ public class PatientsController : ControllerBase
         if (request.Consent is null || !request.Consent.Accepted)
             return BadRequest(new { error = "consent_required" });
 
-        // Idempotency check
+        // First check phone duplication
+        var existingPatient = await _db.Patients
+            .FirstOrDefaultAsync(p => p.Phone == request.Phone, ct);
+
+        if (existingPatient is not null)
+            return Ok(new { patientId = existingPatient.Id, possibleDuplicateOf = existingPatient.Id });
+
+        // Then idempotency check
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             var existing = await _db.Patients
@@ -42,14 +54,6 @@ public class PatientsController : ControllerBase
             if (existing is not null)
                 return Ok(new { patientId = existing.Id, possibleDuplicateOf = (Guid?)null });
         }
-
-        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
-
-        var existingPatient = await _db.Patients
-            .FirstOrDefaultAsync(p => p.Phone == request.Phone, ct);
-
-        if (existingPatient is not null)
-            return Ok(new { patientId = existingPatient.Id, possibleDuplicateOf = existingPatient.Id });
 
         var patient = new Patient
         {
@@ -61,7 +65,7 @@ public class PatientsController : ControllerBase
             ApproxAge = request.ApproxAge,
             Gender = ParseGender(request.Gender),
             Address = request.Address,
-            CreatedBy = userId,
+            CreatedBy = userId.Value,
             CreatedAt = DateTimeOffset.UtcNow,
             IdempotencyKey = request.IdempotencyKey
         };
@@ -71,7 +75,7 @@ public class PatientsController : ControllerBase
             Id = Guid.NewGuid(),
             PatientId = patient.Id,
             Purpose = request.Consent.Purpose,
-            CapturedBy = userId,
+            CapturedBy = userId.Value,
             CapturedAt = DateTimeOffset.UtcNow
         };
 
@@ -118,7 +122,7 @@ public class PatientsController : ControllerBase
         if (patient is null)
             return NotFound(new { error = "patient_not_found" });
 
-        var role = User.FindFirst("role")?.Value;
+        var role = User.GetUserRole();
         var isReceptionist = string.Equals(role, "receptionist", StringComparison.OrdinalIgnoreCase);
 
         var result = new Dictionary<string, object?>
@@ -158,11 +162,14 @@ public class PatientsController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
     public async Task<IActionResult> Patch(Guid id, [FromBody] PatientPatchRequest request, CancellationToken ct)
     {
+        var userId = User.GetUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
         var patient = await _db.Patients.FirstOrDefaultAsync(p => p.Id == id, ct);
         if (patient is null)
             return NotFound(new { error = "patient_not_found" });
 
-        var userId = Guid.Parse(User.FindFirst("sub")!.Value);
         var now = DateTimeOffset.UtcNow;
 
         if (request.Phone is not null && request.Phone != patient.Phone)
@@ -171,13 +178,13 @@ public class PatientsController : ControllerBase
             if (phoneTaken)
                 return Conflict(new { error = "phone_already_in_use" });
 
-            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "phone", patient.Phone, request.Phone, ct);
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId.Value, "phone", patient.Phone, request.Phone, ct);
             patient.Phone = request.Phone;
         }
 
         if (request.Name is not null && request.Name != patient.Name)
         {
-            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "name", patient.Name, request.Name, ct);
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId.Value, "name", patient.Name, request.Name, ct);
             patient.Name = request.Name;
         }
 
@@ -185,9 +192,9 @@ public class PatientsController : ControllerBase
         {
             var oldDob = patient.Dob?.ToString("yyyy-MM-dd") ?? "";
             var newDob = request.Dob.Value.ToString("yyyy-MM-dd");
-            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "dob", oldDob, newDob, ct);
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId.Value, "dob", oldDob, newDob, ct);
             patient.Dob = request.Dob;
-            patient.DobHasValue = true;
+            patient.DobHasValue = request.Dob.HasValue;
         }
 
         if (request.Gender is not null)
@@ -195,14 +202,14 @@ public class PatientsController : ControllerBase
             var newGender = ParseGender(request.Gender);
             if (newGender != patient.Gender)
             {
-                await AuditService.LogChangeAsync(_db, "Patient", id, userId, "gender", patient.Gender.ToString(), newGender.ToString(), ct);
+                await AuditService.LogChangeAsync(_db, "Patient", id, userId.Value, "gender", patient.Gender.ToString(), newGender.ToString(), ct);
                 patient.Gender = newGender;
             }
         }
 
         if (request.Address is not null && request.Address != patient.Address)
         {
-            await AuditService.LogChangeAsync(_db, "Patient", id, userId, "address", patient.Address ?? "", request.Address, ct);
+            await AuditService.LogChangeAsync(_db, "Patient", id, userId.Value, "address", patient.Address ?? "", request.Address, ct);
             patient.Address = request.Address;
         }
 
