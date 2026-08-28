@@ -1,240 +1,390 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import { Link } from 'react-router-dom'
+import api from '../services/api'
+import { Skeleton } from '../components/ui/Skeleton'
+import { EmptyState } from '../components/ui/EmptyState'
+import { AppointmentBadge } from '../components/ui/Badge'
 
-interface Stats {
-  patients: number
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface DashStats {
+  totalPatients: number
   appointmentsToday: number
   revenueToday: number
-  activeDoctors: number
+  pendingPayments: number
 }
 
-const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+interface TodayAppt {
+  id: string
+  time: string
+  patientName: string
+  doctorName?: string
+  type: string
+  status: string
+  tokenNumber?: number
+}
 
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('user')
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return { name: 'User', role: 'doctor' }
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function formatINR(n: number): string {
+  return '₹' + n.toLocaleString('en-IN')
+}
+
+function formatDate(): string {
+  return new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats>({ patients: 124, appointmentsToday: 18, revenueToday: 24500, activeDoctors: 4 })
+  const [stats, setStats] = useState<DashStats>({
+    totalPatients: 0, appointmentsToday: 0, revenueToday: 0, pendingPayments: 0,
+  })
+  const [todayAppts, setTodayAppts] = useState<TodayAppt[]>([])
   const [loading, setLoading] = useState(true)
+  const user = getStoredUser()
+  const rawRole = String(user?.role || 'doctor').toLowerCase()
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetch = async () => {
       try {
-        const token = localStorage.getItem('accessToken')
         const todayISO = new Date().toISOString().split('T')[0]
-        const [patientsRes, appointmentsRes, invoicesRes] = await Promise.all([
-          axios.get('/api/v1/patients/search?q=a', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-          axios.get(`/api/v1/appointments?date=${todayISO}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-          axios.get('/api/v1/invoices?status=paid', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        const [apptRes, invoiceRes] = await Promise.allSettled([
+          api.get<any[]>(`/v1/appointments?date=${todayISO}`),
+          api.get<any[]>('/v1/invoices'),
         ])
-        setStats(prev => ({
-          patients: patientsRes?.data?.length || prev.patients,
-          appointmentsToday: appointmentsRes?.data?.length || prev.appointmentsToday,
-          revenueToday: invoicesRes?.data?.reduce((s: number, inv: any) => s + (inv.total || 0), 0) || prev.revenueToday,
-          activeDoctors: prev.activeDoctors,
+
+        const appts = apptRes.status === 'fulfilled' ? apptRes.value.data ?? [] : []
+        const invoices = invoiceRes.status === 'fulfilled' ? invoiceRes.value.data ?? [] : []
+
+        const revenueToday = invoices
+          .filter((inv: any) => inv.status?.toLowerCase() === 'paid' && inv.createdAt?.startsWith(todayISO))
+          .reduce((s: number, inv: any) => s + (inv.total || 0), 0)
+
+        const pendingPayments = invoices
+          .filter((inv: any) => ['pending', 'overdue'].includes(inv.status?.toLowerCase()))
+          .reduce((s: number, inv: any) => s + (inv.total || 0), 0)
+
+        const mapped: TodayAppt[] = appts.map((a: any) => ({
+          id: a.id,
+          time: a.scheduledTime?.slice(0, 5) ?? '—',
+          patientName: a.patientName ?? a.patient?.fullName ?? 'Unknown',
+          doctorName: a.doctorName ?? a.doctor?.name,
+          type: a.appointmentType ?? 'Consultation',
+          status: a.status ?? 'scheduled',
+          tokenNumber: a.tokenNumber,
         }))
+
+        setStats(prev => ({
+          ...prev,
+          appointmentsToday: appts.length,
+          revenueToday,
+          pendingPayments,
+        }))
+        setTodayAppts(mapped)
       } finally {
         setLoading(false)
       }
     }
-    fetchStats()
+    fetch()
   }, [])
 
-  const statCards = [
-    { tag: 'Total Patients', value: stats.patients, label: 'Registered in system', href: '/dashboard/patients', icon: UsersIcon, colour: '#0d9488' },
-    { tag: "Today's OPD", value: stats.appointmentsToday, label: 'Scheduled appointments', href: '/dashboard/appointments', icon: CalendarIcon, colour: '#0891b2' },
-    { tag: 'Revenue Today', value: `₹${stats.revenueToday.toLocaleString('en-IN')}`, label: 'Razorpay + cash', href: '/dashboard/billing', icon: RupeeIcon, colour: '#0d9488' },
-    { tag: 'Doctors On Duty', value: stats.activeDoctors, label: 'Active today', href: '/dashboard/staff', icon: StethoscopeIcon, colour: '#0891b2' },
+  const STAT_CARDS = [
+    {
+      id: 'appointments',
+      label: "Today's appointments",
+      value: loading ? null : stats.appointmentsToday,
+      unit: 'scheduled',
+      icon: CalendarIcon,
+      href: '/dashboard/appointments',
+      accent: 'var(--brand-primary)',
+    },
+    {
+      id: 'revenue',
+      label: 'Revenue today',
+      value: loading ? null : formatINR(stats.revenueToday),
+      unit: 'collected',
+      icon: RupeeIcon,
+      href: '/dashboard/billing',
+      accent: '#16a34a',
+    },
+    {
+      id: 'pending',
+      label: 'Pending payments',
+      value: loading ? null : formatINR(stats.pendingPayments),
+      unit: 'outstanding',
+      icon: ClockIcon,
+      href: '/dashboard/billing',
+      accent: '#d97706',
+    },
+    {
+      id: 'queue',
+      label: 'Queue now',
+      value: loading ? null : todayAppts.filter(a => ['checkedin','checked-in','inprogress'].includes(a.status.toLowerCase())).length,
+      unit: 'waiting',
+      icon: QueueIcon,
+      href: '/dashboard/queue',
+      accent: 'var(--brand-secondary)',
+    },
   ]
 
-  const queue = [
-    { time: '09:30', patient: 'Aarav Patel', age: '28M', doctor: 'Dr. R. K. Sharma', type: 'General OPD', status: 'Completed' },
-    { time: '10:15', patient: 'Priya Verma', age: '34F', doctor: 'Dr. Ananya Iyer', type: 'Follow-up', status: 'In Consultation' },
-    { time: '11:00', patient: 'Rajesh Kumar', age: '45M', doctor: 'Dr. R. K. Sharma', type: 'Routine OPD', status: 'Scheduled' },
-    { time: '11:30', patient: 'Sunita Reddy', age: '52F', doctor: 'Dr. Vikram Malhotra', type: 'Diabetes Mgmt', status: 'Scheduled' },
-  ]
-
-  const statusClass: Record<string, string> = {
-    'Completed':       'status-chip status-chip-completed',
-    'In Consultation': 'status-chip status-chip-pending',
-    'Scheduled':       'status-chip status-chip-scheduled',
-    'Cancelled':       'status-chip status-chip-cancelled',
-  }
+  const upcomingAppts = todayAppts.filter(a => !['completed','cancelled'].includes(a.status.toLowerCase()))
+  const completedAppts = todayAppts.filter(a => a.status.toLowerCase() === 'completed')
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="animate-fadein">
 
-      {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <p className="label-xs mb-1">{today}</p>
-          <h1 className="page-title">Clinic Operations</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
-            Live OPD queue · patient registry · revenue summary
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <Link to="/dashboard/patients" className="btn-primary">
-            <UsersIcon className="w-4 h-4" />
-            New Patient
-          </Link>
-          <Link to="/dashboard/appointments" className="btn-secondary">
-            <CalendarIcon className="w-4 h-4" />
-            Book OPD
-          </Link>
-        </div>
+      {/* ── Greeting ─────────────────────────────────────── */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+          {formatDate()}
+        </p>
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
+          {getGreeting()}, {user?.name?.split(' ')[0] ?? 'Doctor'} 👋
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 4 }}>
+          Here's what's happening at your clinic today.
+        </p>
       </div>
 
-      {/* ── KPI Grid ── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((card) => (
-          <Link key={card.tag} to={card.href} className="stat-card block" style={{ textDecoration: 'none' }}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="label-xs" style={{ marginBottom: 8 }}>{card.tag}</p>
-                {loading ? (
-                  <div className="skeleton" style={{ height: 28, width: 80, borderRadius: 6 }} />
-                ) : (
-                  <p className="stat-value">{card.value}</p>
-                )}
+      {/* ── KPI Stat Cards ────────────────────────────────── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          marginBottom: 32,
+        }}
+      >
+        {STAT_CARDS.map(card => (
+          <Link
+            key={card.id}
+            to={card.href}
+            style={{ textDecoration: 'none' }}
+            aria-label={`${card.label}: ${card.value}`}
+          >
+            <div className="stat-card card-hover">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 'var(--radius-md)',
+                    background: `${card.accent}18`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: card.accent,
+                  }}
+                >
+                  <card.icon />
+                </div>
+                <svg width="14" height="14" fill="none" stroke="var(--color-text-muted)" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-              <div
-                style={{
-                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                  background: `${card.colour}14`,
-                  border: `1px solid ${card.colour}28`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: card.colour,
-                }}
-              >
-                <card.icon className="w-5 h-5" />
-              </div>
+
+              {loading ? (
+                <>
+                  <Skeleton height={32} width={80} />
+                  <div style={{ marginTop: 6 }}>
+                    <Skeleton height={12} width={100} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="stat-value">{card.value ?? '—'}</div>
+                  <div className="stat-label">{card.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{card.unit}</div>
+                </>
+              )}
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{card.label}</p>
           </Link>
         ))}
       </div>
 
-      {/* ── Main 2-col layout ── */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* ── Two-column layout ──────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 20 }}>
 
-        {/* Today's Queue Table */}
-        <div className="lg:col-span-2 card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h2 className="section-title">Today's OPD Queue</h2>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>City Care Medical Center — live roster</p>
-            </div>
+        {/* ── Today's Schedule ── */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
+              Today's schedule
+            </h2>
             <Link
               to="/dashboard/appointments"
-              style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--brand-primary)', textDecoration: 'none' }}
             >
               View all →
             </Link>
           </div>
 
-          <div className="table-container" style={{ borderRadius: 0, border: 'none' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Patient</th>
-                  <th>Doctor</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {queue.map((row, i) => (
-                  <tr key={i}>
-                    <td>
-                      <span className="mono" style={{ fontWeight: 600, color: 'var(--accent)' }}>{row.time}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 28, height: 28, borderRadius: '50%',
-                          background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: 'var(--accent-text)', flexShrink: 0,
-                        }}>
-                          {row.patient.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-primary)' }}>{row.patient}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{row.age}</div>
-                        </div>
+          <div className="card" style={{ overflow: 'hidden' }}>
+            {loading ? (
+              <div style={{ padding: '4px 0' }}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                    <Skeleton width={40} height={14} />
+                    <div style={{ flex: 1 }}>
+                      <Skeleton width={140} height={14} />
+                      <div style={{ marginTop: 6 }}>
+                        <Skeleton width={90} height={11} />
                       </div>
-                    </td>
-                    <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{row.doctor}</td>
-                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{row.type}</td>
-                    <td>
-                      <span className={statusClass[row.status] || 'status-chip status-chip-scheduled'}>{row.status}</span>
-                    </td>
-                  </tr>
+                    </div>
+                    <Skeleton width={60} height={20} radius="9999px" />
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : upcomingAppts.length === 0 ? (
+              <EmptyState
+                icon={
+                  <svg style={{ width: 40, height: 40 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                }
+                title="No upcoming appointments"
+                description="All appointments for today are completed, or none were scheduled."
+              />
+            ) : (
+              upcomingAppts.map((appt, i) => (
+                <div
+                  key={appt.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '13px 20px',
+                    borderBottom: i < upcomingAppts.length - 1 ? '1px solid var(--color-border-subtle)' : 'none',
+                    transition: 'background-color 150ms',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-hover)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  {/* Time */}
+                  <div
+                    style={{
+                      width: 48,
+                      textAlign: 'right',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: 'var(--color-text-secondary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {appt.time}
+                  </div>
+
+                  {/* Divider dot */}
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-border)', flexShrink: 0 }} />
+
+                  {/* Patient info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {appt.patientName}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 1 }}>
+                      {appt.type}
+                      {appt.doctorName && rawRole === 'clinicadmin' && ` · ${appt.doctorName}`}
+                    </div>
+                  </div>
+
+                  {/* Token */}
+                  {appt.tokenNumber && (
+                    <div className="queue-token" title={`Token #${appt.tokenNumber}`}>
+                      {appt.tokenNumber}
+                    </div>
+                  )}
+
+                  {/* Status badge */}
+                  <AppointmentBadge status={appt.status} />
+                </div>
+              ))
+            )}
           </div>
+
+          {/* Completed count */}
+          {!loading && completedAppts.length > 0 && (
+            <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 10, fontWeight: 500 }}>
+              ✓ {completedAppts.length} appointment{completedAppts.length > 1 ? 's' : ''} completed today
+            </p>
+          )}
         </div>
 
-        {/* Right: Quick actions + system status */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Quick Workflows */}
-          <div className="card" style={{ padding: '20px 20px 16px' }}>
-            <h2 className="section-title" style={{ marginBottom: 14 }}>Quick Workflows</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { href: '/dashboard/patients', icon: UsersIcon, title: 'Patient Registration', sub: 'FR-06 · Demographics & WhatsApp', bg: 'var(--accent-bg)', border: 'var(--accent-border)', color: 'var(--accent-text)' },
-                { href: '/dashboard/consultations', icon: FileTextIcon, title: 'Clinical Notes', sub: 'FR-14 · Vitals, Dx & Versioned Rx', bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
-                { href: '/dashboard/billing', icon: RupeeIcon, title: 'Generate Invoice', sub: 'FR-17/18 · GST + Razorpay', bg: '#fffbeb', border: '#fde68a', color: '#b45309' },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
+        {/* ── Quick Actions ── */}
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 14 }}>
+            Quick actions
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {QUICK_ACTIONS.filter(a => a.roles.includes(rawRole)).map(action => (
+              <Link
+                key={action.label}
+                to={action.href}
+                style={{ textDecoration: 'none' }}
+              >
+                <div
+                  className="card"
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', borderRadius: 10,
-                    border: '1px solid var(--border)', background: 'var(--surface)',
-                    textDecoration: 'none',
-                    transition: 'all 150ms ease',
+                    padding: '13px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    cursor: 'pointer',
+                    transition: 'box-shadow 150ms, border-color 150ms, transform 150ms',
                   }}
                   onMouseEnter={e => {
                     const el = e.currentTarget
-                    el.style.borderColor = item.border
-                    el.style.background = item.bg
+                    el.style.boxShadow = 'var(--shadow-md)'
+                    el.style.transform = 'translateY(-1px)'
+                    el.style.borderColor = '#cbd5e1'
                   }}
                   onMouseLeave={e => {
                     const el = e.currentTarget
-                    el.style.borderColor = 'var(--border)'
-                    el.style.background = 'var(--surface)'
+                    el.style.boxShadow = ''
+                    el.style.transform = ''
+                    el.style.borderColor = ''
                   }}
                 >
-                  <div style={{ width: 34, height: 34, borderRadius: 8, background: item.bg, border: `1px solid ${item.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: item.color }}>
-                    <item.icon className="w-4 h-4" />
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 'var(--radius-md)',
+                      background: `${action.color}16`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: action.color,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <action.icon />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{item.sub}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text)' }}>{action.label}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)' }}>{action.description}</div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* System Status */}
-          <div
-            className="card"
-            style={{ padding: '16px 20px', background: 'var(--accent-bg)', borderColor: 'var(--accent-border)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-text)' }}>Phase 1 Engine — Operational</span>
-            </div>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Running in single-tenant SaaS mode. All tables include dormant{' '}
-              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'rgba(13,148,136,.1)', padding: '1px 5px', borderRadius: 4, color: 'var(--accent-text)' }}>tenant_id</code>
-              {' '}for future multi-tenancy.
-            </p>
+                  <svg width="14" height="14" fill="none" stroke="var(--color-text-muted)" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -242,19 +392,104 @@ export default function Dashboard() {
   )
 }
 
-/* ── Icons (monochrome, 18px design size) ── */
-function UsersIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+// ── Quick actions config ───────────────────────────────────────────────────────
+const QUICK_ACTIONS = [
+  {
+    label: 'Book appointment',
+    description: 'Schedule a new OPD visit',
+    href: '/dashboard/appointments',
+    color: 'var(--brand-primary)',
+    roles: ['clinicadmin', 'doctor', 'receptionist'],
+    icon: CalendarIcon,
+  },
+  {
+    label: 'Register patient',
+    description: 'Add a new patient record',
+    href: '/dashboard/patients',
+    color: '#0891b2',
+    roles: ['clinicadmin', 'doctor', 'receptionist'],
+    icon: PatientIcon,
+  },
+  {
+    label: 'View queue',
+    description: 'Manage today\'s live queue',
+    href: '/dashboard/queue',
+    color: '#7c3aed',
+    roles: ['clinicadmin', 'doctor', 'receptionist'],
+    icon: QueueIcon,
+  },
+  {
+    label: 'Create invoice',
+    description: 'Generate billing for a patient',
+    href: '/dashboard/billing',
+    color: '#16a34a',
+    roles: ['clinicadmin', 'receptionist'],
+    icon: BillingIcon,
+  },
+  {
+    label: 'New consultation',
+    description: 'Record clinical notes',
+    href: '/dashboard/consultations',
+    color: '#d97706',
+    roles: ['doctor', 'clinicadmin'],
+    icon: ConsultIcon,
+  },
+]
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
+function CalendarIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
 }
-function CalendarIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+function RupeeIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M9 8h6M9 12h6m-6 4h6M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
 }
-function RupeeIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+function ClockIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
 }
-function StethoscopeIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v3a3 3 0 01-3 3z" /></svg>
+function QueueIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M4 6h16M4 10h16M4 14h8m-8 4h4" />
+    </svg>
+  )
 }
-function FileTextIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+function PatientIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+    </svg>
+  )
+}
+function BillingIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  )
+}
+function ConsultIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
 }

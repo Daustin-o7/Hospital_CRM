@@ -3,7 +3,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
+import { Modal } from '../components/ui/Modal'
+import { Alert, friendlyError } from '../components/ui/Alert'
+import { EmptyState, EmptySearch } from '../components/ui/EmptyState'
+import { SkeletonRow } from '../components/ui/Skeleton'
 
+// ── Schema ────────────────────────────────────────────────────────────────────
 const patientSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
@@ -14,12 +19,11 @@ const patientSchema = z.object({
   consent: z.object({
     accepted: z.boolean(),
     purpose: z.string().min(1, 'Purpose is required'),
-  }).refine((data) => data.accepted === true, {
-    message: 'Consent is required under DPDP Act',
+  }).refine(d => d.accepted === true, {
+    message: 'Patient consent is required under DPDP Act',
     path: ['accepted'],
   }),
 })
-
 type PatientForm = z.infer<typeof patientSchema>
 
 interface Patient {
@@ -31,23 +35,27 @@ interface Patient {
   gender: string
   address?: string
   createdAt: string
-  age?: number
-  idempotencyKey?: string
 }
 
-const mockPatients: Patient[] = [
-  { id: '101', name: 'Aarav Patel', phone: '+91 98765 43210', approxAge: 28, gender: 'Male', address: '12-B MG Road, Bangalore', createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), idempotencyKey: 'IDEMP-PAT-901' },
-  { id: '102', name: 'Priya Verma', phone: '+91 98123 45678', approxAge: 34, gender: 'Female', address: '45 Indiranagar, Bangalore', createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), idempotencyKey: 'IDEMP-PAT-902' },
-  { id: '103', name: 'Rajesh Kumar', phone: '+91 97654 32109', approxAge: 45, gender: 'Male', address: '88 HSR Layout, Bangalore', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), idempotencyKey: 'IDEMP-PAT-903' },
-  { id: '104', name: 'Sunita Reddy', phone: '+91 99887 76655', approxAge: 52, gender: 'Female', address: '10 Koramangala, Bangalore', createdAt: new Date(Date.now() - 86400000 * 1).toISOString(), idempotencyKey: 'IDEMP-PAT-904' },
-]
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch { return '—' }
+}
 
+function getInitials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function Patients() {
-  const [patients, setPatients] = useState<Patient[]>(mockPatients)
+  const [patients, setPatients] = useState<Patient[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [showRegister, setShowRegister] = useState(false)
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
+  const [submitError, setSubmitError] = useState('')
 
   const {
     register,
@@ -62,293 +70,323 @@ export default function Patients() {
   const fetchPatients = useCallback(async (query = '') => {
     setLoading(true)
     try {
-      const res = await api.get(`/patients/search?q=${encodeURIComponent(query)}`)
-      if (res.data && res.data.length > 0) {
-        setPatients(res.data)
-      } else if (!query) {
-        setPatients(mockPatients)
-      } else {
-        setPatients(mockPatients.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.phone.includes(query)))
-      }
-    } catch (err) {
-      if (query) {
-        setPatients(mockPatients.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.phone.includes(query)))
-      } else {
-        setPatients(mockPatients)
-      }
+      const res = await api.get(`/v1/patients/search?q=${encodeURIComponent(query)}`)
+      setPatients(Array.isArray(res.data) ? res.data : [])
+    } catch {
+      setPatients([])
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const fetchPatientById = useCallback(async (id: string) => {
+  const openPatient = useCallback(async (id: string) => {
     try {
-      const res = await api.get(`/patients/${id}`)
+      const res = await api.get(`/v1/patients/${id}`)
       setViewingPatient(res.data)
-      setShowModal(true)
-    } catch (err) {
-      const found = mockPatients.find(p => p.id === id)
-      if (found) {
-        setViewingPatient(found)
-        setShowModal(true)
-      }
+    } catch {
+      const found = patients.find(p => p.id === id)
+      if (found) setViewingPatient(found)
     }
-  }, [])
+  }, [patients])
 
   const onSubmit = useCallback(async (data: PatientForm) => {
+    setSubmitError('')
     try {
       const idempotencyKey = `IDEMP-PAT-${Date.now()}`
-      const payload = { ...data, idempotencyKey }
-      const res = await api.post('/patients', payload)
-      const newPat = res.data || { ...data, id: String(Date.now()), createdAt: new Date().toISOString(), idempotencyKey }
-      setPatients(prev => [newPat, ...prev])
+      const res = await api.post('/v1/patients', { ...data, idempotencyKey })
+      setPatients(prev => [res.data, ...prev])
       reset({ consent: { accepted: false, purpose: 'care_delivery' } })
-      setShowModal(false)
+      setShowRegister(false)
     } catch (err: any) {
-      const idempotencyKey = `IDEMP-PAT-${Date.now()}`
-      const newPat = { ...data, id: String(Date.now()), createdAt: new Date().toISOString(), idempotencyKey }
-      setPatients(prev => [newPat, ...prev])
-      reset({ consent: { accepted: false, purpose: 'care_delivery' } })
-      setShowModal(false)
+      setSubmitError(friendlyError(err))
     }
   }, [reset])
 
-  useEffect(() => {
-    fetchPatients()
-  }, [fetchPatients])
+  useEffect(() => { fetchPatients() }, [fetchPatients])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPatients(searchQuery)
-    }, 300)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => fetchPatients(searchQuery), 300)
+    return () => clearTimeout(t)
   }, [searchQuery, fetchPatients])
 
+  const hasSearch = searchQuery.trim().length > 0
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="animate-fadein">
+      {/* ── Page header ── */}
+      <div className="page-header">
         <div>
-          <span className="gradient-badge px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">FR-06 Demographics</span>
-          <h1 className="page-title mt-1">Patient Directory</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Search records, WhatsApp consent status, &amp; register new OPD patients.</p>
+          <h1 className="page-title">Patients</h1>
+          <p className="page-description">
+            {loading ? 'Loading patient records…' : `${patients.length} patient${patients.length !== 1 ? 's' : ''} in registry`}
+          </p>
         </div>
-        <button onClick={() => { setViewingPatient(null); reset({ consent: { accepted: false, purpose: 'care_delivery' } }); setShowModal(true); }} className="btn-primary">
-          <PlusIcon className="w-4 h-4" />
-          <span>Register Patient</span>
+        <button
+          id="register-patient-btn"
+          className="btn btn-primary"
+          onClick={() => { setSubmitError(''); setShowRegister(true) }}
+        >
+          <PlusIcon />
+          Register patient
         </button>
       </div>
 
-      <div className="card p-4">
-        <div className="relative max-w-md">
-          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* ── Search ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div className="search-wrap" style={{ maxWidth: 380 }}>
+          <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
-            type="text"
+            id="patient-search"
+            type="search"
+            className="search-input"
+            placeholder="Search by name or phone…"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by patient name or phone number..."
-            className="input-field pl-10"
+            onChange={e => setSearchQuery(e.target.value)}
+            aria-label="Search patients"
           />
         </div>
       </div>
 
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Patient Name</th>
-              <th>Phone</th>
-              <th>Age / Gender</th>
-              <th>Address</th>
-              <th>Idempotency Key</th>
-              <th className="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+      {/* ── Table card ── */}
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-500">Loading patient records...</td>
+                <th>Patient</th>
+                <th>Phone</th>
+                <th>Age / Gender</th>
+                <th>Registered</th>
+                <th />
               </tr>
-            ) : patients.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-500">No patient records found matching "{searchQuery}".</td>
-              </tr>
-            ) : (
-              patients.map((patient) => (
-                <tr key={patient.id}>
-                  <td className="font-semibold text-slate-900">{patient.name}</td>
-                  <td className="mono font-semibold" style={{ color: 'var(--accent)' }}>{patient.phone}</td>
-                  <td>{patient.approxAge ?? patient.age ?? '—'} yrs / <span className="capitalize">{patient.gender}</span></td>
-                  <td className="text-xs text-slate-600 max-w-xs truncate">{patient.address || '—'}</td>
-                  <td><code className="mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{patient.idempotencyKey || 'IDEMP-PAT-OK'}</code></td>
-                  <td className="text-right">
-                    <button onClick={() => fetchPatientById(patient.id)} className="btn-secondary text-xs px-3 py-1.5" aria-label="View Patient Record">
-                      View Profile
-                    </button>
-                  </td>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)}
+            </tbody>
+          </table>
+        ) : patients.length === 0 ? (
+          hasSearch
+            ? <EmptySearch />
+            : (
+              <EmptyState
+                icon={
+                  <svg style={{ width: 48, height: 48 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                }
+                title="No patients yet"
+                description="Register your first patient to get started with the clinic registry."
+                action={
+                  <button className="btn btn-primary btn-sm" onClick={() => setShowRegister(true)}>
+                    Register first patient
+                  </button>
+                }
+              />
+            )
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" aria-label="Patient registry">
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Phone</th>
+                  <th>Age / Gender</th>
+                  <th>Registered</th>
+                  <th aria-label="Actions" />
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-xl card p-6 space-y-6 shadow-2xl">
-            {viewingPatient ? (
-              <PatientDetail patient={viewingPatient} onClose={() => { setViewingPatient(null); setShowModal(false); }} />
-            ) : (
-              <PatientFormModal onSubmit={onSubmit} onClose={() => setShowModal(false)} register={register} handleSubmit={handleSubmit} errors={errors} isSubmitting={isSubmitting} />
-            )}
+              </thead>
+              <tbody>
+                {patients.map(p => (
+                  <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => openPatient(p.id)}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="avatar avatar-sm">{getInitials(p.name)}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: 13.5 }}>{p.name}</div>
+                          <div className="mono" style={{ color: 'var(--color-text-muted)' }}>ID-{p.id.slice(0, 8).toUpperCase()}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="mono">{p.phone}</span>
+                    </td>
+                    <td>
+                      {p.approxAge ? (
+                        <span style={{ color: 'var(--color-text-secondary)' }}>
+                          {p.approxAge}y · {p.gender}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--color-text-muted)' }}>{formatDate(p.createdAt)}</td>
+                    <td>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={e => { e.stopPropagation(); openPatient(p.id) }}
+                        aria-label={`View ${p.name}`}
+                        style={{ padding: '5px 10px', fontSize: 12.5, color: 'var(--brand-primary)' }}
+                      >
+                        View →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PatientFormModal({ onSubmit, onClose, register, handleSubmit, errors, isSubmitting }: any) {
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 font-heading">Register New Patient</h2>
-          <p className="text-xs text-slate-500">FR-06 Demographic Registration</p>
-        </div>
-        <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Full Patient Name *</label>
-          <input {...register('name')} className="input-field" placeholder="e.g. Rahul Sharma" />
-          {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>}
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mobile Phone *</label>
-          <input type="tel" {...register('phone')} className="input-field mono" placeholder="+91 98765 43210" />
-          {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone.message}</p>}
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Gender *</label>
-          <select {...register('gender')} className="input-field">
-            <option value="">Select gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-          {errors.gender && <p className="text-xs text-rose-600 mt-1">{errors.gender.message}</p>}
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Approximate Age</label>
-          <input type="number" {...register('approxAge', { valueAsNumber: true })} className="input-field" placeholder="35" min={0} max={120} />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Date of Birth</label>
-          <input type="date" {...register('dob')} className="input-field" />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Residential Address</label>
-          <textarea {...register('address')} className="input-field resize-none h-20" placeholder="Street address, city" />
-        </div>
-      </div>
-
-      <div className="p-4 rounded-xl bg-teal-50 border border-teal-200 space-y-2">
-        <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider">DPDP Act Consent Declaration</h3>
-        <p className="text-xs text-slate-700 leading-relaxed">
-          I authorize City Care Medical Center to store my demographic record, send WhatsApp notifications, and process invoices.
-        </p>
-        <div className="flex items-center gap-2.5 pt-1">
-          <input type="checkbox" id="dpdpConsent" {...register('consent.accepted')} className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-          <label htmlFor="dpdpConsent" className="text-xs font-semibold text-slate-800">Patient accepted DPDP consent terms *</label>
-        </div>
-        {errors.consent?.accepted && <p className="text-xs text-rose-600">{errors.consent.accepted.message}</p>}
-      </div>
-
-      <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-        <button type="submit" disabled={isSubmitting} className="btn-primary">
-          {isSubmitting ? 'Saving Patient...' : 'Register Patient'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const userRole = String(user?.role || 'doctor').toLowerCase()
-  const isReceptionist = userRole === 'receptionist'
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
-          <span className="gradient-badge px-2.5 py-0.5 rounded-full text-xs font-bold uppercase">Patient Profile</span>
-          <h2 className="text-xl font-bold text-slate-900 font-heading mt-1">{patient.name}</h2>
-          <p className="mono font-semibold text-teal-700">{patient.phone}</p>
-        </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 text-sm">
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-          <p className="text-xs font-semibold text-slate-500 uppercase">Gender &amp; Age</p>
-          <p className="font-semibold text-slate-800 mt-0.5">{patient.gender} • {patient.approxAge || '—'} yrs</p>
-        </div>
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-          <p className="text-xs font-semibold text-slate-500 uppercase">Registration Date</p>
-          <p className="font-semibold text-slate-800 mt-0.5">{new Date(patient.createdAt).toLocaleDateString('en-IN')}</p>
-        </div>
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 sm:col-span-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase">Residential Address</p>
-          <p className="font-semibold text-slate-800 mt-0.5">{patient.address || 'No address specified'}</p>
-        </div>
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 sm:col-span-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase">Offline Idempotency Sync Key (FR-22)</p>
-          <p className="mono text-xs font-semibold text-teal-700 mt-0.5">{patient.idempotencyKey || 'IDEMP-PAT-SYNC-OK'}</p>
-        </div>
-      </div>
-
-      {/* Clinical / Treatment History Section (FR-16) — Hidden for Receptionist */}
-      {!isReceptionist ? (
-        <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-200 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider">Clinical &amp; Treatment History (FR-16)</h3>
-            <span className="status-chip status-chip-completed">Clinical Access Granted</span>
+      {/* ── Register Patient Modal ── */}
+      <Modal
+        open={showRegister}
+        onClose={() => { setShowRegister(false); reset({ consent: { accepted: false, purpose: 'care_delivery' } }); setSubmitError('') }}
+        title="Register new patient"
+        description="Patient data is stored securely under DPDP Act compliance."
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setShowRegister(false); reset({ consent: { accepted: false, purpose: 'care_delivery' } }) }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              form="register-patient-form"
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <span className="spinner spinner-sm" />}
+              {isSubmitting ? 'Registering…' : 'Register patient'}
+            </button>
+          </>
+        }
+      >
+        {submitError && (
+          <div style={{ marginBottom: 16 }}>
+            <Alert variant="error" onDismiss={() => setSubmitError('')}>{submitError}</Alert>
           </div>
-          <div className="space-y-2 text-xs text-slate-700">
-            <div className="p-2.5 rounded-lg bg-white border border-slate-200">
-              <div className="flex justify-between font-semibold text-slate-900">
-                <span>Acute Viral URI (Dr. R. K. Sharma)</span>
-                <span className="mono text-slate-500">{new Date(Date.now() - 86400000 * 5).toLocaleDateString('en-IN')}</span>
-              </div>
-              <p className="text-slate-600 mt-1">Dx: Paracetamol 650mg, Amoxicillin 500mg. Vitals: SpO2 98%, Temp 100.4°F.</p>
+        )}
+
+        <form id="register-patient-form" onSubmit={handleSubmit(onSubmit as any)} noValidate>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {/* Full name */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="reg-name" className="form-label">Full name *</label>
+              <input id="reg-name" className="form-input" {...register('name')} placeholder="Patient's full name" />
+              {errors.name && <p className="form-error">{errors.name.message}</p>}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label htmlFor="reg-phone" className="form-label">Phone number *</label>
+              <input id="reg-phone" className="form-input" {...register('phone')} type="tel" placeholder="+91 98765 43210" />
+              {errors.phone && <p className="form-error">{errors.phone.message}</p>}
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label htmlFor="reg-gender" className="form-label">Gender *</label>
+              <select id="reg-gender" className="form-select" {...register('gender')}>
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
+              {errors.gender && <p className="form-error">{errors.gender.message}</p>}
+            </div>
+
+            {/* DOB */}
+            <div>
+              <label htmlFor="reg-dob" className="form-label">Date of birth</label>
+              <input id="reg-dob" className="form-input" {...register('dob')} type="date" />
+            </div>
+
+            {/* Approx age */}
+            <div>
+              <label htmlFor="reg-age" className="form-label">Approximate age</label>
+              <input id="reg-age" className="form-input" {...register('approxAge')} type="number" min="0" max="150" placeholder="e.g. 35" />
+            </div>
+
+            {/* Address */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="reg-address" className="form-label">Address</label>
+              <textarea id="reg-address" className="form-textarea" {...register('address')} rows={2} placeholder="Street, City" style={{ minHeight: 64 }} />
+            </div>
+
+            {/* Consent */}
+            <div style={{ gridColumn: '1 / -1', padding: '12px 14px', background: 'var(--color-info-bg)', border: '1px solid var(--color-info-border)', borderRadius: 'var(--radius-md)' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <input
+                  id="reg-consent"
+                  type="checkbox"
+                  {...register('consent.accepted')}
+                  style={{ marginTop: 2, accentColor: 'var(--brand-primary)', width: 14, height: 14, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 12.5, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                  Patient has provided verbal or written consent to collect and process their health data for <strong>care delivery</strong> under the DPDP Act, 2023.
+                </span>
+              </label>
+              {errors.consent?.accepted && (
+                <p className="form-error" style={{ marginTop: 6 }}>{errors.consent.accepted.message}</p>
+              )}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-semibold flex items-center justify-between">
-          <span>Clinical &amp; Treatment History (FR-16)</span>
-          <span className="status-chip status-chip-pending">Restricted for Reception Role</span>
-        </div>
-      )}
+        </form>
+      </Modal>
 
-      <div className="flex justify-end border-t border-slate-200 pt-4">
-        <button onClick={onClose} className="btn-secondary">Close Profile</button>
-      </div>
+      {/* ── View Patient Modal ── */}
+      <Modal
+        open={!!viewingPatient}
+        onClose={() => setViewingPatient(null)}
+        title="Patient record"
+        description={viewingPatient?.name}
+      >
+        {viewingPatient && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div className="avatar avatar-lg">{getInitials(viewingPatient.name)}</div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{viewingPatient.name}</div>
+                <div className="mono" style={{ color: 'var(--color-text-muted)', marginTop: 2 }}>ID-{viewingPatient.id.slice(0, 8).toUpperCase()}</div>
+              </div>
+            </div>
+
+            <hr className="divider" />
+
+            <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
+              {[
+                { label: 'Phone', value: viewingPatient.phone },
+                { label: 'Gender', value: viewingPatient.gender },
+                { label: 'Age', value: viewingPatient.approxAge ? `${viewingPatient.approxAge} years` : '—' },
+                { label: 'Date of birth', value: viewingPatient.dob ? formatDate(viewingPatient.dob) : '—' },
+                { label: 'Address', value: viewingPatient.address || '—' },
+                { label: 'Registered', value: formatDate(viewingPatient.createdAt) },
+              ].map(f => (
+                <div key={f.label}>
+                  <dt style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>{f.label}</dt>
+                  <dd style={{ fontSize: 13.5, color: 'var(--color-text)', marginTop: 3, fontWeight: 500 }}>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
 
-function SearchIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-}
-function PlusIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  )
 }

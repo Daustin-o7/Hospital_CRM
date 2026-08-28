@@ -3,15 +3,20 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
+import { Modal } from '../components/ui/Modal'
+import { Alert, friendlyError } from '../components/ui/Alert'
+import { InvoiceBadge } from '../components/ui/Badge'
+import { EmptyState } from '../components/ui/EmptyState'
+import { SkeletonRow } from '../components/ui/Skeleton'
 
+// ── Schema ────────────────────────────────────────────────────────────────────
 const invoiceSchema = z.object({
   appointmentId: z.string().min(1, 'Select an appointment'),
   lineItems: z.array(z.object({
     description: z.string().min(1, 'Description required'),
     amount: z.number().min(0.01, 'Amount must be positive'),
-  })).min(1, 'At least one line item required'),
+  })).min(1, 'At least one line item is required'),
 })
-
 type InvoiceForm = z.infer<typeof invoiceSchema>
 
 interface Invoice {
@@ -27,326 +32,287 @@ interface Invoice {
   paidAt: string | null
 }
 
-interface Payment {
-  paymentId: string
-  invoiceId: string
-  method: string
-  amount: number
-  status: string
-  razorpayPaymentId: string | null
-  createdAt: string
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt = (n: number) => '₹' + n.toLocaleString('en-IN')
+const fmtDate = (iso: string) => {
+  try { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) }
+  catch { return '—' }
 }
 
-const mockInvoices: Invoice[] = [
-  { invoiceId: 'inv-01', invoiceNumber: 'INV-2026-001', patientName: 'Aarav Patel', appointmentDate: new Date().toISOString(), subtotal: 1000, gst: 180, total: 1180, status: 'unpaid', createdAt: new Date().toISOString(), paidAt: null },
-  { invoiceId: 'inv-02', invoiceNumber: 'INV-2026-002', patientName: 'Priya Verma', appointmentDate: new Date().toISOString(), subtotal: 1500, gst: 270, total: 1770, status: 'paid', createdAt: new Date().toISOString(), paidAt: new Date().toISOString() },
-]
-
-const mockPayments: Payment[] = [
-  { paymentId: 'pay-01', invoiceId: 'INV-2026-002', method: 'razorpay', amount: 1770, status: 'captured', razorpayPaymentId: 'pay_Nz82K19A01', createdAt: new Date().toISOString() },
-  { paymentId: 'pay-02', invoiceId: 'INV-2026-000', method: 'cash', amount: 800, status: 'paid', razorpayPaymentId: null, createdAt: new Date(Date.now() - 86400000).toISOString() },
-]
-
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function Billing() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices)
-  const [payments, setPayments] = useState<Payment[]>(mockPayments)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [loading, setLoading]   = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [viewInv, setViewInv]   = useState<Invoice | null>(null)
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}') } catch { return {} } })()
   const userRole = String(user?.role || 'doctor').toLowerCase()
-  const isReceptionist = userRole === 'receptionist'
-  const isDoctor = userRole === 'doctor'
+  const canCreate = ['clinicadmin', 'receptionist'].includes(userRole)
+  const canPay    = ['clinicadmin', 'receptionist', 'doctor'].includes(userRole)
 
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    control,
-    formState: { isSubmitting },
-  } = useForm<InvoiceForm>({
+  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<InvoiceForm>({
     resolver: zodResolver(invoiceSchema),
-    defaultValues: { appointmentId: 'apt-01', lineItems: [{ description: 'OPD Consultation Fee', amount: 800 }, { description: 'Diagnostic Test', amount: 400 }] },
+    defaultValues: { appointmentId: '', lineItems: [{ description: 'OPD Consultation Fee', amount: 800 }] },
   })
-
   const { fields, append, remove } = useFieldArray({ control, name: 'lineItems' })
 
   const fetchInvoices = useCallback(async () => {
-    if (isReceptionist) return // Receptionist does not fetch aggregate dues report
+    setLoading(true)
     try {
-      const res = await api.get('/invoices?status=unpaid')
-      if (res.data && res.data.length > 0) setInvoices(res.data)
-      else setInvoices(mockInvoices)
+      const res = await api.get('/v1/invoices')
+      setInvoices(Array.isArray(res.data) ? res.data : [])
     } catch {
-      setInvoices(mockInvoices)
-    }
-  }, [isReceptionist])
-
-  const fetchPayments = useCallback(async () => {
-    try {
-      const res = await api.get('/payments')
-      if (res.data && res.data.length > 0) setPayments(res.data)
-      else setPayments(mockPayments)
-    } catch {
-      setPayments(mockPayments)
+      setInvoices([])
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   const onSubmit = useCallback(async (data: InvoiceForm) => {
+    setSubmitError('')
+    const sub = data.lineItems.reduce((acc, item) => acc + (item.amount || 0), 0)
+    const gstAmt = Math.round(sub * 0.18)
+    const tot = sub + gstAmt
     try {
-      const sub = data.lineItems.reduce((acc, curr) => acc + (curr.amount || 0), 0)
-      const gstAmt = Math.round(sub * 0.18)
-      const tot = sub + gstAmt
-      await api.post('/invoices', data)
-      const newInv: Invoice = {
+      const res = await api.post('/v1/invoices', data)
+      setInvoices(prev => [res.data ?? {
         invoiceId: `inv-${Date.now()}`,
-        invoiceNumber: `INV-2026-${Math.floor(Math.random() * 900) + 100}`,
-        patientName: 'Aarav Patel',
-        appointmentDate: new Date().toISOString(),
-        subtotal: sub,
-        gst: gstAmt,
-        total: tot,
-        status: 'unpaid',
-        createdAt: new Date().toISOString(),
-        paidAt: null,
-      }
-      setInvoices(prev => [newInv, ...prev])
+        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+        patientName: 'Patient', appointmentDate: new Date().toISOString(),
+        subtotal: sub, gst: gstAmt, total: tot,
+        status: 'pending', createdAt: new Date().toISOString(), paidAt: null,
+      }, ...prev])
       reset()
       setShowModal(false)
-    } catch {
-      const sub = data.lineItems.reduce((acc, curr) => acc + (curr.amount || 0), 0)
-      const gstAmt = Math.round(sub * 0.18)
-      const tot = sub + gstAmt
-      const newInv: Invoice = {
-        invoiceId: `inv-${Date.now()}`,
-        invoiceNumber: `INV-2026-${Math.floor(Math.random() * 900) + 100}`,
-        patientName: 'Aarav Patel',
-        appointmentDate: new Date().toISOString(),
-        subtotal: sub,
-        gst: gstAmt,
-        total: tot,
-        status: 'unpaid',
-        createdAt: new Date().toISOString(),
-        paidAt: null,
-      }
-      setInvoices(prev => [newInv, ...prev])
-      reset()
-      setShowModal(false)
+    } catch (err: any) {
+      setSubmitError(friendlyError(err))
     }
   }, [reset])
 
-  const handleMarkPaid = async (invId: string) => {
+  const handleMarkPaid = async (inv: Invoice) => {
     try {
-      await api.post(`/invoices/${invId}/payment`, { method: 'cash', amount: 1180 })
-      setInvoices(prev => prev.map(inv => inv.invoiceId === invId ? { ...inv, status: 'paid', paidAt: new Date().toISOString() } : inv))
-    } catch {
-      setInvoices(prev => prev.map(inv => inv.invoiceId === invId ? { ...inv, status: 'paid', paidAt: new Date().toISOString() } : inv))
-    }
+      await api.post(`/v1/invoices/${inv.invoiceId}/payment`, { method: 'cash', amount: inv.total })
+      setInvoices(prev => prev.map(i => i.invoiceId === inv.invoiceId ? { ...i, status: 'paid', paidAt: new Date().toISOString() } : i))
+      setViewInv(prev => prev?.invoiceId === inv.invoiceId ? { ...prev, status: 'paid', paidAt: new Date().toISOString() } : prev)
+    } catch {}
   }
 
   const handleRazorpay = (inv: Invoice) => {
-    alert(`Initializing Razorpay Payment Gateway for ${inv.invoiceNumber}\nAmount: ₹${inv.total.toLocaleString('en-IN')}\n\nKeyId: rzp_test_samstack\nCallback: /api/v1/webhooks/razorpay`)
+    alert(`Initializing Razorpay Payment Gateway for ${inv.invoiceNumber}\nAmount: ${fmt(inv.total)}`)
   }
 
-  useEffect(() => {
-    fetchInvoices()
-    fetchPayments()
-  }, [fetchInvoices, fetchPayments])
+  useEffect(() => { fetchInvoices() }, [fetchInvoices])
+
+  const totals = invoices.reduce((acc, inv) => ({
+    revenue: acc.revenue + (inv.status === 'paid' ? inv.total : 0),
+    pending: acc.pending + (['pending', 'unpaid'].includes(inv.status) ? inv.total : 0),
+  }), { revenue: 0, pending: 0 })
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="animate-fadein">
+      {/* ── Page header ── */}
+      <div className="page-header">
         <div>
-          <span className="gradient-badge px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
-            FR-17, FR-18 &amp; FR-19 Billing Engine
-          </span>
-          <h1 className="page-title mt-1">Billing &amp; Payment Counter</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
-            {isReceptionist
-              ? 'Process per-invoice billing & cash/Razorpay payments at the front desk.'
-              : isDoctor
-              ? 'Generate GST invoices & view Outstanding Dues Report for your patients.'
-              : 'Clinic-wide GST invoicing, payment collection, & aggregate dues ledger.'}
-          </p>
+          <h1 className="page-title">Billing & Invoices</h1>
+          <p className="page-description">Generate invoices, track payments, and manage clinic revenue.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
-          <PlusIcon className="w-4 h-4" />
-          <span>Generate Invoice</span>
-        </button>
+        {canCreate && (
+          <button id="create-invoice-btn" className="btn btn-primary" onClick={() => { setSubmitError(''); setShowModal(true) }}>
+            <PlusIcon />
+            New invoice
+          </button>
+        )}
       </div>
 
-      {/* Front Desk Receptionist View banner */}
-      {isReceptionist && (
-        <div className="card p-4 bg-teal-50 border-teal-200">
-          <div className="flex items-center gap-2">
-            <span className="status-chip status-chip-completed">Front Desk Desk</span>
-            <span className="text-xs font-bold text-teal-800 uppercase">FR-17 &amp; FR-18 Active</span>
+      {/* ── Revenue summary ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total revenue', value: loading ? '—' : fmt(totals.revenue), color: 'var(--color-success)' },
+          { label: 'Pending collection', value: loading ? '—' : fmt(totals.pending), color: 'var(--color-warning)' },
+          { label: 'Invoices', value: loading ? '—' : `${invoices.length}`, color: 'var(--color-info)' },
+        ].map(s => (
+          <div key={s.label} className="stat-card">
+            <div className="stat-value" style={{ color: s.color, fontSize: 22 }}>{s.value}</div>
+            <div className="stat-label">{s.label}</div>
           </div>
-          <p className="text-xs text-slate-700 mt-1">
-            Receptionists process per-patient invoices &amp; collect payments. Aggregate Outstanding Dues reports (FR-19) are restricted to Doctor/Admin roles.
-          </p>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Outstanding Dues Report (FR-19) — Hidden for Receptionist */}
-      {!isReceptionist && (
-        <div className="card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="section-title">Outstanding Dues Report (FR-19)</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isDoctor ? 'Scoped to your patients only' : 'Full clinic-wide dues report'}
-              </p>
-            </div>
-            <span className="mono text-xs text-amber-800 font-bold bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-              {invoices.filter(i => i.status === 'unpaid').length} Pending Dues
-            </span>
-          </div>
-
-          <div className="table-container">
-            <table>
+      {/* ── Invoices table ── */}
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <table className="data-table">
+            <thead>
+              <tr><th>Invoice</th><th>Patient</th><th>Date</th><th>Subtotal</th><th>GST</th><th>Total</th><th>Status</th><th aria-label="Actions" /></tr>
+            </thead>
+            <tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)}</tbody>
+          </table>
+        ) : invoices.length === 0 ? (
+          <EmptyState
+            icon={<BillingIcon />}
+            title="No invoices yet"
+            description="Create your first invoice to start tracking clinic revenue."
+            action={canCreate ? <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>Create invoice</button> : undefined}
+          />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" aria-label="Invoices">
               <thead>
                 <tr>
                   <th>Invoice #</th>
                   <th>Patient</th>
+                  <th>Date</th>
                   <th>Subtotal</th>
-                  <th>GST (18%)</th>
-                  <th>Total Amount</th>
+                  <th>GST</th>
+                  <th>Total</th>
                   <th>Status</th>
-                  <th className="text-right">Actions</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.invoiceId}>
-                    <td className="mono font-bold text-slate-800">{inv.invoiceNumber}</td>
-                    <td className="font-semibold text-slate-900">{inv.patientName}</td>
-                    <td className="mono text-slate-700">₹{inv.subtotal.toLocaleString('en-IN')}</td>
-                    <td className="mono text-slate-500">₹{inv.gst.toLocaleString('en-IN')}</td>
-                    <td className="mono font-bold text-slate-900">₹{inv.total.toLocaleString('en-IN')}</td>
+                {invoices.map(inv => (
+                  <tr key={inv.invoiceId} style={{ cursor: 'pointer' }} onClick={() => setViewInv(inv)}>
+                    <td><span className="mono" style={{ fontWeight: 600, color: 'var(--color-text)' }}>{inv.invoiceNumber}</span></td>
+                    <td style={{ fontWeight: 500, color: 'var(--color-text)' }}>{inv.patientName}</td>
+                    <td style={{ color: 'var(--color-text-muted)' }}>{fmtDate(inv.createdAt)}</td>
+                    <td className="mono">{fmt(inv.subtotal)}</td>
+                    <td className="mono" style={{ color: 'var(--color-text-muted)' }}>{fmt(inv.gst)}</td>
+                    <td className="mono" style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 14 }}>{fmt(inv.total)}</td>
+                    <td><InvoiceBadge status={inv.status} /></td>
                     <td>
-                      <span className={inv.status === 'paid' ? 'status-chip status-chip-completed' : 'status-chip status-chip-pending'}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="text-right space-x-2">
-                      {inv.status === 'unpaid' && (
-                        <>
-                          <button onClick={() => handleRazorpay(inv)} className="btn-primary text-xs px-2.5 py-1">
-                            Razorpay Link
-                          </button>
-                          <button onClick={() => handleMarkPaid(inv.invoiceId)} className="btn-secondary text-xs px-2.5 py-1">
-                            Mark Cash Paid
-                          </button>
-                        </>
-                      )}
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={e => { e.stopPropagation(); setViewInv(inv) }}
+                        aria-label={`View invoice ${inv.invoiceNumber}`}
+                        style={{ fontSize: 12.5, color: 'var(--brand-primary)', padding: '5px 10px' }}
+                      >
+                        View →
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Payment Gateway Ledger Section */}
-      <div className="card p-6 space-y-4">
-        <h2 className="section-title">Payment Counter Ledger &amp; Gateway History</h2>
-
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Payment ID</th>
-                <th>Invoice Ref</th>
-                <th>Method</th>
-                <th>Amount</th>
-                <th>Gateway Ref</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((pay) => (
-                <tr key={pay.paymentId}>
-                  <td className="mono text-xs font-semibold text-teal-700">{pay.paymentId}</td>
-                  <td className="mono text-xs text-slate-700">{pay.invoiceId}</td>
-                  <td>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">{pay.method}</span>
-                  </td>
-                  <td className="mono font-bold text-slate-900">₹{pay.amount.toLocaleString('en-IN')}</td>
-                  <td className="mono text-xs text-slate-500">{pay.razorpayPaymentId || 'N/A (Cash)'}</td>
-                  <td>
-                    <span className="status-chip status-chip-completed">{pay.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
 
-      {/* Modal: Generate GST Invoice */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-xl card p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 font-heading">Generate GST Invoice</h2>
-                <p className="text-xs text-slate-500">FR-17 GST Compliant Invoice Engine</p>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      {/* ── Create Invoice Modal ── */}
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); reset(); setSubmitError('') }}
+        title="Create invoice"
+        description="Add line items and generate a new invoice."
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => { setShowModal(false); reset() }} disabled={isSubmitting}>Cancel</button>
+            <button form="create-inv-form" type="submit" className="btn btn-primary" disabled={isSubmitting}>
+              {isSubmitting && <span className="spinner spinner-sm" />}
+              {isSubmitting ? 'Creating…' : 'Create invoice'}
+            </button>
+          </>
+        }
+      >
+        {submitError && <div style={{ marginBottom: 16 }}><Alert variant="error" onDismiss={() => setSubmitError('')}>{submitError}</Alert></div>}
+
+        <form id="create-inv-form" onSubmit={handleSubmit(onSubmit as any)} noValidate>
+          <div style={{ marginBottom: 14 }}>
+            <label htmlFor="inv-appt" className="form-label">Appointment ID *</label>
+            <input id="inv-appt" className="form-input" {...register('appointmentId')} placeholder="apt-xxxxxxxx" />
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label className="form-label" style={{ margin: 0 }}>Line items *</label>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => append({ description: '', amount: 0 })}>
+                + Add item
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Appointment Reference *</label>
-                <select {...register('appointmentId')} className="input-field">
-                  <option value="apt-01">Aarav Patel (09:30 AM)</option>
-                  <option value="apt-02">Priya Verma (10:15 AM)</option>
-                  <option value="apt-04">Sunita Reddy (11:30 AM)</option>
-                </select>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase text-slate-500">Line Items *</label>
-                  <button type="button" onClick={() => append({ description: '', amount: 0 })} className="btn-secondary text-xs py-1 px-2.5">
-                    + Add Item
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {fields.map((field, i) => (
+                <div key={field.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: 8, alignItems: 'start' }}>
+                  <div>
+                    <input className="form-input" {...register(`lineItems.${i}.description`)} placeholder="Description" />
+                  </div>
+                  <div>
+                    <input type="number" className="form-input" {...register(`lineItems.${i}.amount`, { valueAsNumber: true })} placeholder="0" min="0" step="0.01" />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => remove(i)}
+                    aria-label="Remove line item"
+                    style={{ padding: 8, color: 'var(--color-danger-text)', marginTop: 0 }}
+                    disabled={fields.length === 1}
+                  >
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
-
-                {fields.map((field, idx) => (
-                  <div key={field.id} className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    <input {...register(`lineItems.${idx}.description`)} className="input-field text-xs flex-1" placeholder="Service description" />
-                    <input type="number" {...register(`lineItems.${idx}.amount`, { valueAsNumber: true })} className="input-field text-xs w-28 mono" placeholder="Amount (₹)" />
-                    {fields.length > 1 && (
-                      <button type="button" onClick={() => remove(idx)} className="text-xs text-rose-600 hover:text-rose-800 font-semibold p-1">
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-xs space-y-1">
-                <div className="flex justify-between text-slate-700"><span>GST Rate:</span><span className="mono font-semibold">18% CGST + SGST</span></div>
-                <div className="flex justify-between text-slate-700"><span>Idempotency Protection:</span><span className="mono text-teal-800 font-semibold">FR-22 Offline Key Enabled</span></div>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="btn-primary">
-                  {isSubmitting ? 'Creating Invoice...' : 'Generate &amp; Issue Invoice'}
-                </button>
-              </div>
-            </form>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
+      {/* ── View Invoice Modal ── */}
+      <Modal
+        open={!!viewInv}
+        onClose={() => setViewInv(null)}
+        title="Invoice detail"
+        description={viewInv?.invoiceNumber}
+        footer={
+          canPay && viewInv && !['paid'].includes(viewInv.status) ? (
+            <>
+              <button className="btn btn-secondary" onClick={() => handleMarkPaid(viewInv)}>Mark paid (cash)</button>
+              <button className="btn btn-primary" onClick={() => handleRazorpay(viewInv)}>Pay via Razorpay</button>
+            </>
+          ) : undefined
+        }
+      >
+        {viewInv && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
+                  {fmt(viewInv.total)}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                  {fmt(viewInv.subtotal)} + {fmt(viewInv.gst)} GST (18%)
+                </div>
+              </div>
+              <InvoiceBadge status={viewInv.status} />
+            </div>
+
+            <hr className="divider" />
+
+            <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
+              {[
+                { label: 'Invoice number', value: viewInv.invoiceNumber },
+                { label: 'Patient', value: viewInv.patientName },
+                { label: 'Issued', value: fmtDate(viewInv.createdAt) },
+                { label: 'Paid on', value: viewInv.paidAt ? fmtDate(viewInv.paidAt) : '—' },
+              ].map(f => (
+                <div key={f.label}>
+                  <dt style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>{f.label}</dt>
+                  <dd style={{ fontSize: 13.5, color: 'var(--color-text)', marginTop: 3, fontWeight: 500 }}>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
 
-function PlusIcon({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+function PlusIcon() {
+  return <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+}
+function BillingIcon() {
+  return <svg style={{ width: 48, height: 48 }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
 }

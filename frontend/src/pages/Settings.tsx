@@ -168,36 +168,41 @@ export default function Settings() {
 
   if (!profile) {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="card p-6 text-slate-500">Loading clinic settings...</div>
+      <div className="animate-fadein">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Settings</h1>
+            <p className="page-description">Clinic profile, operating hours, holidays, and configuration.</p>
+          </div>
+        </div>
+        <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 14 }}>
+          <span className="spinner spinner-lg" style={{ margin: '0 auto 16px' }} />
+          <div>Loading clinic settings…</div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="animate-fadein" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* ── Page header ── */}
+      <div className="page-header">
         <div>
-          <span className="gradient-badge px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
-            FR-05 Clinic Profile &amp; Hours
-          </span>
-          <h1 className="page-title mt-1">Clinic Settings &amp; Operating Hours</h1>
-          <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-description">
             {isAdmin
-              ? 'Configure clinic profile, working hours (incl. split shifts), holidays, and special opening days.'
-              : 'Read-only view of clinic operating hours, holidays, and special opening days.'}
+              ? 'Configure clinic profile, working hours, holidays, and operating rules.'
+              : 'Read-only view of clinic operating hours, holidays, and configuration.'}
           </p>
         </div>
         {!isAdmin && (
-          <span className="status-chip status-chip-scheduled px-3 py-1 text-xs">Read-Only</span>
+          <span className="badge badge-info">Read-only</span>
         )}
       </div>
 
+      {/* ── Toast notifications ── */}
       {toast && (
-        <div className={`p-4 rounded-xl text-sm font-semibold flex items-center gap-2 ${
-          toast.kind === 'ok' ? 'bg-teal-50 border border-teal-200 text-teal-800' : 'bg-rose-50 border border-rose-200 text-rose-800'
-        }`}>
-          <span>{toast.kind === 'ok' ? '✓' : '⚠'}</span>
+        <div className={`alert alert-${toast.kind === 'ok' ? 'success' : 'error'}`} role="alert">
           <span>{toast.msg}</span>
         </div>
       )}
