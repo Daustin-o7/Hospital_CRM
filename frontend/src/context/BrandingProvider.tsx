@@ -1,52 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import api from '../services/api'
+import {
+  BrandingContext,
+  SAMSTACK_DEFAULTS,
+  type OrganizationBranding,
+} from './BrandingContext'
 
-// ── Types ────────────────────────────────────────────────────────────────────
-export interface OrganizationBranding {
-  organizationName: string
-  organizationType?: 'practitioner' | 'clinic' | 'hospital'
-  logoUrl?: string
-  logoDarkUrl?: string
-  logoLightUrl?: string
-  faviconUrl?: string
-  primaryColor?: string
-  secondaryColor?: string
-  accentColor?: string
-  tagline?: string
-  doctorName?: string
-  address?: string
-  phone?: string
-  email?: string
-  website?: string
-  timezone?: string
-  currency?: string
-  dateFormat?: string
-  timeFormat?: string
-}
-
-const SAMSTACK_DEFAULTS: OrganizationBranding = {
-  organizationName: 'SAMSTACK AI',
-  organizationType: 'clinic',
-  tagline: 'Doctor & Clinic CRM',
-  primaryColor: '#0d9488',
-  secondaryColor: '#0891b2',
-}
-
-// ── Context ──────────────────────────────────────────────────────────────────
-interface BrandingContextValue {
-  branding: OrganizationBranding
-  loading: boolean
-  refresh: () => void
-}
-
-const BrandingContext = createContext<BrandingContextValue>({
-  branding: SAMSTACK_DEFAULTS,
-  loading: false,
-  refresh: () => {},
-})
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-/** Map a hex color to its CSS custom property variants and inject into :root */
 function applyBrandColors(primary?: string, secondary?: string) {
   if (!primary && !secondary) return
   const root = document.documentElement.style
@@ -69,7 +28,6 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-/** Darken a hex color by a fraction (0–1) */
 function darken(hex: string, amount: number): string {
   const clean = hex.replace('#', '')
   const r = Math.max(0, Math.round(parseInt(clean.substring(0, 2), 16) * (1 - amount)))
@@ -78,7 +36,6 @@ function darken(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`
 }
 
-/** Apply branding to document favicon and title */
 function applyDocumentBranding(branding: OrganizationBranding) {
   if (branding.faviconUrl) {
     let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
@@ -94,7 +51,6 @@ function applyDocumentBranding(branding: OrganizationBranding) {
     : 'SAMSTACK AI'
 }
 
-// ── Provider ─────────────────────────────────────────────────────────────────
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const [branding, setBranding] = useState<OrganizationBranding>(SAMSTACK_DEFAULTS)
   const [loading, setLoading] = useState(true)
@@ -133,7 +89,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       applyBrandColors(resolved.primaryColor, resolved.secondaryColor)
       applyDocumentBranding(resolved)
     } catch {
-      // Silently fall back to defaults — non-fatal
+      // Silently fall back to defaults
     } finally {
       setLoading(false)
     }
@@ -148,9 +104,4 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       {children}
     </BrandingContext.Provider>
   )
-}
-
-// ── Hook ─────────────────────────────────────────────────────────────────────
-export function useBranding() {
-  return useContext(BrandingContext)
 }

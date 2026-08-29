@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
+import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -29,7 +30,7 @@ export default function Login() {
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', background: '#f4f6f9' }}>
-      {/* ── Left panel — branding ────────────────────────────── */}
+      {/* ── Left panel — branding with 3D canvas ────────────────────── */}
       <div
         aria-hidden="true"
         style={{
@@ -43,7 +44,10 @@ export default function Login() {
         }}
         className="hide-tablet"
       >
-        {/* Subtle background pattern */}
+        {/* 3D Interactive Medical Canvas */}
+        <Medical3DCanvas />
+
+        {/* Subtle background pattern overlay */}
         <div
           style={{
             position: 'absolute',
@@ -53,6 +57,7 @@ export default function Login() {
               radial-gradient(circle at 80% 20%, rgba(8,145,178,0.15) 0%, transparent 50%)
             `,
             pointerEvents: 'none',
+            zIndex: 1,
           }}
         />
 
