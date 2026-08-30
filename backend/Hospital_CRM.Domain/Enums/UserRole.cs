@@ -4,5 +4,6 @@ public enum UserRole
 {
     ClinicAdmin,
     Doctor,
-    Receptionist
+    Receptionist,
+    PlatformAdmin  // MOD-14: SAMSTACK's own staff — never exposed to clinic users
 }

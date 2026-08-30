@@ -24,10 +24,23 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 2. **No Regulated AI Features**: No clinical decision support, diagnostic AI, OCR, or NLU chatbots (deferred to Track 3 MOD-18/19).
 3. **No Pharmacy Dispensing & Inventory**: Drug SKU management, Schedule H/H1 registers, and distributor purchase orders are deferred to Track 2 (MOD-15/16/17).
 4. **Free-Text Prescriptions Only**: Prescriptions (FR-15) use free-text medicine names, dosages, and durations — no drug autocomplete database in V1.
-5. **Single WhatsApp Flow Only**: Notifications (FR-20/21) support a single template pair (booking confirmation + reminder) — no configurable rules engine (deferred to MOD-13).
-6. **No Speciality EMR Templates**: Consultation notes (FR-14) use generic free-text fields (Chief Complaint, Observations, Diagnosis) — no specialty templates in V1 (deferred to MOD-12).
-7. **Single-Tenant Instance Execution**: Shared SaaS Tier 1 execution only — no dedicated databases or multi-tenant platform administration portals in Phase 1 (deferred to MOD-14).
+5. ~~**Single WhatsApp Flow Only**: Notifications (FR-20/21) support a single template pair (booking confirmation + reminder) — no configurable rules engine (deferred to MOD-13).~~ **RESOLVED 2026-08-30** — MOD-13 shipped; FR-20/21 are now MOD-13 default rules.
+6. ~~**No Speciality EMR Templates**: Consultation notes (FR-14) use generic free-text fields (Chief Complaint, Observations, Diagnosis) — no specialty templates in V1 (deferred to MOD-12).~~ **RESOLVED 2026-08-30** — MOD-12 shipped; 3 built-in templates (Dental/General/Ayurveda) seeded.
+7. **Single-Tenant Instance Execution**: Shared SaaS Tier 1 execution only — no dedicated databases or multi-tenant platform administration portals in Phase 1 (MOD-14 still pending).
 8. **India Region Only**: Payment (Razorpay) and tax (GST) adapters configured for India only — UAE international adapters deferred.
+
+### Phase 2 Pending (Out of Pilot Scope, Deferrable)
+
+**None — all 9 Phase 2 modules shipped.** Voice Agent (MOD-27) is formally Phase 3 per FRD-Phase2 §9.
+
+### Stub vs. Real Integrations
+
+- **WhatsApp**: `StubNotificationService` — logs to console, no actual Meta/BSP API call
+- **Razorpay**: `RazorpayReconciliationWorker` runs but `_keyId/_keySecret` empty, no real webhook endpoint hits
+- **Azure Entra External ID**: not configured; local JWT RS256 with persistent key
+- **Offline sync (FR-22)**: not built; no IndexedDB queue in frontend yet
+- **Lab file storage**: local disk `lab-uploads/`; S3 swap deferred per TRD-Phase2 §3
+- **Platform Admin**: endpoints built and tested; functionally idle until Tier 2 tenancy activates
 
 ---
 
@@ -77,10 +90,11 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 
 ## Last Verified Date
 
-2026-08-26
+2026-08-30
 
 ---
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=44-53)
+- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=44-53) — Out of Scope Section (§5.2)
+- [`docs/samstack-ai-module-registry-v1.2.md`](file://docs/samstack-ai-module-registry-v1.2.md) — Master Module Registry

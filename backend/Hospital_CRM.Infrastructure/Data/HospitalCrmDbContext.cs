@@ -27,6 +27,19 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<InvoiceLineItem> InvoiceLineItems => Set<InvoiceLineItem>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<PrecheckSubmission> PrecheckSubmissions => Set<PrecheckSubmission>();
+    public DbSet<PriorityLog> PriorityLogs => Set<PriorityLog>();
+    public DbSet<ConsultTemplate> ConsultTemplates => Set<ConsultTemplate>();
+    public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
+    public DbSet<NotificationRule> NotificationRules => Set<NotificationRule>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<LabOrder> LabOrders => Set<LabOrder>();
+    public DbSet<LabResult> LabResults => Set<LabResult>();
+    public DbSet<LedgerExpense> LedgerExpenses => Set<LedgerExpense>();
+    public DbSet<ImpersonationLog> ImpersonationLogs => Set<ImpersonationLog>();
+    public DbSet<TenantFeatureFlag> TenantFeatureFlags => Set<TenantFeatureFlag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -255,6 +268,130 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Template).HasMaxLength(100);
             e.Property(x => x.FailedReason).HasMaxLength(500);
             e.HasOne(x => x.Appointment).WithMany().HasForeignKey(x => x.AppointmentId);
+        });
+
+        modelBuilder.Entity<PrecheckSubmission>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.AppointmentId);
+            e.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            e.Property(x => x.ChiefComplaint).HasMaxLength(2000);
+            e.Property(x => x.SymptomDuration).HasMaxLength(500);
+            e.Property(x => x.Medications).HasMaxLength(2000);
+            e.Property(x => x.Allergies).HasMaxLength(1000);
+            e.HasOne(x => x.Appointment).WithOne(a => a.PrecheckSubmission).HasForeignKey<PrecheckSubmission>(x => x.AppointmentId);
+        });
+
+        modelBuilder.Entity<PriorityLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.AppointmentId);
+            e.HasOne(x => x.Appointment).WithMany(a => a.PriorityLogs).HasForeignKey(x => x.AppointmentId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.ChangedBy);
+            e.Property(x => x.ChangedTo).HasMaxLength(20).IsRequired();
+        });
+
+        modelBuilder.Entity<ConsultTemplate>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.Specialty, x.DoctorId });
+            e.Property(x => x.Specialty).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.StructureJson).HasColumnType("jsonb").IsRequired();
+        });
+
+        modelBuilder.Entity<MessageTemplate>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Content).HasMaxLength(2000).IsRequired();
+        });
+
+        modelBuilder.Entity<NotificationRule>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Active });
+            e.Property(x => x.TimingConfigJson).HasColumnType("jsonb").IsRequired();
+            e.HasOne(x => x.Template).WithMany().HasForeignKey(x => x.TemplateId);
+        });
+
+        modelBuilder.Entity<NotificationLog>(e =>
+        {
+            e.Property(x => x.RuleId).IsRequired(false);
+        });
+
+        modelBuilder.Entity<WishlistItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.Property(x => x.Text).HasMaxLength(500).IsRequired();
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
+        });
+
+        modelBuilder.Entity<InventoryItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Active });
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Unit).HasMaxLength(30).IsRequired();
+        });
+
+        modelBuilder.Entity<StockMovement>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ItemId, x.RecordedAt });
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.HasOne(x => x.Item).WithMany(i => i.Movements).HasForeignKey(x => x.ItemId);
+            e.HasOne(x => x.Recorder).WithMany().HasForeignKey(x => x.RecordedBy);
+        });
+
+        modelBuilder.Entity<LabOrder>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
+            e.HasIndex(x => x.ConsultationId);
+            e.Property(x => x.TestName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.HasOne(x => x.Consultation).WithMany().HasForeignKey(x => x.ConsultationId);
+            e.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId);
+            e.HasOne(x => x.Doctor).WithMany().HasForeignKey(x => x.DoctorId);
+        });
+
+        modelBuilder.Entity<LabResult>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.LabOrderId, x.Version });
+            e.Property(x => x.ResultText).HasMaxLength(5000);
+            e.Property(x => x.FileUrl).HasMaxLength(500);
+            e.HasOne(x => x.LabOrder).WithMany(o => o.Results).HasForeignKey(x => x.LabOrderId);
+            e.HasOne(x => x.PreviousVersion).WithMany().HasForeignKey(x => x.PreviousVersionId);
+            e.HasOne(x => x.EnteredByUser).WithMany().HasForeignKey(x => x.EnteredBy);
+        });
+
+        modelBuilder.Entity<LedgerExpense>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ExpenseDate });
+            e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.CategoryOther).HasMaxLength(100).IsRequired();
+            e.HasOne(x => x.Recorder).WithMany().HasForeignKey(x => x.RecordedBy);
+        });
+
+        modelBuilder.Entity<ImpersonationLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.StartedAt });
+            e.Property(x => x.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<TenantFeatureFlag>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.FlagName }).IsUnique();
+            e.Property(x => x.FlagName).HasMaxLength(100).IsRequired();
         });
     }
 }

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -15,10 +16,17 @@ namespace Hospital_CRM.Api.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly INotificationService _notificationService;
+    private readonly PrecheckService _precheckService;
 
-    public AppointmentsController(HospitalCrmDbContext db)
+    public AppointmentsController(
+        HospitalCrmDbContext db,
+        INotificationService notificationService,
+        PrecheckService precheckService)
     {
         _db = db;
+        _notificationService = notificationService;
+        _precheckService = precheckService;
     }
 
     [HttpPost]
@@ -130,8 +138,42 @@ public class AppointmentsController : ControllerBase
             };
 
             _db.Appointments.Add(appointment);
+
+            // Save appointment first so PrecheckService can query it (it checks type and lead time)
             await _db.SaveChangesAsync(ct);
+
+            // FR-23-01: pre-check token generation inside the transaction,
+            // committed atomically with the appointment via the single transaction.
+            string? precheckPlaintext = null;
+            var (plaintext, precheckSubmission) = await _precheckService.GenerateForAppointmentAsync(
+                appointment.Id, clinic.TenantId, ct);
+            precheckPlaintext = plaintext;
+            if (precheckSubmission is not null)
+            {
+                _db.PrecheckSubmissions.Add(precheckSubmission);
+                await _db.SaveChangesAsync(ct);
+            }
             await transaction.CommitAsync(ct);
+
+            // FR-20: notification fire-and-forget after commit. precheckPlaintext is captured
+            // by value in the closure so the scoped DbContext can safely be disposed.
+            var bookedAppointment = appointment;
+            var patient = await _db.Patients.FindAsync([bookedAppointment.PatientId], ct);
+            var clinicName = clinic.Name;
+            var slotDateTime = bookedAppointment.Date.ToDateTime(TimeOnly.Parse(bookedAppointment.TimeSlot));
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var link = precheckPlaintext is null ? null : _precheckService.BuildLink(precheckPlaintext);
+                    if (patient != null)
+                    {
+                        await _notificationService.SendAppointmentConfirmationAsync(
+                            bookedAppointment.Id, patient.Phone, clinicName, slotDateTime, link);
+                    }
+                }
+                catch { /* logged inside the service */ }
+            });
 
             return StatusCode(201, new
             {
@@ -226,7 +268,8 @@ public class AppointmentsController : ControllerBase
             query = query.Where(a => a.DoctorId == doctorId.Value);
 
         var list = await query
-            .OrderBy(a => a.Date)
+            .OrderByDescending(a => a.Priority) // emergency (1) before normal (0)
+            .ThenBy(a => a.Date)
             .ThenBy(a => a.TimeSlot)
             .Select(a => new
             {
@@ -235,6 +278,7 @@ public class AppointmentsController : ControllerBase
                 doctorName = a.Doctor.Name,
                 time = a.TimeSlot,
                 status = a.Status.ToString().ToLower(),
+                priority = a.Priority.ToString().ToLower(),
                 queueToken = a.QueueToken,
                 type = a.Type.ToString().ToLower()
             })
@@ -255,7 +299,44 @@ public class AppointmentsController : ControllerBase
             _ => null
         };
     }
+
+    [HttpPatch("{id:guid}/priority")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> UpdatePriority(Guid id, [FromBody] UpdatePriorityRequest request, CancellationToken ct)
+    {
+        var appointment = await _db.Appointments.FindAsync([id], ct);
+        if (appointment is null)
+            return NotFound(new { error = "appointment_not_found" });
+
+        if (!string.Equals(request.Priority, "emergency", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.Priority, "normal", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "priority_must_be_emergency_or_normal" });
+
+        var newPriority = string.Equals(request.Priority, "emergency", StringComparison.OrdinalIgnoreCase)
+            ? AppointmentPriority.Emergency
+            : AppointmentPriority.Normal;
+
+        if (appointment.Priority == newPriority)
+            return Ok(new { appointmentId = id, priority = newPriority.ToString().ToLower(), unchanged = true });
+
+        var userId = User.GetUserId();
+        appointment.Priority = newPriority;
+
+        _db.PriorityLogs.Add(new PriorityLog
+        {
+            Id = Guid.NewGuid(),
+            AppointmentId = id,
+            ChangedBy = userId!.Value,
+            ChangedTo = newPriority.ToString().ToLower(),
+            ChangedAt = DateTimeOffset.UtcNow
+        });
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { appointmentId = id, priority = newPriority.ToString().ToLower(), unchanged = false });
+    }
 }
 
 public record BookAppointmentRequest(Guid PatientId, Guid DoctorId, string Date, string TimeSlot, string Type);
 public record UpdateAppointmentRequest(string Status);
+public record UpdatePriorityRequest(string Priority);

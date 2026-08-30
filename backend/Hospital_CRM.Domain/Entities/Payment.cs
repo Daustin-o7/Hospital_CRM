@@ -21,7 +21,8 @@ public class Payment
     public string? IdempotencyKey { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; }
-    
+    public DateTimeOffset? PaidAt { get; set; }
+
     // Navigation
     public virtual Invoice Invoice { get; set; } = null!;
 }

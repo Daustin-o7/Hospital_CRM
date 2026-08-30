@@ -16,15 +16,19 @@ public class StubNotificationService : INotificationService
         _logger = logger;
     }
 
-    public async Task SendAppointmentConfirmationAsync(Guid appointmentId, string patientPhone, string clinicName, DateTime dateTime)
+    public async Task SendAppointmentConfirmationAsync(Guid appointmentId, string patientPhone, string clinicName, DateTime dateTime, string? precheckLink = null)
     {
         var message = $"Your appointment at {clinicName} is confirmed for {dateTime:dd MMM yyyy hh:mm tt}.";
+        if (!string.IsNullOrEmpty(precheckLink))
+            message += $" Please fill out the pre-visit form: {precheckLink}";
         await LogNotificationAsync(appointmentId, patientPhone, message, "appointment_confirmation");
     }
 
-    public async Task SendAppointmentReminderAsync(Guid appointmentId, string patientPhone, string clinicName, DateTime dateTime)
+    public async Task SendAppointmentReminderAsync(Guid appointmentId, string patientPhone, string clinicName, DateTime dateTime, string? precheckLink = null)
     {
         var message = $"Reminder: You have an appointment at {clinicName} tomorrow at {dateTime:hh:mm tt}.";
+        if (!string.IsNullOrEmpty(precheckLink))
+            message += $" Pre-visit form: {precheckLink}";
         await LogNotificationAsync(appointmentId, patientPhone, message, "appointment_reminder");
     }
 

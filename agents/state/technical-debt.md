@@ -38,7 +38,27 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
 4. **HTTP Polling for Schedule & Queue Updates**:
    - *Item*: Daily schedule auto-refresh (FR-11) uses simple HTTP polling instead of WebSockets / SignalR.
    - *Status*: Accepted technical debt per ponytail discipline. Polling is sufficient for OPD queue scale.
-   - *Action*: Evaluate SignalR / WebSockets if live ticket tracking (MOD-25) or high-concurrency clinic demand requires sub-second updates.
+   - *Action*: Evaluate SignalR / WebSockets if live ticket tracking (MOD-25) or high-concurrency clinic demand requires sub-second updates. **MOD-25 still uses polling** — same 30s pattern, no SignalR.
+
+5. **`NotificationRulesWorker` on `BackgroundService` instead of Hangfire** (ADR-09):
+   - *Item*: Phase 2 MOD-13 rule evaluation uses .NET `BackgroundService` + `PeriodicTimer` rather than Hangfire.
+   - *Status*: Accepted for one job. Stdlib, zero new deps. Acceptable for pilot.
+   - *Action*: Migrate to Hangfire when scheduled job count > 3 (likely after MOD-08 adds lab-result notification rules, or MOD-11 ledger reconciliation).
+
+6. **WhatsApp / Razorpay / Entra External ID all stub**:
+   - *Item*: `StubNotificationService` logs to console; Razorpay keys empty; Entra External ID not configured.
+   - *Status*: Known stub for pilot. Real integrations deferred until pilot clinic names vendor accounts.
+   - *Action*: Replace stubs per `samstack-implementation-reference.md` patterns before pilot launch.
+
+7. **Offline sync (FR-22) not built**:
+   - *Item*: No IndexedDB queue in frontend; no idempotency-key handling for offline registration/billing.
+   - *Status*: Deferred from Phase 1. PWA offline tolerance is a Track 1 Fast-Follow.
+   - *Action*: Build when pilot clinics report connectivity issues, or per FR-22 acceptance criteria when prioritized.
+
+8. **Reminder link token discarded after creation**:
+   - *Item*: `PrecheckService.GenerateForAppointmentAsync` generates a plaintext token, embeds it in the WhatsApp message, then discards. If the patient loses the link, the link can't be re-derived. Reminder messages can only show "fill the pre-visit form" without a working URL.
+   - *Status*: Accepted for now. Out-of-band recovery not in MOD-23 scope.
+   - *Action*: If patient loss-rate of precheck links is high in pilot, consider an `outbox` table that retains the last 7 days of plaintext tokens keyed by appointment, or an admin "resend link" action.
 
 ---
 
@@ -87,11 +107,12 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
 
 ## Last Verified Date
 
-2026-08-26
+2026-08-30
 
 ---
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=100-115)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=680-681)
+- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=100-115) — Contradictions Section (§9)
+- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=680-681) — Provisional Retention Note
+- `memory.md` — Session working memory
