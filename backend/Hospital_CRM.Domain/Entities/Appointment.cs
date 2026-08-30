@@ -15,6 +15,7 @@ public class Appointment
     public string TimeSlot { get; set; } = string.Empty; // e.g. "10:30"
     public AppointmentType Type { get; set; }
     public AppointmentStatus Status { get; set; }
+    public AppointmentPriority Priority { get; set; } = AppointmentPriority.Normal;
     public int? QueueToken { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; }
@@ -26,4 +27,6 @@ public class Appointment
     public virtual Clinic Clinic { get; set; } = null!;
     public virtual ICollection<AppointmentHistory> History { get; set; } = [];
     public virtual ICollection<Consultation> Consultations { get; set; } = [];
+    public virtual ICollection<PriorityLog> PriorityLogs { get; set; } = [];
+    public virtual PrecheckSubmission? PrecheckSubmission { get; set; }
 }

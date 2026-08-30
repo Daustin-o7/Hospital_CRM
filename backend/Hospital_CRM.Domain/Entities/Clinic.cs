@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
@@ -91,6 +92,12 @@ public class Clinic
     public decimal DefaultConsultationFee { get; set; } = 0m;
     public decimal DefaultGstRate { get; set; } = 18.0m;
     public bool DefaultInvoiceStatus { get; set; } = false;
+
+    // MOD-14: Platform-admin-controlled subscription fields
+    public SubscriptionTier SubscriptionTier { get; set; } = SubscriptionTier.Trial;
+    public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.Active;
+    public string ActivatedModules { get; set; } = "core";  // comma-separated: core,lab,inventory,finance,wishlist,emergency,precheck,notifications
+    public DateTimeOffset? SubscriptionEndsAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

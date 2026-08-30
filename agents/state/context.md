@@ -19,8 +19,8 @@ Covers the overall SAMSTACK AI codebase state as of 26 August 2026.
 ## Verified Information
 
 - **Project Name**: SAMSTACK AI (Doctor/Clinic CRM) - `Hospital_CRM`
-- **Active Phase**: Phase 1 — Track 1 (CRM + Billing), OPD Clinics, Shared SaaS Tier, India Region.
-- **Repository Readiness**: Complete implementation package ready for Phase 1 build kickoff. Specifications, architecture reference, tooling guidelines, FRD v1.1, and discovery survey evidence (n=24) are fully finalized.
+- **Active Phase**: Phase 2 Track 1 Fast-Follow (6 of 11 modules shipped).
+- **Repository Readiness**: Phase 1 (FR-01–22) complete with seed data. Phase 2 partially shipped (MOD-23, 24, 25, 12, 13 + Phase 1 FR-20/21 migration to MOD-13). 5 modules remaining (MOD-08, 09, 10, 11, 14).
 - **Target Pilot Milestone**: Land 3–5 paying pilot clinics on Phase 1 within ~10 weeks of build start.
 
 ---
@@ -31,43 +31,52 @@ Covers the overall SAMSTACK AI codebase state as of 26 August 2026.
 
 ```
 Hospital_CRM/
-├── samstack-ai-frd-phase1-FINAL.md       # Master Functional Specification (FR-01 to FR-22)
+├── samstack-ai-frd-phase1-FINAL.md       # Phase 1 Master FRD (FR-01 to FR-22)
+├── FRD-Phase-2-FINAL.md                  # Phase 2 FRD (MOD-08/09/10/11/12/13/14/23/24/25)
+├── TRD-Phase2-V1.md                      # Phase 2 TRD (Hangfire, blob storage)
+├── PRD-Phase2-V1.md                      # Phase 2 PRD with journey stories
 ├── AGENTS.md                             # Agent Ground Rules & Stack Constraints
 ├── CLAUDE.md                             # Host Notes & Ponytail Review Setup
 ├── TOOLING-SETUP.md                      # Tooling Setup & Decision Ladder
 ├── samstack-implementation-reference.md  # Razorpay / WhatsApp / JWT / Sync Reference
 ├── docs/                                 # Strategy, Sharpened Plan, Survey Analysis (n=24)
-└── agents/                               # Single Source of Truth AI Context System
+├── agents/                               # Single Source of Truth AI Context System
+├── backend/                              # .NET 10 implementation (Phase 1 + Phase 2)
+└── frontend/                             # React 19 PWA
 ```
 
 ---
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Master FRD
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md) — Project Brief & Rules
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Implementation Reference
+- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md) — Phase 1 Master FRD
+- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD
+- [`AGENTS.md`](file://AGENTS.md) — Project Brief & Rules
+- [`samstack-implementation-reference.md`](file://samstack-implementation-reference.md) — Implementation Reference
 
 ---
 
 ## Dependencies
 
-- Managed Azure Entra External ID OIDC setup
-- PostgreSQL 16+ database host
-- Razorpay Merchant Account
-- Meta / BSP WhatsApp Business API Account
+- Managed Azure Entra External ID OIDC setup (not yet — using local JWT RS256 with persistent key)
+- PostgreSQL 16+ database host ✅
+- Razorpay Merchant Account (not yet — stub)
+- Meta / BSP WhatsApp Business API Account (not yet — stub)
 
 ---
 
 ## Risks
 
-- **Scope Drift**: Committing engineering effort to Track 2 (Pharmacy), Track 3 (AI), or Track 4 (IPD) before Phase 1 pilot completion.
+- **Scope Drift**: Adding features not in FRD-Phase-2 § MOD-08/09/10/11/14 sections.
+- **Phase 1 Regression**: MOD-13 migration of FR-20/21 to rules-based must not break the existing booking/reminder flow (verified — defaults seeded, Phase 1 path still works).
 
 ---
 
 ## Future Improvements
 
-- Post-pilot expansion to Track 1 Fast-Follows (MOD-23 Pre-Check, MOD-24 Emergency Queue, MOD-25 Live Ticket).
+- Hangfire migration for `NotificationRulesWorker` when job count > 3.
+- Blob storage choice for MOD-08 lab result file uploads.
+- MOD-11 Finance Ledger scope review (defer past pilot if needed).
 
 ---
 
@@ -79,11 +88,11 @@ Hospital_CRM/
 
 ## Last Verified Date
 
-2026-08-26
+2026-08-30
 
 ---
 
 ## Verification Source
 
-- [`README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/README.md)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
+- [`README.md`](file://README.md)
+- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md)
