@@ -34,6 +34,7 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<NotificationRule> NotificationRules => Set<NotificationRule>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<LabOrder> LabOrders => Set<LabOrder>();
     public DbSet<LabResult> LabResults => Set<LabResult>();
     public DbSet<LedgerExpense> LedgerExpenses => Set<LedgerExpense>();

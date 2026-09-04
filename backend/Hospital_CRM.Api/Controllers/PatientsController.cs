@@ -83,18 +83,38 @@ public class PatientsController : ControllerBase
         _db.PatientConsents.Add(consent);
         await _db.SaveChangesAsync(ct);
 
-        return StatusCode(201, new { patientId = patient.Id, possibleDuplicateOf = (Guid?)null });
+        return StatusCode(201, new
+        {
+            id = patient.Id,
+            name = patient.Name,
+            phone = patient.Phone,
+            gender = patient.Gender.ToString(),
+            dob = patient.Dob?.ToString("yyyy-MM-dd"),
+            approxAge = patient.ApproxAge,
+            address = patient.Address,
+            createdAt = patient.CreatedAt,
+            patientId = patient.Id,
+            possibleDuplicateOf = (Guid?)null
+        });
     }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetAll(CancellationToken ct) => await Search(null, ct);
 
     [HttpGet("search")]
     [Authorize]
-    public async Task<IActionResult> Search([FromQuery] string q, CancellationToken ct)
+    public async Task<IActionResult> Search([FromQuery] string? q, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(q) || q.Length < 3)
-            return BadRequest(new { error = "query_must_be_at_least_3_characters" });
+        var queryable = _db.Patients.AsNoTracking().AsQueryable();
 
-        var patients = await _db.Patients
-            .Where(p => p.Name.Contains(q) || p.Phone.StartsWith(q))
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var cleanQ = q.Trim().ToLower();
+            queryable = queryable.Where(p => p.Name.ToLower().Contains(cleanQ) || p.Phone.Contains(cleanQ));
+        }
+
+        var patients = await queryable
             .OrderBy(p => p.Name)
             .Take(50)
             .Select(p => new
@@ -102,6 +122,11 @@ public class PatientsController : ControllerBase
                 id = p.Id,
                 name = p.Name,
                 phone = p.Phone,
+                gender = p.Gender.ToString(),
+                dob = p.Dob.HasValue ? p.Dob.Value.ToString("yyyy-MM-dd") : null,
+                approxAge = p.ApproxAge,
+                address = p.Address,
+                createdAt = p.CreatedAt,
                 age = p.Dob.HasValue
                     ? DateOnly.FromDateTime(DateTime.Today).Year - p.Dob.Value.Year
                     : p.ApproxAge ?? 0
