@@ -17,10 +17,13 @@ public class NotificationLog
     
     public DateTimeOffset? SentAt { get; set; }
     public DateTimeOffset? DeliveredAt { get; set; }
-    
+
     [MaxLength(500)]
     public string? FailedReason { get; set; }
-    
+
+    // MOD-13: nullable so Phase 1 FR-20/21 sends (no rule) still work
+    public Guid? RuleId { get; set; }
+
     // Navigation
     public virtual Appointment Appointment { get; set; } = null!;
 }

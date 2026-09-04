@@ -50,6 +50,31 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 - **Rationale**: WhatsApp API rate limits or outages must never cause appointment booking transactions to roll back (FR-20, Strategy v0.5 §5).
 - **Status**: Finalized.
 
+#### ADR-07: Persistent RS256 Key Storage (Hybrid)
+- **Decision**: Per-environment key management — `PemFileKeyService` (local dev, auto-generates PEM on first run) + `AzureKeyVaultKeyService` (production, `CryptographyClient.SignAsync()`, private key never leaves vault). Selected by `Jwt:KeySource` config.
+- **Rationale**: Private key never leaves HSM-bound vault in production. Local dev doesn't need Azure dependency. Same JWT validation code path (RS256/JWKS) either way.
+- **Status**: Finalized 2026-08-29.
+
+#### ADR-08: `IPostConfigureOptions<JwtBearerOptions>` over `BuildServiceProvider` Anti-Pattern
+- **Decision**: Use `IPostConfigureOptions<JwtBearerOptions>` to inject `IRsaKeyService` into JWT bearer configuration.
+- **Rationale**: `BuildServiceProvider()` inside `AddJwtBearer` is a known .NET DI anti-pattern — creates a second container that doesn't see scoped services. `IPostConfigureOptions` is the canonical fix.
+- **Status**: Finalized 2026-08-29.
+
+#### ADR-09: BackgroundService over Hangfire for MOD-13 NotificationRulesWorker
+- **Decision**: Single-job scheduled evaluation uses `BackgroundService` with `PeriodicTimer` (5-min interval) rather than introducing Hangfire dependency.
+- **Rationale**: One job doesn't justify a full Hangfire instance (PostgreSQL schema + dashboard). `BackgroundService` is stdlib, zero new deps. Hangfire migration remains an option if job count grows.
+- **Status**: Finalized 2026-08-30. Revisit at job count > 3.
+
+#### ADR-10: MOD-23 Pre-Check Token in Same Transaction as Appointment Booking
+- **Decision**: `PrecheckService.GenerateForAppointmentAsync` returns entity without saving; `AppointmentsController.Book` adds both `Appointment` + `PrecheckSubmission` to DbContext and calls `SaveChangesAsync` once within the transaction. Two SaveChanges calls (appointment first, then precheck) inside one transaction.
+- **Rationale**: First version tried `PrecheckService` saving internally — broke because precheck lookup happened before appointment was committed. Atomicity required for both-or-neither behavior. Captured `precheckPlaintext` by value in closure for post-commit notification.
+- **Status**: Finalized 2026-08-30.
+
+#### ADR-11: `PrecheckReviewController` Extracted to Own File with Direct Route
+- **Decision**: Move `PrecheckReviewController` (was nested in `PrecheckController.cs`) to its own file. Both controllers now use direct lowercase routes (`api/v1/precheck`, `api/v1/appointments`) instead of `[Route("api/v1/[controller]")]`.
+- **Rationale**: The `[controller]` token preserves the controller class name case in the route template, which made lowercase URLs return 404. Combined with the two class-level `[Route]` attributes on the old `PrecheckController.cs` (which also registered `api/v1/appointments` and conflicted with `AppointmentsController`), the routing system became inconsistent. Direct lowercase routes are explicit and match every other controller in the codebase.
+- **Status**: Finalized 2026-08-30.
+
 ---
 
 ## Implementation Details
@@ -106,11 +131,12 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 
 ## Last Verified Date
 
-2026-08-26
+2026-08-30
 
 ---
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=100-115)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=100-115) — Resolved Contradictions (§9)
+- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD
+- [`samstack-implementation-reference.md`](file://samstack-implementation-reference.md) — Cross-Cutting Patterns

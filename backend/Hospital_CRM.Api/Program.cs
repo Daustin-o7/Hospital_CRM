@@ -107,6 +107,15 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
 builder.Services.AddHostedService<ReminderSchedulerService>();
 
+// MOD-23 (Phase 2): pre-check link generation / submission lookup
+builder.Services.AddScoped<PrecheckService>();
+
+// FR-18 edge case (Phase 1): Razorpay reconciliation worker
+builder.Services.AddHostedService<RazorpayReconciliationWorker>();
+
+// MOD-13 (Phase 2): notification rules engine worker (FR-13-03)
+builder.Services.AddHostedService<NotificationRulesWorker>();
+
 var app = builder.Build();
 
 // Load the persistent RS256 key BEFORE serving any traffic.
@@ -144,6 +153,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
+
+// MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
+var labUploadDir = Path.Combine(builder.Environment.ContentRootPath, "lab-uploads");
+Directory.CreateDirectory(labUploadDir);
+app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(labUploadDir),
+    RequestPath = "/lab-uploads"
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<InactivityMiddleware>();
@@ -205,6 +224,22 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(receptionist);
+
+    // MOD-14: SAMSTACK's own platform admin — separate from clinic users.
+    // TenantId is empty (no clinic), ClinicId is null (no clinic association).
+    var platformAdmin = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "platform-admin@samstack.ai",
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PlatformAdminPass123!"),
+        Name = "SAMSTACK Platform Admin",
+        Role = UserRole.PlatformAdmin,
+        ClinicId = null,
+        TenantId = Guid.Empty,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(platformAdmin);
 
     // Seed: configure all 7 days (Monday=1, Tuesday=2, ..., Sunday=0).
     // Sunday is a first-class configurable day (may be open or closed per clinic).
@@ -351,6 +386,95 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         CreatedAt = DateTimeOffset.UtcNow
     };
     db.Appointments.Add(checkedInAppointment);
+
+    // MOD-12: Three built-in consult templates — Dental, General/Family, Ayurveda/AYUSH
+    // (from survey-analysis-v2 actual specialty distribution: 25%/17%/17%)
+    var templates = new[]
+    {
+        new ConsultTemplate
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            DoctorId = null,
+            Specialty = "dental",
+            Name = "Dental — Standard Exam",
+            IsBuiltIn = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            StructureJson = "{\"sections\":[{\"key\":\"chief_complaint\",\"label\":\"Chief Complaint\",\"type\":\"text\",\"placeholder\":\"e.g. pain in upper right molar\"},{\"key\":\"dental_history\",\"label\":\"Dental History\",\"type\":\"textarea\",\"placeholder\":\"Previous treatments, allergies to anaesthetic, brushing frequency\"},{\"key\":\"examination\",\"label\":\"Examination Findings\",\"type\":\"textarea\",\"placeholder\":\"Caries, mobility, percussion, palpation, periodontal status\"},{\"key\":\"investigation\",\"label\":\"Investigations Ordered\",\"type\":\"text\",\"placeholder\":\"e.g. IOPAR, OPG, pulp vitality test\"},{\"key\":\"diagnosis\",\"label\":\"Diagnosis\",\"type\":\"text\"},{\"key\":\"treatment_plan\",\"label\":\"Treatment Plan\",\"type\":\"textarea\"},{\"key\":\"prescription\",\"label\":\"Prescription\",\"type\":\"textarea\"},{\"key\":\"advice\",\"label\":\"Patient Advice\",\"type\":\"textarea\",\"placeholder\":\"Oral hygiene, follow-up date, dietary advice\"}]}"
+        },
+        new ConsultTemplate
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            DoctorId = null,
+            Specialty = "general",
+            Name = "General / Family Medicine — Standard Consult",
+            IsBuiltIn = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            StructureJson = "{\"sections\":[{\"key\":\"chief_complaint\",\"label\":\"Chief Complaint\",\"type\":\"text\",\"placeholder\":\"e.g. fever for 3 days\"},{\"key\":\"hpi\",\"label\":\"History of Present Illness\",\"type\":\"textarea\",\"placeholder\":\"Onset, duration, character, relieving/aggravating factors\"},{\"key\":\"pmh\",\"label\":\"Past Medical History\",\"type\":\"textarea\",\"placeholder\":\"Comorbidities, prior surgeries, current medications\"},{\"key\":\"examination\",\"label\":\"General / Systemic Examination\",\"type\":\"textarea\",\"placeholder\":\"Vitals, general appearance, system-wise findings\"},{\"key\":\"investigation\",\"label\":\"Investigations Ordered\",\"type\":\"text\"},{\"key\":\"diagnosis\",\"label\":\"Diagnosis\",\"type\":\"textarea\"},{\"key\":\"treatment_plan\",\"label\":\"Treatment Plan\",\"type\":\"textarea\"},{\"key\":\"prescription\",\"label\":\"Prescription\",\"type\":\"textarea\"},{\"key\":\"advice\",\"label\":\"Patient Advice\",\"type\":\"textarea\",\"placeholder\":\"Diet, activity, warning signs, follow-up\"}]}"
+        },
+        new ConsultTemplate
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            DoctorId = null,
+            Specialty = "ayurveda",
+            Name = "Ayurveda / AYUSH — Panchakarma Consult",
+            IsBuiltIn = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            StructureJson = "{\"sections\":[{\"key\":\"chief_complaint\",\"label\":\"Chief Complaint (Pradhan Vedana)\",\"type\":\"text\"},{\"key\":\"hetu\",\"label\":\"Hetu (Causative Factors)\",\"type\":\"textarea\",\"placeholder\":\"Ahara, Vihara, seasonal triggers\"},{\"key\":\"prakriti\",\"label\":\"Prakriti Assessment\",\"type\":\"text\",\"placeholder\":\"Vata / Pitta / Kapha dominant\"},{\"key\":\"vikriti\",\"label\":\"Vikriti (Current Imbalance)\",\"type\":\"textarea\",\"placeholder\":\"Agni, Dosha vitiation, Srotas involved\"},{\"key\":\"examination\",\"label\":\"Examination (Ashta Vidha Pariksha)\",\"type\":\"textarea\",\"placeholder\":\"Nadi, Mutra, Mala, Jihva, Shabda, Sparsha, Drik, Akriti\"},{\"key\":\"diagnosis\",\"label\":\"Diagnosis (Samprapti)\",\"type\":\"textarea\"},{\"key\":\"treatment_plan\",\"label\":\"Chikitsa (Treatment Plan)\",\"type\":\"textarea\",\"placeholder\":\"Samshodhana / Shamana, diet, lifestyle\"},{\"key\":\"prescription\",\"label\":\"Aushadha (Prescription)\",\"type\":\"textarea\",\"placeholder\":\"Classical formulation, dose, anupana, duration\"},{\"key\":\"advice\",\"label\":\"Pathya-Apathya (Do's and Don'ts)\",\"type\":\"textarea\"}]}"
+        }
+    };
+    db.ConsultTemplates.AddRange(templates);
+
+    // MOD-13: Phase 1 FR-20/21 message templates (now first-class, approval-pending until Meta confirms)
+    var msgTplConfirmation = new MessageTemplate
+    {
+        Id = Guid.NewGuid(),
+        TenantId = Guid.Empty,
+        Name = "FR-20 Appointment Confirmation",
+        Channel = NotificationChannel.WhatsApp,
+        Content = "Your appointment at {{clinic_name}} is confirmed for {{date}} at {{time}}.",
+        ApprovalStatus = TemplateApprovalStatus.Pending,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+    var msgTplReminder = new MessageTemplate
+    {
+        Id = Guid.NewGuid(),
+        TenantId = Guid.Empty,
+        Name = "FR-21 Appointment Reminder (1 day before)",
+        Channel = NotificationChannel.WhatsApp,
+        Content = "Reminder: You have an appointment at {{clinic_name}} tomorrow at {{time}}.",
+        ApprovalStatus = TemplateApprovalStatus.Pending,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+    db.MessageTemplates.AddRange(msgTplConfirmation, msgTplReminder);
+
+    // MOD-13: default rules that match Phase 1's FR-20/21 flow (so it's not lost)
+    var defaultRules = new[]
+    {
+        new NotificationRule
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            RuleType = NotificationRuleType.AppointmentConfirmation,
+            TimingConfigJson = "{}",
+            TemplateId = msgTplConfirmation.Id,
+            Active = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        },
+        new NotificationRule
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            RuleType = NotificationRuleType.AppointmentReminder,
+            TimingConfigJson = "{\"daysBefore\":1}",
+            TemplateId = msgTplReminder.Id,
+            Active = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        }
+    };
+    db.NotificationRules.AddRange(defaultRules);
 
     await db.SaveChangesAsync();
     Log.Information("Development seed data created successfully.");
