@@ -383,9 +383,12 @@ const TRUST_BADGES = [
 ]
 
 const DEV_PRESETS = [
-  { label: 'Admin',     email: 'admin@samstack.ai',     pass: 'AdminPass123!' },
-  { label: 'Doctor',    email: 'doctor@samstack.ai',    pass: 'DoctorPass123!' },
-  { label: 'Reception', email: 'reception@samstack.ai', pass: 'ReceptPass123!' },
+  { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!' },
+  { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!' },
+  { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!' },
+  { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!' },
+  { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!' },
+  { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!' },
 ]
 
 // ── Inline icons ──────────────────────────────────────────────────────────────
