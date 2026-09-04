@@ -243,16 +243,17 @@ public class InvoicesController : ControllerBase
             .AsQueryable();
 
         // Doctor sees only their invoices; Receptionist & Admin can view list (FR-17/18/19)
+        // Note: Pharmacy invoices have AppointmentId = null, filter them out for doctor-scoped queries
         if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(i => i.Appointment.DoctorId == userId.Value);
+            query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == userId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))
             query = query.Where(i => i.Status == statusEnum);
 
         if (doctorId.HasValue)
-            query = query.Where(i => i.Appointment.DoctorId == doctorId.Value);
+            query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == doctorId.Value);
 
         var invoices = await query
             .OrderByDescending(i => i.CreatedAt)
@@ -260,7 +261,7 @@ public class InvoicesController : ControllerBase
             {
                 invoiceId = i.Id,
                 invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                patientName = i.Appointment.Patient.Name,
+                patientName = i.Appointment != null ? i.Appointment.Patient.Name : (i.WalkInCustomerName ?? "Walk-in Customer"),
                 total = i.Total,
                 status = i.Status.ToString().ToLower(),
                 createdAt = i.CreatedAt

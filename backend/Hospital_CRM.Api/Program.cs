@@ -82,8 +82,12 @@ builder.Services.AddAuthorization(options =>
         p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor")));
     options.AddPolicy("AdminOrReceptionist", p =>
         p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Receptionist")));
+    options.AddPolicy("PharmacyAccess", p =>
+        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Pharmacist", "Doctor", "Receptionist", "Nurse")));
+    options.AddPolicy("PharmacistOnly", p =>
+        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Pharmacist")));
     options.AddPolicy("AllRoles", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor", "Receptionist")));
+        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor", "Receptionist", "Pharmacist", "Nurse")));
 });
 
 builder.Services.AddSingleton<IAuthorizationHandler, RbacHandler>();
@@ -142,11 +146,55 @@ if (app.Environment.IsDevelopment())
         await db.Database.MigrateAsync();
         await SeedDevelopmentDataAsync(db);
     }
-    else if (!await db.Users.AnyAsync())
+    else
     {
-        Log.Information("Seeding initial development data...");
         await db.Database.MigrateAsync();
-        await SeedDevelopmentDataAsync(db);
+        if (!await db.Users.AnyAsync())
+        {
+            Log.Information("Seeding initial development data...");
+            await SeedDevelopmentDataAsync(db);
+        }
+        else
+        {
+            if (!await db.Users.AnyAsync(u => u.Role == UserRole.Pharmacist))
+            {
+                var clinic = await db.Clinics.FirstOrDefaultAsync();
+                if (clinic != null)
+                {
+                    db.Users.Add(new User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = "pharmacist@samstack.ai",
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
+                        Name = "Pharmacist Alex",
+                        Role = UserRole.Pharmacist,
+                        ClinicId = clinic.Id,
+                        TenantId = Guid.Empty,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                    db.Users.Add(new User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = "nurse@samstack.ai",
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
+                        Name = "Nurse Joy",
+                        Role = UserRole.Nurse,
+                        ClinicId = clinic.Id,
+                        TenantId = Guid.Empty,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                }
+            }
+            if (!await db.Drugs.AnyAsync())
+            {
+                Log.Information("Seeding Track 2 Pharmacy Catalog...");
+                await SeedPharmacyDataAsync(db);
+                await db.SaveChangesAsync();
+            }
+        }
     }
     app.MapOpenApi();
 }
@@ -240,6 +288,34 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(platformAdmin);
+
+    var pharmacist = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "pharmacist@samstack.ai",
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
+        Name = "Pharmacist Alex",
+        Role = UserRole.Pharmacist,
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(pharmacist);
+
+    var nurse = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "nurse@samstack.ai",
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
+        Name = "Nurse Joy",
+        Role = UserRole.Nurse,
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(nurse);
 
     // Seed: configure all 7 days (Monday=1, Tuesday=2, ..., Sunday=0).
     // Sunday is a first-class configurable day (may be open or closed per clinic).
@@ -477,5 +553,170 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     db.NotificationRules.AddRange(defaultRules);
 
     await db.SaveChangesAsync();
+
+    // Track 2: Seed Indian Essential Medicines & Batches
+    await SeedPharmacyDataAsync(db);
+
+    await db.SaveChangesAsync();
     Log.Information("Development seed data created successfully.");
+}
+
+static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db)
+{
+    if (await db.Drugs.AnyAsync()) return;
+
+    var supplier = new Supplier
+    {
+        Id = Guid.NewGuid(),
+        TenantId = Guid.Empty,
+        Name = "MedSource India Healthcare Pvt Ltd",
+        Gstin = "27AABCM8812K1Z0",
+        Phone = "+91 98201 12345",
+        Email = "orders@medsourceindia.com",
+        Address = "Plot 42, MIDC Industrial Area, Andheri East, Mumbai, Maharashtra 400093",
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+    db.Suppliers.Add(supplier);
+
+    var candidates = new[]
+    {
+        Path.Combine(AppContext.BaseDirectory, "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(Directory.GetCurrentDirectory(), "backend", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(Directory.GetCurrentDirectory(), "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv")
+    };
+
+    string? csvPath = null;
+    foreach (var c in candidates)
+    {
+        var full = Path.GetFullPath(c);
+        if (File.Exists(full))
+        {
+            csvPath = full;
+            break;
+        }
+    }
+
+    var drugs = new List<Drug>();
+    var batches = new List<DrugBatch>();
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    if (csvPath != null)
+    {
+        var lines = await File.ReadAllLinesAsync(csvPath);
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var parts = ParseCsvLine(line);
+            if (parts.Count < 12) continue;
+
+            var name = parts[0].Trim();
+            var genericName = parts[1].Trim();
+            var category = parts[2].Trim();
+            var dosageForm = parts[3].Trim();
+            var strength = parts[4].Trim();
+            var schedStr = parts[5].Trim();
+            var hsn = parts[6].Trim();
+            decimal.TryParse(parts[7].Trim(), out var gstRate);
+            var nlem = parts[8].Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
+            decimal? dpco = decimal.TryParse(parts[9].Trim(), out var dVal) ? dVal : null;
+            var packSize = parts[10].Trim();
+            decimal.TryParse(parts[11].Trim(), out var indicativeMrp);
+            var commonBrands = parts.Count > 12 ? parts[12].Trim() : "";
+
+            Enum.TryParse<ScheduleClass>(schedStr, true, out var schedClass);
+
+            var drug = new Drug
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                Name = name,
+                GenericName = genericName,
+                TherapeuticCategory = category,
+                DosageForm = dosageForm,
+                Strength = strength,
+                ScheduleClass = schedClass,
+                HsnCode = hsn,
+                GstRate = gstRate > 0 ? gstRate : 12m,
+                NlemCovered = nlem,
+                DpcoCeilingPrice = dpco,
+                StandardPackSize = packSize,
+                IndicativeMrp = indicativeMrp,
+                CommonBrands = commonBrands,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            drugs.Add(drug);
+
+            var batchNumA = $"BAT-{i:D3}-A";
+            var batchNumB = $"BAT-{i:D3}-B";
+
+            batches.Add(new DrugBatch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                DrugId = drug.Id,
+                BatchNumber = batchNumA,
+                ExpiryDate = today.AddMonths(14 + (i % 12)),
+                MfgDate = today.AddMonths(-4),
+                QuantityReceived = 100,
+                QuantityRemaining = 85,
+                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
+                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
+                SupplierId = supplier.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            batches.Add(new DrugBatch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                DrugId = drug.Id,
+                BatchNumber = batchNumB,
+                ExpiryDate = today.AddMonths(28 + (i % 8)),
+                MfgDate = today.AddMonths(-1),
+                QuantityReceived = 150,
+                QuantityRemaining = 150,
+                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
+                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
+                SupplierId = supplier.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+    }
+
+    if (drugs.Count > 0)
+    {
+        db.Drugs.AddRange(drugs);
+        db.DrugBatches.AddRange(batches);
+    }
+}
+
+static List<string> ParseCsvLine(string line)
+{
+    var result = new List<string>();
+    var inQuotes = false;
+    var current = new StringBuilder();
+
+    for (int i = 0; i < line.Length; i++)
+    {
+        char c = line[i];
+        if (c == '"')
+        {
+            inQuotes = !inQuotes;
+        }
+        else if (c == ',' && !inQuotes)
+        {
+            result.Add(current.ToString());
+            current.Clear();
+        }
+        else
+        {
+            current.Append(c);
+        }
+    }
+    result.Add(current.ToString());
+    return result;
 }
