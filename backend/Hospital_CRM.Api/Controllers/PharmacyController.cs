@@ -44,9 +44,9 @@ public class PharmacyController : ControllerBase
         {
             var cleanQuery = query.Trim().ToLower();
             q = q.Where(d =>
-                EF.Functions.ILike(d.Name, $"%{cleanQuery}%") ||
-                EF.Functions.ILike(d.GenericName, $"%{cleanQuery}%") ||
-                (d.CommonBrands != null && EF.Functions.ILike(d.CommonBrands, $"%{cleanQuery}%")));
+                d.Name.ToLower().Contains(cleanQuery) ||
+                d.GenericName.ToLower().Contains(cleanQuery) ||
+                (d.CommonBrands != null && d.CommonBrands.ToLower().Contains(cleanQuery)));
         }
 
         if (!string.IsNullOrWhiteSpace(schedule) && Enum.TryParse<ScheduleClass>(schedule, true, out var schedClass))
@@ -56,7 +56,8 @@ public class PharmacyController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(category))
         {
-            q = q.Where(d => EF.Functions.ILike(d.TherapeuticCategory, $"%{category.Trim()}%"));
+            var cleanCat = category.Trim().ToLower();
+            q = q.Where(d => d.TherapeuticCategory.ToLower().Contains(cleanCat));
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -256,6 +257,33 @@ public class PharmacyController : ControllerBase
         return Ok(batches);
     }
 
+    [HttpGet("drugs/{id:guid}/fefo-batch")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor", "Receptionist", "Nurse")]
+    public async Task<IActionResult> GetSingleFefoBatch(Guid id, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var batch = await _db.DrugBatches.AsNoTracking()
+            .Where(b => b.DrugId == id && b.QuantityRemaining > 0 && b.ExpiryDate >= today)
+            .OrderBy(b => b.ExpiryDate)
+            .Select(b => new
+            {
+                id = b.Id,
+                batchId = b.Id,
+                batchNumber = b.BatchNumber,
+                expiryDate = b.ExpiryDate.ToString("yyyy-MM-dd"),
+                quantityRemaining = b.QuantityRemaining,
+                mrp = b.Mrp,
+                purchaseRate = b.PurchaseRate
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (batch == null)
+            return NotFound(new { error = "no_active_batch_in_stock", message = "No active batch in stock for this medicine." });
+
+        return Ok(batch);
+    }
+
     [HttpPost("drugs/{id:guid}/batches")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist")]
     public async Task<IActionResult> InwardBatch(Guid id, [FromBody] InwardBatchRequest req, CancellationToken ct)
@@ -343,10 +371,12 @@ public class PharmacyController : ControllerBase
 
             // Fetch and validate batches
             var batchIds = req.Items.Select(i => i.DrugBatchId).Distinct().ToList();
-            var batches = await _db.DrugBatches
-                .Include(b => b.Drug)
-                .Where(b => batchIds.Contains(b.Id))
-                .ToListAsync(ct);
+            var batches = new List<DrugBatch>();
+            foreach (var bId in batchIds)
+            {
+                var b = await _db.DrugBatches.Include(x => x.Drug).FirstOrDefaultAsync(x => x.Id == bId, ct);
+                if (b != null) batches.Add(b);
+            }
 
             var batchMap = batches.ToDictionary(b => b.Id);
 

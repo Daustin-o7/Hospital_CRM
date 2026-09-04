@@ -93,7 +93,20 @@ export default function Patients() {
     setSubmitError('')
     try {
       const idempotencyKey = `IDEMP-PAT-${Date.now()}`
-      const res = await api.post('/patients', { ...data, idempotencyKey })
+      const payload = {
+        name: data.name,
+        phone: data.phone,
+        dob: data.dob ? data.dob : null,
+        approxAge: data.approxAge ? Number(data.approxAge) : null,
+        gender: data.gender,
+        address: data.address || null,
+        consent: {
+          accepted: !!data.consent?.accepted,
+          purpose: data.consent?.purpose || 'care_delivery'
+        },
+        idempotencyKey
+      }
+      const res = await api.post('/patients', payload)
       setPatients(prev => [res.data, ...prev])
       reset({ consent: { accepted: false, purpose: 'care_delivery' } })
       setShowRegister(false)
