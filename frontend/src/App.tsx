@@ -7,12 +7,19 @@ import Appointments from './pages/Appointments'
 import Queue from './pages/Queue'
 import Consultations from './pages/Consultations'
 import Billing from './pages/Billing'
+import Inventory from './pages/Inventory'
+import Reports from './pages/Reports'
+import Messages from './pages/Messages'
 import Staff from './pages/Staff'
 import Settings from './pages/Settings'
+import { useAuth } from './context/AuthContext'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('accessToken')
-  return token ? <>{children}</> : <Navigate to="/login" replace />
+  const { isAuthenticated, loading } = useAuth()
+  if (loading) {
+    return <div className="flex h-screen w-screen items-center justify-center bg-slate-900 text-slate-300 font-sans">Loading workspace...</div>
+  }
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 
 function App() {
@@ -26,6 +33,9 @@ function App() {
         <Route path="/dashboard/queue" element={<Queue />} />
         <Route path="/dashboard/consultations" element={<Consultations />} />
         <Route path="/dashboard/billing" element={<Billing />} />
+        <Route path="/dashboard/inventory" element={<Inventory />} />
+        <Route path="/dashboard/reports" element={<Reports />} />
+        <Route path="/dashboard/messages" element={<Messages />} />
         <Route path="/dashboard/staff" element={<Staff />} />
         <Route path="/dashboard/settings" element={<Settings />} />
       </Route>
@@ -34,4 +44,4 @@ function App() {
   )
 }
 
-export default App
+export default App

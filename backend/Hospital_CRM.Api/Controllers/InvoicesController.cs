@@ -183,8 +183,50 @@ public class InvoicesController : ControllerBase
             return BadRequest(new { error = "invalid_webhook_signature" });
         }
 
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(bodyText);
+            if (doc.RootElement.TryGetProperty("event", out var eventProp))
+            {
+                var eventName = eventProp.GetString();
+                if (string.Equals(eventName, "payment.captured", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(eventName, "order.paid", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (doc.RootElement.TryGetProperty("payload", out var payload) &&
+                        payload.TryGetProperty("payment", out var payObj) &&
+                        payObj.TryGetProperty("entity", out var entity))
+                    {
+                        var razorpayPaymentId = entity.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+
+                        Payment? payment = null;
+                        if (!string.IsNullOrEmpty(razorpayPaymentId))
+                        {
+                            payment = await _db.Payments.FirstOrDefaultAsync(p => p.RazorpayPaymentId == razorpayPaymentId, ct);
+                        }
+
+                        if (payment is not null && payment.Status != PaymentStatus.Completed)
+                        {
+                            payment.Status = PaymentStatus.Completed;
+                            payment.PaidAt = DateTimeOffset.UtcNow;
+                            var invoice = await _db.Invoices.FindAsync([payment.InvoiceId], ct);
+                            if (invoice is not null)
+                            {
+                                invoice.Status = InvoiceStatus.Paid;
+                            }
+                            await _db.SaveChangesAsync(ct);
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Signature was valid; avoid failing webhook delivery on malformed event json
+        }
+
         return Ok(new { status = "ok" });
     }
+
 
     [HttpGet("invoices")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]

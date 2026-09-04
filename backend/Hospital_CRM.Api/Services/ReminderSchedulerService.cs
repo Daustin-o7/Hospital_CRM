@@ -37,6 +37,7 @@ public class ReminderSchedulerService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
         var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+        var precheckService = scope.ServiceProvider.GetRequiredService<PrecheckService>();
 
         var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
 
@@ -50,11 +51,22 @@ public class ReminderSchedulerService : BackgroundService
         {
             _logger.LogInformation("[STUB] Reminder would be sent for appointment {Id}", appointment.Id);
 
+            string? precheckLink = null;
+            var existingPrecheck = await db.PrecheckSubmissions
+                .FirstOrDefaultAsync(s => s.AppointmentId == appointment.Id, ct);
+            if (existingPrecheck is { SubmittedAt: null } && DateTimeOffset.UtcNow < existingPrecheck.ExpiresAt)
+            {
+                // The plaintext token was discarded after creation — we can't send a working link
+                // without an out-of-band recovery channel. For now, the booking-time link is the
+                // canonical one. Reminder includes a generic "fill the pre-visit form" prompt.
+            }
+
             await notificationService.SendAppointmentReminderAsync(
                 appointment.Id,
                 appointment.Patient.Phone,
                 appointment.Clinic.Name,
-                appointment.Date.ToDateTime(TimeOnly.Parse(appointment.TimeSlot)));
+                appointment.Date.ToDateTime(TimeOnly.Parse(appointment.TimeSlot)),
+                precheckLink);
         }
     }
 }

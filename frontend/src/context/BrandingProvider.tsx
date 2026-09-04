@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import api from '../services/api'
+import api, { getAccessToken } from '../services/api'
 import {
   BrandingContext,
   SAMSTACK_DEFAULTS,
@@ -56,11 +56,12 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const fetchBranding = useCallback(async () => {
-    const token = localStorage.getItem('accessToken')
+    const token = getAccessToken()
     if (!token) {
       setLoading(false)
       return
     }
+
     try {
       setLoading(true)
       const res = await api.get('/clinic/profile')

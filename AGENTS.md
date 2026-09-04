@@ -1,7 +1,14 @@
 # Hospital_CRM — Agent Instructions (Samstack)
 
 ## Project
-Hospital_CRM is a doctor/clinic CRM by Samstack. This checkout implements **Phase 1 only** — `FRD_FINAL.md` is the single source of truth for every requirement (FR-01 through FR-22). Build what's in it; don't build what isn't. If a task seems to need something outside FR-01–22, stop and flag it rather than improvising scope.
+Hospital_CRM is a doctor/clinic CRM by Samstack. **Phase 1 (FR-01–22) and Phase 2 (9 modules: MOD-08/09/10/11/12/13/14/23/24/25) are SHIPPED.** Voice Agent (MOD-27) is formally Phase 3 per FRD-Phase2 §9.
+
+**Source of truth:**
+- Phase 1: `samstack-ai-frd-phase1-FINAL.md` (FR-01 to FR-22)
+- Phase 2: `FRD-Phase-2-FINAL.md` (9 modules)
+- **Complete end-to-end workflow**: `docs/product/WORKFLOW.md` (every FR, ASCII diagrams, patient journey, endpoint map)
+
+Build what's in them; don't build what isn't. If a task seems to need something outside the Phase 1+2 specs, stop and flag it rather than improvising scope.
 
 ## Stack (locked, don't substitute without checking first)
 - Backend: .NET 10 (ASP.NET Core, C# 14) — Minimal APIs, EF Core 10
@@ -21,14 +28,16 @@ Hospital_CRM is a doctor/clinic CRM by Samstack. This checkout implements **Phas
 7. **Git:** Never `git push` or auto-commit without explicit approval. Always create feature branch first. Let user perform Git ops unless asked.
 
 ## Reference Material
-- `FRD_FINAL.md` — master spec (FR-01–22)
+- `FRD-Phase-2-FINAL.md` — Phase 2 FRD (9 modules, all shipped)
+- **`docs/product/WORKFLOW.md`** — complete Phase 1+2 workflow with ASCII diagrams and endpoint map
+- `samstack-ai-frd-phase1-FINAL.md` — Phase 1 master spec (FR-01–22)
 - `samstack-implementation-reference.md` — Razorpay webhook verification, WhatsApp channel abstraction, JWT/RS256 setup, offline-sync pattern. Read before FR-18, FR-20/21, FR-01, FR-22.
 - `.opencode/skills/new-fr/SKILL.md` — repeatable build sequence for every FR-XX (migration → endpoint → role check → audit hook → UI → test)
 - `TOOLING-SETUP.md` — ponytail install; `/ponytail-review` before marking any FR done
 - **`.agents/skills/frontend-design/SKILL.md`** — ⚡ MUST READ before editing any `.tsx`, `.css`, or UI file. Synthesises taste-skill + Vercel guidelines + design-craft rules. Covers colour tokens, typography scale, interaction quality, anti-patterns checklist, and page-specific patterns for Hospital CRM.
 
 ## What NOT to Build Yet
-Pharmacy, Lab, Inventory, Wishlist, ITR ledger, any AI feature, IPD, UAE adapter, Dedicated DB/Instance tenancy — all explicitly out of scope (FRD §5.2).
+Pharmacy (Track 2), AI features (Track 3), IPD (Track 4), UAE adapter, Dedicated DB/Instance tenancy — all explicitly out of scope per FRD §5.2. Voice Agent (MOD-27) is Phase 3.
 
 ---
 
