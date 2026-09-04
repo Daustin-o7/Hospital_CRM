@@ -39,6 +39,13 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<LedgerExpense> LedgerExpenses => Set<LedgerExpense>();
     public DbSet<ImpersonationLog> ImpersonationLogs => Set<ImpersonationLog>();
     public DbSet<TenantFeatureFlag> TenantFeatureFlags => Set<TenantFeatureFlag>();
+    public DbSet<Drug> Drugs => Set<Drug>();
+    public DbSet<DrugBatch> DrugBatches => Set<DrugBatch>();
+    public DbSet<DispenseRecord> DispenseRecords => Set<DispenseRecord>();
+    public DbSet<DispenseItem> DispenseItems => Set<DispenseItem>();
+    public DbSet<ControlledSubstanceRegister> ControlledSubstanceRegisters => Set<ControlledSubstanceRegister>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -247,7 +254,12 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.InvoiceId);
             e.Property(x => x.Description).HasMaxLength(500);
-            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId);
+            e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.GstRate).HasColumnType("decimal(5,2)");
+            e.Property(x => x.HsnCode).HasMaxLength(20);
+            e.HasOne(x => x.Invoice).WithMany(i => i.LineItems).HasForeignKey(x => x.InvoiceId);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId);
         });
 
         modelBuilder.Entity<Payment>(e =>
@@ -383,6 +395,97 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TenantId, x.FlagName }).IsUnique();
             e.Property(x => x.FlagName).HasMaxLength(100).IsRequired();
+        });
+
+        modelBuilder.Entity<Drug>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            e.HasIndex(x => x.GenericName);
+            e.HasIndex(x => x.ScheduleClass);
+            e.Property(x => x.Name).HasMaxLength(255).IsRequired();
+            e.Property(x => x.GenericName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.TherapeuticCategory).HasMaxLength(100);
+            e.Property(x => x.DosageForm).HasMaxLength(50);
+            e.Property(x => x.Strength).HasMaxLength(50);
+            e.Property(x => x.HsnCode).HasMaxLength(20);
+            e.Property(x => x.GstRate).HasColumnType("decimal(5,2)");
+            e.Property(x => x.DpcoCeilingPrice).HasColumnType("decimal(18,2)");
+            e.Property(x => x.IndicativeMrp).HasColumnType("decimal(18,2)");
+            e.Property(x => x.StandardPackSize).HasMaxLength(50);
+            e.Property(x => x.CommonBrands).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<DrugBatch>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.DrugId, x.ExpiryDate });
+            e.HasIndex(x => x.BatchNumber);
+            e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Mrp).HasColumnType("decimal(18,2)");
+            e.Property(x => x.PurchaseRate).HasColumnType("decimal(18,2)");
+            e.HasOne(x => x.Drug).WithMany(d => d.Batches).HasForeignKey(x => x.DrugId);
+            e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
+        });
+
+        modelBuilder.Entity<DispenseRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.DispensedAt });
+            e.HasIndex(x => x.PrescriptionId);
+            e.Property(x => x.WalkInCustomerName).HasMaxLength(255);
+            e.Property(x => x.IdempotencyKey).HasMaxLength(128);
+            e.HasOne(x => x.Prescription).WithMany().HasForeignKey(x => x.PrescriptionId);
+            e.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId);
+            e.HasOne(x => x.Dispenser).WithMany().HasForeignKey(x => x.DispensedBy);
+        });
+
+        modelBuilder.Entity<DispenseItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.DispenseRecordId);
+            e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            e.HasOne(x => x.DispenseRecord).WithMany(r => r.Items).HasForeignKey(x => x.DispenseRecordId);
+            e.HasOne(x => x.PrescriptionItem).WithMany().HasForeignKey(x => x.PrescriptionItemId);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId);
+        });
+
+        modelBuilder.Entity<ControlledSubstanceRegister>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ScheduleClass, x.DispensedAt });
+            e.Property(x => x.DrugName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
+            e.Property(x => x.PatientName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.PatientAddress).HasMaxLength(500);
+            e.Property(x => x.PrescriberName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.PrescriberRegNo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.DispenserName).HasMaxLength(255);
+            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId);
+            e.HasOne(x => x.DispenseRecord).WithMany().HasForeignKey(x => x.DispenseRecordId);
+            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId);
+        });
+
+        modelBuilder.Entity<Supplier>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            e.Property(x => x.Name).HasMaxLength(255).IsRequired();
+            e.Property(x => x.Gstin).HasMaxLength(50);
+            e.Property(x => x.Phone).HasMaxLength(20);
+            e.Property(x => x.Email).HasMaxLength(255);
+            e.Property(x => x.Address).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<PurchaseOrder>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
+            e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
+            e.Property(x => x.DistributorName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.ItemsJson).HasColumnType("jsonb");
+            e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
         });
     }
 }
