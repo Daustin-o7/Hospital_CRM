@@ -1,0 +1,123 @@
+name: hospital-crm
+
+services:
+  # =======================================
+  # PostgreSQL — single source of truth.
+  # Used by:
+  #   - EF Core (DefaultConnection)
+  #   - Hangfire background jobs (Hangfire__PostgreSql__Connection)
+  # =======================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospital-crm-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hospital_crm}
+      POSTGRES_USER: ${POSTGRES_USER:-crm_user}
+      # LOCAL-ONLY fallback. Override via .env in real environments.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (use .env, not the default)}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crm_user} -d ${POSTGRES_DB:-hospital_crm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # =======================================
+  # Azurite — Azure Storage emulator.
+  # FR-08-02 lab file uploads target blob storage.
+  # Local dev only; production uses real Azure Blob.
+  # =======================================
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: hospital-crm-azurite
+    command: ["azurite", "--silent", "--location", "/data", "--debug", "/data/debug.log"]
+    volumes:
+      - azurite_data:/data
+    ports:
+      - "10000:10000"  # Blob
+      - "10001:10001"  # Queue
+      - "10002:10002"  # Table
+    restart: unless-stopped
+
+  # =======================================
+  # Backend API (.NET 10 ASP.NET Core)
+  # Hangfire runs in-process via AddHangfire().UsePostgreSqlStorage(...)
+  # No separate hangfire container needed.
+  # =======================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Hospital_CRM.Api/Dockerfile
+    container_name: hospital-crm-api
+    environment:
+      # Correct spelling — ASPNETCORE not ASPNETCOURS
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+      # Override localhost in appsettings.json with container-internal hostname
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD}"
+      # Hangfire reuses the same Postgres (strategy-v0.5 §6: Postgres over SQL Server to avoid per-core licensing)
+      Hangfire__PostgreSql__Connection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD}"
+      # Azurite blob endpoint (UseDevelopmentStorage=true shorthand)
+      AzureStorage__ConnectionString: "UseDevelopmentStorage=true"
+      AzureStorage__BlobEndpoint: "http://azurite:10000/${AZURITE_ACCOUNT_NAME:-devstoreaccount1}"
+      # External integrations
+      Jwt__Issuer: ${Jwt__Issuer:-Hospital_CRM}
+      Jwt__Audience: ${Jwt__Audience:-Hospital_CRM}
+      Cors__AllowedOrigins: ${Cors__AllowedOrigins:-http://localhost:5173,http://localhost:8080,http://localhost:80}
+      Razorpay__KeyId: ${Razorpay__KeyId:-}
+      Razorpay__KeySecret: ${Razorpay__KeySecret:-}
+      Razorpay__WebhookSecret: ${Razorpay__WebhookSecret:-}
+      WhatsApp__ApiUrl: ${WhatsApp__ApiUrl:-}
+      WhatsApp__AccessToken: ${WhatsApp__AccessToken:-}
+      WhatsApp__PhoneNumberId: ${WhatsApp__PhoneNumberId:-}
+    volumes:
+      - api_keys:/app/keys
+      - lab_uploads:/app/lab-uploads
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # =======================================
+  # Frontend (dev mode: Vite + HMR on 5173)
+  # For production use: build with ./frontend/Dockerfile and serve via nginx.
+  # =======================================
+  frontend:
+    image: hospital-crm-frontend:dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: hospital-crm-frontend
+    environment:
+      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8080}
+      VITE_PROXY_TARGET: http://api:8080
+      VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-}
+      VITE_CLIENT_ID: ${VITE_CLIENT_ID:-}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  azurite_data:
+  api_keys:
+  lab_uploads:
