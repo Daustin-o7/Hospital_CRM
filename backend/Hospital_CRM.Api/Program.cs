@@ -60,6 +60,7 @@ builder.Services.AddSingleton<IPersistentKeyService>(sp =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -68,7 +69,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            RoleClaimType = "role",
+            NameClaimType = "sub"
         };
     });
 
