@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
 import { Modal } from '../components/ui/Modal'
-import { Alert, friendlyError } from '../components/ui/Alert'
+import { Alert } from '../components/ui/Alert'
 import { EmptyState, EmptySearch } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
 
@@ -33,6 +33,17 @@ interface Patient {
   createdAt: string
 }
 
+interface DuplicateMatch {
+  id: string
+  name: string
+  dob?: string
+  phoneLast4: string
+  phone: string
+  gender?: string
+  address?: string
+  score: number
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(iso: string) {
   try {
@@ -48,10 +59,21 @@ function getInitials(name: string) {
 export default function Patients() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Patient[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showRegister, setShowRegister] = useState(false)
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
   const [submitError, setSubmitError] = useState('')
+  
+  // Duplicate Resolution State
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([])
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [pendingFormData, setPendingFormData] = useState<PatientForm | null>(null)
+  const [isCreatingDuplicate, setIsCreatingDuplicate] = useState(false)
+
+  const searchContainerRef = useRef<HTMLDivElement>(null)
 
   const {
     register,
@@ -68,8 +90,10 @@ export default function Patients() {
     try {
       const res = await api.get(`/patients/search?q=${encodeURIComponent(query)}`)
       setPatients(Array.isArray(res.data) ? res.data : [])
+      if (query.trim()) setSearchResults(Array.isArray(res.data) ? res.data : [])
     } catch {
       setPatients([])
+      setSearchResults([])
     } finally {
       setLoading(false)
     }
@@ -85,38 +109,104 @@ export default function Patients() {
     }
   }, [patients])
 
-  const onSubmit = useCallback(async (data: PatientForm) => {
-    setSubmitError('')
+  // Actual registration execution
+  const executeRegistration = useCallback(async (data: PatientForm) => {
+    const idempotencyKey = `IDEMP-PAT-${Date.now()}`
+    const payload = {
+      name: data.name,
+      phone: data.phone,
+      dob: data.dob ? data.dob : null,
+      approxAge: data.approxAge ? Number(data.approxAge) : null,
+      gender: data.gender,
+      address: data.address || null,
+      consent: {
+        accepted: !!data.consent?.accepted,
+        purpose: data.consent?.purpose || 'care_delivery'
+      },
+      idempotencyKey
+    }
+
     try {
-      const idempotencyKey = `IDEMP-PAT-${Date.now()}`
-      const payload = {
-        name: data.name,
-        phone: data.phone,
-        dob: data.dob ? data.dob : null,
-        approxAge: data.approxAge ? Number(data.approxAge) : null,
-        gender: data.gender,
-        address: data.address || null,
-        consent: {
-          accepted: !!data.consent?.accepted,
-          purpose: data.consent?.purpose || 'care_delivery'
-        },
-        idempotencyKey
-      }
       const res = await api.post('/patients', payload)
       setPatients(prev => [res.data, ...prev])
       reset({ consent: { accepted: false, purpose: 'care_delivery' } })
       setShowRegister(false)
+      setShowDuplicateModal(false)
+      setPendingFormData(null)
+      setDuplicateMatches([])
     } catch (err: any) {
-      setSubmitError(friendlyError(err))
+      setSubmitError(err.response?.data?.error || 'Registration failed. Please check inputs.')
+    } finally {
+      setIsCreatingDuplicate(false)
     }
   }, [reset])
 
+  const onSubmit = useCallback(async (data: PatientForm) => {
+    setSubmitError('')
+    // Step 1: Check for duplicates before creating
+    try {
+      const checkRes = await api.post('/patients/check-duplicate', {
+        name: data.name,
+        phone: data.phone,
+        dob: data.dob ? data.dob : undefined
+      })
+      if (checkRes.data?.duplicate && Array.isArray(checkRes.data.matches) && checkRes.data.matches.length > 0) {
+        setPendingFormData(data)
+        setDuplicateMatches(checkRes.data.matches)
+        setShowDuplicateModal(true)
+        return
+      }
+    } catch {
+      // If check fails or Typesense is in fallback, proceed to direct register
+    }
+
+    await executeRegistration(data)
+  }, [executeRegistration])
+
   useEffect(() => { fetchPatients() }, [fetchPatients])
 
+  // Search dropdown effect - debounced
   useEffect(() => {
-    const t = setTimeout(() => fetchPatients(searchQuery), 300)
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setShowSearchDropdown(false)
+      return
+    }
+    setSearchLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get(`/patients/search?q=${encodeURIComponent(searchQuery)}`)
+        setSearchResults(Array.isArray(res.data) ? res.data : [])
+        setShowSearchDropdown(true)
+      } catch {
+        setSearchResults([])
+        setShowSearchDropdown(false)
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 250)
     return () => clearTimeout(t)
-  }, [searchQuery, fetchPatients])
+  }, [searchQuery])
+
+  // Click outside & Escape key listeners for search dropdown
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false)
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setShowSearchDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   const [filterType, setFilterType] = useState<'all' | 'today' | 'senior' | 'pediatric'>('all')
 
@@ -162,7 +252,7 @@ export default function Patients() {
 
       {/* ── Search Bar & Filter Chips ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="search-wrap" style={{ maxWidth: 420, width: '100%' }}>
+        <div ref={searchContainerRef} className="search-wrap relative" style={{ maxWidth: 460, width: '100%' }}>
           <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -173,15 +263,70 @@ export default function Patients() {
             placeholder="Search by patient name, phone (+91), or UHID…"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            onFocus={() => searchQuery.trim() && setShowSearchDropdown(true)}
             aria-label="Search patients"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => { setSearchQuery(''); setShowSearchDropdown(false); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full w-5 h-5 flex items-center justify-center transition-colors"
+              aria-label="Clear search"
             >
               ✕
             </button>
+          )}
+
+          {/* Search Results Dropdown with Composite Info & Quick Select */}
+          {showSearchDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-96 overflow-y-auto animate-fadein">
+              {searchLoading ? (
+                <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <span className="spinner spinner-sm" />
+                  <span>Searching Typesense registry…</span>
+                </div>
+              ) : searchResults.length > 0 ? (
+                <div>
+                  <div className="px-3.5 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Disambiguated Matches</span>
+                    <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">{searchResults.length} found</span>
+                  </div>
+                  {searchResults.map(r => (
+                    <div
+                      key={r.id}
+                      className="w-full px-3.5 py-2.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-0 flex items-center justify-between gap-3 group"
+                    >
+                      <button
+                        onClick={() => { setSearchQuery(r.name); setShowSearchDropdown(false); fetchPatients(r.name); }}
+                        className="flex items-center gap-3 text-left flex-1 min-w-0"
+                      >
+                        <div className="avatar avatar-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff', fontWeight: 700, fontSize: '11px' }}>
+                          {getInitials(r.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-900 text-sm truncate">{r.name}</div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                            {r.dob && <span>DOB: {new Date(r.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                            {r.dob && r.phone && <span>•</span>}
+                            {r.phone && <span className="mono font-medium">…{r.phone.slice(-4)}</span>}
+                            <span className="capitalize text-slate-400">• {r.gender || '—'}</span>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { setShowSearchDropdown(false); openPatient(r.id); }}
+                        className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        Open Chart →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : searchQuery.trim().length >= 2 ? (
+                <div className="p-4 text-center text-xs text-slate-500">
+                  No matching patients found for "{searchQuery}".
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
 
@@ -432,6 +577,92 @@ export default function Patients() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* ── Duplicate Resolution Modal (FR-06 Disambiguation Gate) ── */}
+      <Modal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        title="Potential Duplicate Patient Detected"
+        description="A patient with matching details already exists in the electronic registry. Please review below."
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Duplicate Prevention Active</h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                We found existing records that match the name, contact number, or birth date you entered.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+            {duplicateMatches.map(match => (
+              <div
+                key={match.id}
+                className="p-3.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs hover:border-teal-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="avatar avatar-md flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff', fontWeight: 700 }}>
+                    {getInitials(match.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm truncate">{match.name}</span>
+                      <span className="mono text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/60">
+                        UHID-{match.id.slice(0, 8).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-500 mt-1">
+                      {match.dob && <span>DOB: {new Date(match.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                      {match.phone && <span className="mono">Phone: ••••• {match.phoneLast4 || match.phone.slice(-4)}</span>}
+                      {match.gender && <span className="capitalize">{match.gender}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDuplicateModal(false)
+                    setShowRegister(false)
+                    openPatient(match.id)
+                  }}
+                  className="btn btn-primary btn-sm whitespace-nowrap self-end sm:self-center"
+                  style={{ padding: '6px 14px', fontSize: '12px' }}
+                >
+                  Use Existing Chart →
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowDuplicateModal(false)}
+            >
+              Cancel & Edit Info
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm text-slate-600 hover:text-slate-900 font-semibold"
+              disabled={isCreatingDuplicate}
+              onClick={() => {
+                if (pendingFormData) {
+                  setIsCreatingDuplicate(true)
+                  executeRegistration(pendingFormData)
+                }
+              }}
+            >
+              {isCreatingDuplicate ? 'Creating…' : 'Proceed as New Patient'}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* ── View Patient Modal ── */}

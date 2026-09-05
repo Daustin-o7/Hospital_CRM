@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -16,10 +17,12 @@ namespace Hospital_CRM.Api.Controllers;
 public class PatientsController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly IPatientSearchService _search;
 
-    public PatientsController(HospitalCrmDbContext db)
+    public PatientsController(HospitalCrmDbContext db, IPatientSearchService search)
     {
         _db = db;
+        _search = search;
     }
 
     [HttpPost]
@@ -83,6 +86,9 @@ public class PatientsController : ControllerBase
         _db.PatientConsents.Add(consent);
         await _db.SaveChangesAsync(ct);
 
+        // Write-through to Typesense (non-blocking, fire-and-forget inside service)
+        _ = _search.IndexAsync(patient, ct);
+
         return StatusCode(201, new
         {
             id = patient.Id,
@@ -106,34 +112,67 @@ public class PatientsController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Search([FromQuery] string? q, CancellationToken ct)
     {
-        var queryable = _db.Patients.AsNoTracking().AsQueryable();
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        if (!string.IsNullOrWhiteSpace(q))
+        // TenantId is Guid.Empty for single-tenant Phase 1
+        var tenantId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(q))
+            return Ok(new List<object>());
+
+        var hits = await _search.SearchAsync(q.Trim(), tenantId, limit: 10, ct);
+
+        // Composite dropdown format: name + DOB + last 4 phone
+        var results = hits.Select(h => new
         {
-            var cleanQ = q.Trim().ToLower();
-            queryable = queryable.Where(p => p.Name.ToLower().Contains(cleanQ) || p.Phone.Contains(cleanQ));
-        }
+            id = h.Id,
+            name = h.Name,
+            dob = h.Dob,
+            phoneLast4 = h.Phone.Length >= 4 ? h.Phone.Substring(h.Phone.Length - 4) : h.Phone,
+            phone = h.Phone,
+            gender = h.Gender,
+            address = h.Address,
+            score = h.Score
+        });
 
-        var patients = await queryable
-            .OrderBy(p => p.Name)
-            .Take(50)
-            .Select(p => new
-            {
-                id = p.Id,
-                name = p.Name,
-                phone = p.Phone,
-                gender = p.Gender.ToString(),
-                dob = p.Dob.HasValue ? p.Dob.Value.ToString("yyyy-MM-dd") : null,
-                approxAge = p.ApproxAge,
-                address = p.Address,
-                createdAt = p.CreatedAt,
-                age = p.Dob.HasValue
-                    ? DateOnly.FromDateTime(DateTime.Today).Year - p.Dob.Value.Year
-                    : p.ApproxAge ?? 0
-            })
-            .ToListAsync(ct);
+        return Ok(results);
+    }
 
-        return Ok(patients);
+    [HttpPost("check-duplicate")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> CheckDuplicate([FromBody] CheckDuplicateRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "name_required" });
+
+        var tenantId = Guid.Empty;
+        var hits = await _search.CheckDuplicatesAsync(request.Name, request.Phone, request.Dob, tenantId, ct);
+
+        var potentialMatches = hits.Select(h => new
+        {
+            id = h.Id,
+            name = h.Name,
+            dob = h.Dob,
+            phoneLast4 = h.Phone.Length >= 4 ? h.Phone.Substring(h.Phone.Length - 4) : h.Phone,
+            phone = h.Phone,
+            gender = h.Gender,
+            address = h.Address,
+            score = h.Score
+        }).ToList();
+
+        if (potentialMatches.Count == 0)
+            return Ok(new { duplicate = false, matches = potentialMatches });
+
+        return Ok(new
+        {
+            duplicate = true,
+            matches = potentialMatches,
+            message = "Potential duplicate patients found. Please confirm if this is the same patient."
+        });
     }
 
     [HttpGet("{id:guid}")]
@@ -240,6 +279,9 @@ public class PatientsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
+        // Write-through to Typesense (non-blocking)
+        _ = _search.IndexAsync(patient, ct);
+
         return Ok(new { patientId = patient.Id, updatedAt = now });
     }
 
@@ -273,3 +315,8 @@ public record PatientPatchRequest(
     DateOnly? Dob,
     string? Gender,
     string? Address);
+
+public record CheckDuplicateRequest(
+    string Name,
+    string? Phone,
+    DateOnly? Dob);
