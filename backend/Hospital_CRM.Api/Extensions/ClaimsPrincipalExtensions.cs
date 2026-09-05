@@ -7,7 +7,9 @@ public static class ClaimsPrincipalExtensions
     public static Guid? GetUserId(this ClaimsPrincipal? user)
     {
         if (user is null) return null;
-        var claim = user.FindFirst(ClaimTypes.NameIdentifier) ?? user.FindFirst("sub");
+        var claim = user.FindFirst(ClaimTypes.NameIdentifier)
+                 ?? user.FindFirst(ClaimTypes.Name)
+                 ?? user.FindFirst("sub");
         if (claim is null || !Guid.TryParse(claim.Value, out var userId))
             return null;
         return userId;
@@ -16,7 +18,9 @@ public static class ClaimsPrincipalExtensions
     public static string? GetUserRole(this ClaimsPrincipal? user)
     {
         if (user is null) return null;
-        return user.FindFirst(ClaimTypes.Role)?.Value ?? user.FindFirst("role")?.Value;
+        return user.FindFirst(ClaimTypes.Role)?.Value 
+            ?? user.FindFirst("role")?.Value
+            ?? user.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
     }
 
     public static Guid? GetClinicId(this ClaimsPrincipal? user)
