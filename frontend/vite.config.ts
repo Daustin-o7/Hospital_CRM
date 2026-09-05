@@ -3,6 +3,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const proxyTarget = process.env.VITE_PROXY_TARGET || process.env.VITE_API_BASE || 'http://localhost:8080'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -23,9 +25,15 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'https://localhost:7001',
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false
+      },
+      '/lab-uploads': {
+        target: proxyTarget,
         changeOrigin: true,
         secure: false
       }

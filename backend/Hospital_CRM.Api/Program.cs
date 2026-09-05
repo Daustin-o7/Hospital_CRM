@@ -1,4 +1,7 @@
 using System.Text;
+using Hangfire;
+using Hangfire.Dashboard;
+using Hangfire.PostgreSql;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Middlewares;
 using Hospital_CRM.Api.Services;
@@ -95,14 +98,31 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddSingleton<IAuthorizationHandler, RbacHandler>();
 
-// CORS for React frontend
+// CORS for React frontend (supports dev defaults + configured origins)
+var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+var allowedOrigins = new HashSet<string>(configuredOrigins, StringComparer.OrdinalIgnoreCase)
+{
+    "http://localhost:5173",
+    "https://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:80",
+    "http://localhost",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1"
+};
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+        policy.WithOrigins(allowedOrigins.ToArray())
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -123,6 +143,26 @@ builder.Services.AddHostedService<RazorpayReconciliationWorker>();
 // MOD-13 (Phase 2): notification rules engine worker (FR-13-03)
 builder.Services.AddHostedService<NotificationRulesWorker>();
 
+// Hangfire (Phase 2 TRD §2 background jobs).
+// Reuses the existing Postgres instance — strategy-v0.5 §6 chose Postgres
+// over SQL Server specifically to avoid per-core licensing. Connection
+// string is read from config (Hangfire:PostgreSql:Connection) which is
+// fed by Hangfire__PostgreSql__Connection in docker-compose.
+var hangfireConn = builder.Configuration["Hangfire:PostgreSql:Connection"]
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(hangfireConn))
+{
+    throw new InvalidOperationException("Hangfire connection string is missing. Set Hangfire:PostgreSql:Connection or ConnectionStrings:DefaultConnection.");
+}
+builder.Services.AddHangfire(config => config
+    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(hangfireConn))
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings());
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2;
+});
+
 var app = builder.Build();
 
 // Load the persistent RS256 key BEFORE serving any traffic.
@@ -136,13 +176,15 @@ using (var scope = app.Services.CreateScope())
     Log.Information("JWT signing key loaded (source: {Source})", keyService.KeySource);
 }
 
-if (app.Environment.IsDevelopment())
+// Database migrations and startup seeding
+var autoMigrate = app.Configuration.GetValue<bool?>("Database:AutoMigrate") ?? true;
+if (autoMigrate)
 {
-    var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
+    var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
 
-    if (eraseOnStartup)
+    if (eraseOnStartup && app.Environment.IsDevelopment())
     {
         Log.Information("Erasing development database...");
         await db.Database.EnsureDeletedAsync();
@@ -151,54 +193,63 @@ if (app.Environment.IsDevelopment())
     }
     else
     {
+        Log.Information("Applying database migrations...");
         await db.Database.MigrateAsync();
-        if (!await db.Users.AnyAsync())
+
+        if (app.Environment.IsDevelopment())
         {
-            Log.Information("Seeding initial development data...");
-            await SeedDevelopmentDataAsync(db);
-        }
-        else
-        {
-            if (!await db.Users.AnyAsync(u => u.Role == UserRole.Pharmacist))
+            if (!await db.Users.AnyAsync())
             {
-                var clinic = await db.Clinics.FirstOrDefaultAsync();
-                if (clinic != null)
+                Log.Information("Seeding initial development data...");
+                await SeedDevelopmentDataAsync(db);
+            }
+            else
+            {
+                if (!await db.Users.AnyAsync(u => u.Role == UserRole.Pharmacist))
                 {
-                    db.Users.Add(new User
+                    var clinic = await db.Clinics.FirstOrDefaultAsync();
+                    if (clinic != null)
                     {
-                        Id = Guid.NewGuid(),
-                        Email = "pharmacist@samstack.ai",
-                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
-                        Name = "Pharmacist Alex",
-                        Role = UserRole.Pharmacist,
-                        ClinicId = clinic.Id,
-                        TenantId = Guid.Empty,
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        UpdatedAt = DateTimeOffset.UtcNow
-                    });
-                    db.Users.Add(new User
-                    {
-                        Id = Guid.NewGuid(),
-                        Email = "nurse@samstack.ai",
-                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
-                        Name = "Nurse Joy",
-                        Role = UserRole.Nurse,
-                        ClinicId = clinic.Id,
-                        TenantId = Guid.Empty,
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        UpdatedAt = DateTimeOffset.UtcNow
-                    });
+                        db.Users.Add(new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = "pharmacist@samstack.ai",
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
+                            Name = "Pharmacist Alex",
+                            Role = UserRole.Pharmacist,
+                            ClinicId = clinic.Id,
+                            TenantId = Guid.Empty,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                        db.Users.Add(new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = "nurse@samstack.ai",
+                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
+                            Name = "Nurse Joy",
+                            Role = UserRole.Nurse,
+                            ClinicId = clinic.Id,
+                            TenantId = Guid.Empty,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
+                if (!await db.Drugs.AnyAsync())
+                {
+                    Log.Information("Seeding Track 2 Pharmacy Catalog...");
+                    await SeedPharmacyDataAsync(db);
                     await db.SaveChangesAsync();
                 }
             }
-            if (!await db.Drugs.AnyAsync())
-            {
-                Log.Information("Seeding Track 2 Pharmacy Catalog...");
-                await SeedPharmacyDataAsync(db);
-                await db.SaveChangesAsync();
-            }
         }
     }
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
 }
 
@@ -217,6 +268,14 @@ app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<InactivityMiddleware>();
+
+// Hangfire dashboard - gated to ClinicAdmin role.
+// Mounted at /hangfire. Production should additionally restrict by network/IIS.
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAdminAuthorizationFilter() }
+});
+
 app.MapControllers();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));

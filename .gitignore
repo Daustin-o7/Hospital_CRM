@@ -43,3 +43,9 @@ test-results/
 playwright-report/
 frontend/test-results/
 frontend/playwright-report/
+
+# Local env files (real secrets) - never commit
+.env
+.env.*
+!.env.example
+

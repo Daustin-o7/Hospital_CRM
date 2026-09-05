@@ -88,6 +88,22 @@ npm run lint
 - Local PostgreSQL required. Connection string in `backend/Hospital_CRM.Api/appsettings.json`
 - Migrations live in `backend/Hospital_CRM.Infrastructure/Migrations/`
 
+### Docker (recommended for local dev)
+```bash
+# One-shot bring-up: postgres + azurite + api (Hangfire in-process) + frontend (Vite/HMR)
+cp .env.example .env
+docker compose up -d
+
+# Tail logs / shut down
+docker compose logs -f
+docker compose down
+
+# Rebuild images after Dockerfile changes
+docker compose build
+```
+
+`docker compose up -d` runs EF migrations and seeds development data automatically (Program.cs startup). Migrations are NOT a manual step in the Docker path. Hangfire uses the existing Postgres instance via `Hangfire.PostgreSql` — no separate Hangfire container. Azurite (Azure Storage emulator) is wired for FR-08-02 lab file uploads; production swaps to real Azure Blob via `AzureStorage__ConnectionString` env override.
+
 ---
 
 ## Architecture Conventions
