@@ -157,60 +157,90 @@ export default function Billing() {
         </div>
       )}
 
-      {/* ── Finance Ledger Summary Widget (Design Board Module 11) ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+      {/* ── Finance Ledger Summary Widget ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">Today's Financial Summary</h2>
-            <p className="text-xs text-slate-500">Real-time revenue collections vs operational expenditures</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                Daily Revenue & Cash Ledger
+              </h2>
+              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                GSTIN: 27AABCS1429B1ZB
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time collections, invoice aging, and clinic operational expenditure.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
             <button
               onClick={() => setActiveTab('invoices')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'invoices' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'invoices' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Invoices
+              Tax Invoices ({invoices.length})
             </button>
             <button
               onClick={() => setActiveTab('ledger')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === 'ledger' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'ledger' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Expense Ledger
+              Expense Ledger ({expenses.length})
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/60">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Income (Paid Invoices)</span>
-            <div className="text-2xl font-extrabold text-emerald-900 mt-1">₹{totalIncome.toLocaleString('en-IN')}</div>
+          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200/70">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Total Collected</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            </div>
+            <div className="text-2xl font-bold text-emerald-950 mt-1" style={{ fontFamily: 'var(--font-heading)' }}>
+              ₹{totalIncome.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">Includes ₹{Math.round(totalIncome * 0.18 / 1.18)} GST Collected</div>
           </div>
-          <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200/60">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">Expenses (Today)</span>
-            <div className="text-2xl font-extrabold text-rose-900 mt-1">₹{totalExpenses.toLocaleString('en-IN')}</div>
+          <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200/70">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-800">Daily Expenses</span>
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+            </div>
+            <div className="text-2xl font-bold text-rose-950 mt-1" style={{ fontFamily: 'var(--font-heading)' }}>
+              ₹{totalExpenses.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-rose-700 font-medium mt-0.5">{expenses.length} ledger voucher entries</div>
           </div>
-          <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/60">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">Net Daily Balance</span>
-            <div className="text-2xl font-extrabold text-blue-900 mt-1">₹{(totalIncome - totalExpenses).toLocaleString('en-IN')}</div>
+          <div className="p-4 rounded-2xl bg-teal-50/50 border border-teal-200/70">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800">Net Operating Margin</span>
+              <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+            </div>
+            <div className="text-2xl font-bold text-teal-950 mt-1" style={{ fontFamily: 'var(--font-heading)' }}>
+              ₹{(totalIncome - totalExpenses).toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] text-teal-700 font-medium mt-0.5">Surplus for current calendar day</div>
           </div>
         </div>
       </div>
 
       {/* ── Table Content ── */}
       {activeTab === 'invoices' ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-900">Recent Invoices</h3>
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+              Issued Tax Invoices
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">Standard HSN / SAC billing rules</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
-                  <th className="py-2.5 px-3">Invoice #</th>
-                  <th className="py-2.5 px-3">Patient</th>
-                  <th className="py-2.5 px-3">Subtotal</th>
+                  <th className="py-2.5 px-3">Invoice Number</th>
+                  <th className="py-2.5 px-3">Patient Profile</th>
+                  <th className="py-2.5 px-3">Taxable Value</th>
                   <th className="py-2.5 px-3">GST (18%)</th>
                   <th className="py-2.5 px-3">Total Amount</th>
                   <th className="py-2.5 px-3">Status</th>
@@ -220,24 +250,32 @@ export default function Billing() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-3 font-mono font-bold text-slate-800">{inv.invoiceNumber}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{inv.patientName}</td>
-                    <td className="py-3 px-3 text-slate-600">₹{inv.subtotal}</td>
-                    <td className="py-3 px-3 text-slate-600">₹{inv.gst}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">₹{inv.total}</td>
+                    <td className="py-3 px-3 font-mono font-bold text-slate-800">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">{inv.invoiceNumber}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-slate-900">{inv.patientName}</div>
+                      <div className="text-[10.5px] text-slate-400">{inv.date}</div>
+                    </td>
+                    <td className="py-3 px-3 font-mono text-slate-600">₹{inv.subtotal}</td>
+                    <td className="py-3 px-3 font-mono text-slate-600">₹{inv.gst}</td>
+                    <td className="py-3 px-3 font-mono font-bold text-slate-900 text-sm">₹{inv.total}</td>
                     <td className="py-3 px-3">
                       {inv.status === 'paid' && (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-max">
+                          <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
                           Paid
                         </span>
                       )}
                       {inv.status === 'pending' && (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                          Pending
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 w-max inline-block">
+                          Pending Payment
                         </span>
                       )}
                       {inv.status === 'overdue' && (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 w-max inline-block">
                           Overdue
                         </span>
                       )}
@@ -246,9 +284,9 @@ export default function Billing() {
                       {inv.status !== 'paid' && (
                         <button
                           onClick={() => handleMarkPaid(inv.id)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          className="px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all"
                         >
-                          Collect Payment
+                          Collect ₹{inv.total}
                         </button>
                       )}
                     </td>
@@ -259,25 +297,32 @@ export default function Billing() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-900">Expense Ledger</h3>
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+              Clinic Expense Voucher Log
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">Categorized petty cash & consumables</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Category</th>
-                  <th className="py-2.5 px-3">Note / Details</th>
-                  <th className="py-2.5 px-3 text-right">Amount</th>
+                  <th className="py-2.5 px-3">Cost Category</th>
+                  <th className="py-2.5 px-3">Voucher Note</th>
+                  <th className="py-2.5 px-3 text-right">Debit Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {expenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-3 text-slate-500">{exp.date}</td>
-                    <td className="py-3 px-3 font-bold text-slate-800">{exp.category}</td>
+                    <td className="py-3 px-3 text-slate-500 font-mono">{exp.date}</td>
+                    <td className="py-3 px-3 font-bold text-slate-800">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">{exp.category}</span>
+                    </td>
                     <td className="py-3 px-3 text-slate-600">{exp.note}</td>
-                    <td className="py-3 px-3 text-right font-bold text-rose-600">₹{exp.amount}</td>
+                    <td className="py-3 px-3 text-right font-mono font-bold text-rose-600">₹{exp.amount}</td>
                   </tr>
                 ))}
               </tbody>
@@ -291,31 +336,59 @@ export default function Billing() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-fadein">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Create Patient Invoice</h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                  Issue Patient Tax Invoice
+                </h3>
+                <p className="text-xs text-slate-500">Includes automatic 18% GST calculation</p>
+              </div>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">✕</button>
             </div>
 
             <form onSubmit={handleSubmit(handleCreateInvoice)} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Patient Name</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Patient Full Name</label>
                 <input
                   type="text"
                   {...register('patientName')}
-                  placeholder="e.g. Ravi Kumar"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  placeholder="e.g. Ramesh Verma"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                 />
                 {errors.patientName && <p className="text-[11px] text-rose-600 mt-1">{errors.patientName.message}</p>}
               </div>
 
+              {/* Quick Preset Services */}
+              <div>
+                <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Quick Add Services:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { desc: 'OPD Consultation Fee', amt: 800 },
+                    { desc: 'Follow-up Consultation', amt: 400 },
+                    { desc: 'Dental Scaling & Polishing', amt: 1200 },
+                    { desc: 'Composite Filling (per tooth)', amt: 950 },
+                    { desc: 'Complete Blood Count (CBC)', amt: 450 },
+                  ].map(srv => (
+                    <button
+                      key={srv.desc}
+                      type="button"
+                      onClick={() => append({ description: srv.desc, amount: srv.amt })}
+                      className="text-[10.5px] font-semibold px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    >
+                      + {srv.desc} (₹{srv.amt})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Line Items</label>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Billed Line Items</label>
                   <button
                     type="button"
                     onClick={() => append({ description: '', amount: 500 })}
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                    className="text-xs font-semibold text-teal-600 hover:text-teal-700"
                   >
-                    + Add Item
+                    + Add Custom Line
                   </button>
                 </div>
 
@@ -331,7 +404,7 @@ export default function Billing() {
                       type="number"
                       {...register(`lineItems.${idx}.amount` as const, { valueAsNumber: true })}
                       placeholder="₹ Amount"
-                      className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                      className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                     />
                     {fields.length > 1 && (
                       <button
@@ -346,7 +419,7 @@ export default function Billing() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -356,9 +429,9 @@ export default function Billing() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-700/20"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm"
                 >
-                  Generate & Save
+                  Generate Tax Invoice
                 </button>
               </div>
             </form>

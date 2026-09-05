@@ -51,7 +51,16 @@ public class AppointmentsController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == doctor.ClinicId, ct);
 
         if (clinic is null)
-            return BadRequest(new { error = "doctor_has_no_clinic" });
+        {
+            clinic = await _db.Clinics
+                .Include(c => c.WorkingHours)
+                .Include(c => c.Holidays)
+                .Include(c => c.SpecialHours)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (clinic is null)
+            return BadRequest(new { error = "no_clinic_configured" });
 
         // Check if the requested date falls within a holiday range (exact date or recurring annually MM-dd)
         var requestDate = appointmentDate.ToString("yyyy-MM-dd");
