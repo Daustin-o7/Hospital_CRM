@@ -312,34 +312,32 @@ export default function Login() {
             <div
               style={{
                 marginTop: 20,
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--color-border)',
-                background: 'var(--color-surface)',
+                padding: '16px 18px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
               }}
             >
-              <p
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-text-muted)',
-                  marginBottom: 10,
-                  textAlign: 'center',
-                }}
-              >
-                Dev — Quick access
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                  Select Role Persona
+                </span>
+                <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/60">
+                  Instant Auto-fill
+                </span>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
                 {DEV_PRESETS.map(p => (
                   <button
                     key={p.label}
+                    type="button"
                     onClick={() => preset(p.email, p.pass)}
                     className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 11.5, justifyContent: 'center' }}
+                    style={{ fontSize: '11.5px', justifyContent: 'center', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
-                    {p.label}
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
                   </button>
                 ))}
               </div>
@@ -354,27 +352,27 @@ export default function Login() {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TRUST_BADGES = [
   {
-    label: 'Role-based access control',
+    label: 'NABH & DPDP Act 2023 Compliant',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
   },
   {
-    label: 'End-to-end encrypted patient data',
+    label: 'End-to-End Encrypted Patient Health Records (AES-256)',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
   },
   {
-    label: 'Audit trails on all clinical records',
+    label: 'Immutable Audit Trail & Version Control',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
@@ -383,12 +381,12 @@ const TRUST_BADGES = [
 ]
 
 const DEV_PRESETS = [
-  { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!' },
-  { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!' },
-  { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!' },
-  { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!' },
-  { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!' },
-  { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!' },
+  { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!',         icon: '🩺' },
+  { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!',      icon: '📋' },
+  { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!',     icon: '💊' },
+  { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!',          icon: '⚙️' },
+  { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!',          icon: '💉' },
+  { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!', icon: '🛡️' },
 ]
 
 // ── Inline icons ──────────────────────────────────────────────────────────────

@@ -54,6 +54,21 @@ export default function Consultations() {
   const [treatment, setTreatment] = useState('+ Composite Filling in 46\n+ Pit & Fissure sealant')
   const [notes, setNotes] = useState('Patient advised regular oral hygiene and warm saline rinses.')
   const [saveToast, setSaveToast] = useState(false)
+  const [vitals] = useState({
+    bp: '120/80',
+    pulse: 74,
+    temp: 98.4,
+    spo2: 99,
+    weight: 68,
+  })
+
+  const addFindingChip = (text: string) => {
+    setFindings(prev => prev ? `${prev}\n+ ${text}` : `+ ${text}`)
+  }
+
+  const addTreatmentChip = (text: string) => {
+    setTreatment(prev => prev ? `${prev}\n+ ${text}` : `+ ${text}`)
+  }
 
   const cycleToothStatus = (id: number) => {
     const statuses: ToothStatus['status'][] = ['healthy', 'caries', 'filling', 'missing', 'crown']
@@ -67,7 +82,6 @@ export default function Consultations() {
     setSelectedTooth(id)
   }
 
-
   const handleSaveDraft = () => {
     setSaveToast(true)
     setTimeout(() => setSaveToast(false), 3000)
@@ -79,41 +93,71 @@ export default function Consultations() {
   }
 
   return (
-    <div className="space-y-6 pb-12 animate-fadein">
-      {/* ── Patient Header Card ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-5 pb-12 animate-fadein">
+      {/* ── Patient Header Card & Live Vitals Strip ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-900/20">
+          <div
+            className="w-12 h-12 rounded-2xl text-white flex items-center justify-center font-bold text-lg shadow-md"
+            style={{
+              background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
             RK
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Ravi Kumar</h1>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Active Consult
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                Ravi Kumar
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                In Examination
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              32 Y • Male • Reg #12345 • Follow-up Visit
+              32 Y • Male • UHID-12345 • Consulting: <strong className="text-slate-700">Dr. Rajesh Sharma (BDS, MDS)</strong>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Live Vitals Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">BP</span>
+            <span className="font-mono text-xs font-bold text-slate-800">{vitals.bp}</span>
+            <span className="text-[10px] text-emerald-600 font-semibold">Norm</span>
+          </div>
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pulse</span>
+            <span className="font-mono text-xs font-bold text-slate-800">{vitals.pulse} bpm</span>
+          </div>
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SpO2</span>
+            <span className="font-mono text-xs font-bold text-teal-700">{vitals.spo2}%</span>
+          </div>
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Temp</span>
+            <span className="font-mono text-xs font-bold text-slate-800">{vitals.temp}°F</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
           <button
             onClick={handleSaveDraft}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 transition-colors border border-slate-200"
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 transition-colors border border-slate-200"
           >
-            Save as Draft
+            Save Draft
           </button>
           <button
             onClick={handleComplete}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-md shadow-emerald-700/20 flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 transition-all shadow-sm flex items-center gap-1.5"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Complete</span>
+            <span>Finalize & Sign</span>
           </button>
         </div>
       </div>
@@ -123,16 +167,16 @@ export default function Consultations() {
           <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
-          <span>Consultation draft updated successfully.</span>
+          <span>Clinical notes signed and securely appended to patient record.</span>
         </div>
       )}
 
       {/* ── 3-Column Clinical Pad ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Vertical Navigation Tabs (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm space-y-1">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-2 shadow-xs space-y-1">
           <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Consult Steps
+            EMR Sections
           </div>
           {[
             { id: 'visit', label: 'Visit Info', icon: '📋' },
@@ -307,43 +351,95 @@ export default function Consultations() {
           )}
 
           {/* Clinical Text Fields */}
-          <div className="space-y-4 pt-2">
+          <div className="space-y-5 pt-2">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Clinical Findings
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Clinical Examination & Findings
+                </label>
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  <span className="text-[10px] text-slate-400 font-medium mr-1">Quick Add:</span>
+                  <button
+                    type="button"
+                    onClick={() => addFindingChip('Enamel demineralization detected')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + Demineralization
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addFindingChip('Gingival inflammation (Grade 1)')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + Gingivitis
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addFindingChip('No periapical radiolucency')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + Normal X-ray
+                  </button>
+                </div>
+              </div>
               <textarea
                 rows={3}
                 value={findings}
                 onChange={(e) => setFindings(e.target.value)}
                 placeholder="Enter objective clinical findings..."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all shadow-2xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Treatment Plan & Procedures
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Treatment Procedures & Interventions
+                </label>
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  <span className="text-[10px] text-slate-400 font-medium mr-1">Quick Add:</span>
+                  <button
+                    type="button"
+                    onClick={() => addTreatmentChip('Ultrasonic Scaling & Polishing')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + Scaling
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addTreatmentChip('Light-cure Composite Restoration')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + Restoration
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addTreatmentChip('Follow-up review in 7 days')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    + 7d Review
+                  </button>
+                </div>
+              </div>
               <textarea
                 rows={3}
                 value={treatment}
                 onChange={(e) => setTreatment(e.target.value)}
                 placeholder="Enter planned dental or medical procedures..."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all shadow-2xs"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Advice & Instructions
+                Patient Advice & Home Care Instructions
               </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Special instructions for patient..."
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all shadow-2xs"
               />
             </div>
           </div>

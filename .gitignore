@@ -24,6 +24,8 @@ build/
 .env.production.local
 appsettings.Development.json
 appsettings.Local.json
+*.local.json
+.claude/settings.local.json
 
 # Sensitive local files (never commit)
 keys/
@@ -36,3 +38,8 @@ desktop.ini
 
 # Antigravity & Scratch Files
 scratch/
+logs/
+test-results/
+playwright-report/
+frontend/test-results/
+frontend/playwright-report/

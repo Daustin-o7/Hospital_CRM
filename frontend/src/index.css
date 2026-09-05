@@ -4,12 +4,12 @@
 ───────────────────────────────────────────────────── */
 
 /* Fonts — preconnect for performance */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 }
 
@@ -21,16 +21,16 @@
   /* ── Brand (overridden per clinic via JS) ── */
   --brand-primary:       #0d9488;
   --brand-primary-hover: #0f766e;
-  --brand-primary-10:    rgba(13, 148, 136, 0.10);
-  --brand-primary-20:    rgba(13, 148, 136, 0.20);
+  --brand-primary-10:    rgba(13, 148, 136, 0.08);
+  --brand-primary-20:    rgba(13, 148, 136, 0.18);
   --brand-secondary:     #0891b2;
 
   /* ── Surfaces ── */
-  --color-bg:            #f4f6f9;
+  --color-bg:            #f8fafc;
   --color-surface:       #ffffff;
   --color-surface-raised:#ffffff;
-  --color-surface-hover: #f8fafc;
-  --color-sidebar:       #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-sidebar:       #0b1120;
 
   /* ── Borders ── */
   --color-border:        #e2e8f0;

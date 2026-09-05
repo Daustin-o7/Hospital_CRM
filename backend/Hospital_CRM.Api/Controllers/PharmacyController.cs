@@ -328,6 +328,331 @@ public class PharmacyController : ControllerBase
     }
 
     // ==========================================
+    // 3b. PO RECEIVE / GRN (Goods Receipt Note)
+    // ==========================================
+
+    [HttpPost("purchase-orders/{id:guid}/receive")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist")]
+    public async Task<IActionResult> ReceivePurchaseOrder(Guid id, [FromBody] ReceivePurchaseOrderRequest req, CancellationToken ct)
+    {
+        var po = await _db.PurchaseOrders
+            .Include(p => p.Supplier)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+
+        if (po == null)
+            return NotFound(new { error = "purchase_order_not_found" });
+
+        if (po.Status == PurchaseOrderStatus.Received)
+            return BadRequest(new { error = "already_received" });
+
+        if (po.Status == PurchaseOrderStatus.Cancelled)
+            return BadRequest(new { error = "cannot_receive_cancelled_order" });
+
+        var items = System.Text.Json.JsonSerializer.Deserialize<List<PoReceiveItem>>(po.ItemsJson);
+        if (items == null || items.Count == 0)
+            return BadRequest(new { error = "no_items_in_purchase_order" });
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var createdBatches = new List<object>();
+
+            foreach (var item in items)
+            {
+                var receivedQty = req.ReceivedQuantities.TryGetValue(item.DrugId, out var qty) ? qty : 0;
+                if (receivedQty <= 0)
+                    continue;
+
+                var drug = await _db.Drugs.FindAsync([item.DrugId], ct);
+                if (drug == null)
+                    continue;
+
+                // Use received batch details from request or generate defaults
+                var batchNumber = req.BatchNumbers?.TryGetValue(item.DrugId, out var bn) == true && !string.IsNullOrWhiteSpace(bn)
+                    ? bn.Trim().ToUpperInvariant()
+                    : $"PO-{id:N}-{item.DrugId:N}".Substring(0, Math.Min(20, $"PO-{id:N}-{item.DrugId:N}".Length));
+
+                var expiryDate = req.ExpiryDates?.TryGetValue(item.DrugId, out var exp) == true && DateOnly.TryParse(exp, out var parsedExp)
+                    ? parsedExp
+                    : today.AddMonths(12);
+
+                var mfgDate = req.MfgDates?.TryGetValue(item.DrugId, out var mfg) == true && DateOnly.TryParse(mfg, out var parsedMfg)
+                    ? parsedMfg
+                    : today.AddMonths(-1);
+
+                var mrp = req.Mrps?.TryGetValue(item.DrugId, out var mrpVal) == true && mrpVal > 0
+                    ? mrpVal
+                    : drug.IndicativeMrp > 0 ? drug.IndicativeMrp : 50m;
+
+                var purchaseRate = req.PurchaseRates?.TryGetValue(item.DrugId, out var prVal) == true && prVal > 0
+                    ? prVal
+                    : Math.Round(mrp * 0.65m, 2);
+
+                var batch = new DrugBatch
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = Guid.Empty,
+                    DrugId = item.DrugId,
+                    BatchNumber = batchNumber,
+                    ExpiryDate = expiryDate,
+                    MfgDate = mfgDate,
+                    QuantityReceived = receivedQty,
+                    QuantityRemaining = receivedQty,
+                    Mrp = mrp,
+                    PurchaseRate = purchaseRate,
+                    SupplierId = po.SupplierId,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+
+                _db.DrugBatches.Add(batch);
+                drug.UpdatedAt = DateTimeOffset.UtcNow;
+
+                createdBatches.Add(new
+                {
+                    batchId = batch.Id,
+                    drugId = item.DrugId,
+                    drugName = drug.Name,
+                    batchNumber = batch.BatchNumber,
+                    expiryDate = batch.ExpiryDate.ToString("yyyy-MM-dd"),
+                    quantityReceived = batch.QuantityReceived,
+                    mrp = batch.Mrp,
+                    purchaseRate = batch.PurchaseRate
+                });
+            }
+
+            po.Status = PurchaseOrderStatus.Received;
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                purchaseOrderId = po.Id,
+                orderNumber = po.OrderNumber,
+                status = po.Status.ToString().ToLower(),
+                receivedBatches = createdBatches
+            });
+        });
+    }
+
+    // ==========================================
+    // 3c. RX-TO-DISPENSE (PRESCRIPTION FULFILLMENT)
+    // ==========================================
+
+    [HttpPost("dispense")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
+    public async Task<IActionResult> DispensePrescription([FromBody] DispensePrescriptionRequest req, CancellationToken ct)
+    {
+        var prescription = await _db.Prescriptions
+            .Include(p => p.Items)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c.Appointment)
+                    .ThenInclude(a => a.Patient)
+            .FirstOrDefaultAsync(p => p.Id == req.PrescriptionId, ct);
+
+        if (prescription == null)
+            return NotFound(new { error = "prescription_not_found" });
+
+        // --- Tenant feature flag check (FR-14-04) ---
+        // In single-tenant Phase 1, TenantId is Guid.Empty
+        var tenantId = Guid.Empty;
+        var pharmacyFlag = await _db.TenantFeatureFlags
+            .FirstOrDefaultAsync(f => f.TenantId == tenantId && f.FlagName == "pharmacy", ct);
+        if (pharmacyFlag == null)
+        {
+            // Seed default OFF flag for new tenants
+            pharmacyFlag = new TenantFeatureFlag
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                FlagName = "pharmacy",
+                Enabled = false,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                UpdatedBy = Guid.Empty
+            };
+            _db.TenantFeatureFlags.Add(pharmacyFlag);
+            await _db.SaveChangesAsync(ct);
+        }
+        if (!pharmacyFlag.Enabled)
+        {
+            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
+        }
+        // -------------------------------------------
+
+        // Idempotency check
+        if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
+        {
+            var existing = await _db.DispenseRecords
+                .FirstOrDefaultAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct);
+            if (existing != null)
+                return Ok(new { dispenseId = existing.Id, message = "idempotent_duplicate" });
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var patientName = req.PatientName ?? prescription.Consultation?.Appointment?.Patient?.Name ?? "Walk-in Patient";
+            var patientAddress = req.PatientAddress ?? "Local";
+
+            // Collect all drug IDs from prescription items to find matching drugs
+            var prescriptionItems = prescription.Items.ToList();
+            var drugNames = prescriptionItems.Select(i => i.MedicineText.Trim().ToLower()).ToList();
+
+            // Find matching drugs in catalog (by name or generic name)
+            var matchedDrugs = await _db.Drugs
+                .Include(d => d.Batches)
+                .Where(d => drugNames.Contains(d.Name.ToLower()) || drugNames.Contains(d.GenericName.ToLower()))
+                .ToListAsync(ct);
+
+            var dispenseRecord = new DispenseRecord
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                PrescriptionId = prescription.Id,
+                PatientId = prescription.Consultation?.Appointment?.PatientId,
+                WalkInCustomerName = req.PatientName,
+                DispensedBy = currentUserId,
+                DispensedAt = DateTimeOffset.UtcNow,
+                IdempotencyKey = req.IdempotencyKey
+            };
+            _db.DispenseRecords.Add(dispenseRecord);
+
+            decimal totalAmount = 0m;
+            var scheduleH1Items = new List<(DrugBatch Batch, int Qty, Drug Drug)>();
+
+            foreach (var rxItem in prescriptionItems)
+            {
+                var drugName = rxItem.MedicineText.Trim();
+                var matchedDrug = matchedDrugs.FirstOrDefault(d =>
+                    d.Name.Equals(drugName, StringComparison.OrdinalIgnoreCase) ||
+                    d.GenericName.Equals(drugName, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedDrug == null)
+                {
+                    // Drug not in catalog - create a placeholder dispense item without batch tracking
+                    dispenseRecord.Items.Add(new DispenseItem
+                    {
+                        Id = Guid.NewGuid(),
+                        DispenseRecordId = dispenseRecord.Id,
+                        PrescriptionItemId = rxItem.Id,
+                        DrugBatchId = Guid.Empty, // No batch tracking
+                        Quantity = 1, // Default
+                        UnitPrice = 0m
+                    });
+                    continue;
+                }
+
+                // Get FEFO batch for this drug
+                var availableBatch = matchedDrug.Batches
+                    .Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today)
+                    .OrderBy(b => b.ExpiryDate)
+                    .FirstOrDefault();
+
+                if (availableBatch == null)
+                {
+                    return BadRequest(new { error = $"no_stock_for_drug: {matchedDrug.Name}", drugName = matchedDrug.Name });
+                }
+
+                var dispenseQty = 1; // Default quantity - could be parsed from DosageText/FrequencyText/DurationText
+
+                // Check for scheduled drugs
+                if (matchedDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
+                {
+                    if (string.IsNullOrWhiteSpace(req.PrescriberName) || string.IsNullOrWhiteSpace(req.PrescriberRegNo))
+                    {
+                        return BadRequest(new
+                        {
+                            error = "schedule_h1_prescriber_required",
+                            message = "Prescriber name and registration number required for Schedule H1/NDPS/ScheduleX drugs."
+                        });
+                    }
+                    scheduleH1Items.Add((availableBatch, dispenseQty, matchedDrug));
+                }
+
+                // Deduct stock
+                availableBatch.QuantityRemaining -= dispenseQty;
+
+                // Create dispense item
+                dispenseRecord.Items.Add(new DispenseItem
+                {
+                    Id = Guid.NewGuid(),
+                    DispenseRecordId = dispenseRecord.Id,
+                    PrescriptionItemId = rxItem.Id,
+                    DrugBatchId = availableBatch.Id,
+                    Quantity = dispenseQty,
+                    UnitPrice = availableBatch.Mrp
+                });
+
+                totalAmount += availableBatch.Mrp * dispenseQty;
+
+                // Log to ControlledSubstanceRegister for scheduled drugs
+                if (matchedDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
+                {
+                    var dispenserUser = await _db.Users.FindAsync([currentUserId], ct);
+                    var dispenserName = dispenserUser?.Name ?? "Pharmacist";
+
+                    _db.ControlledSubstanceRegisters.Add(new ControlledSubstanceRegister
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = Guid.Empty,
+                        DispenseRecordId = dispenseRecord.Id,
+                        DrugId = matchedDrug.Id,
+                        ScheduleClass = matchedDrug.ScheduleClass,
+                        DrugName = matchedDrug.Name,
+                        BatchNumber = availableBatch.BatchNumber,
+                        Quantity = dispenseQty,
+                        PatientName = patientName,
+                        PatientAddress = patientAddress,
+                        PrescriberName = req.PrescriberName!,
+                        PrescriberRegNo = req.PrescriberRegNo!,
+                        DispensedBy = currentUserId,
+                        DispenserName = dispenserName,
+                        DispensedAt = DateTimeOffset.UtcNow
+                    });
+                }
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                dispenseId = dispenseRecord.Id,
+                prescriptionId = prescription.Id,
+                patientName,
+                totalAmount,
+                status = "dispensed",
+                createdAt = dispenseRecord.DispensedAt,
+                itemCount = dispenseRecord.Items.Count,
+                items = dispenseRecord.Items.Select(di =>
+                {
+                    var rxItem = prescriptionItems.FirstOrDefault(pi => pi.Id == di.PrescriptionItemId);
+                    return new
+                    {
+                        drugName = di.DrugBatchId != Guid.Empty
+                            ? (matchedDrugs.FirstOrDefault(d => d.Batches.Any(b => b.Id == di.DrugBatchId))?.Name ?? "Unknown")
+                            : (rxItem?.MedicineText ?? "Unknown"),
+                        quantity = di.Quantity,
+                        unitPrice = di.UnitPrice,
+                        batchNumber = di.DrugBatchId != Guid.Empty
+                            ? (_db.DrugBatches.FirstOrDefault(b => b.Id == di.DrugBatchId)?.BatchNumber ?? "")
+                            : ""
+                    };
+                })
+            });
+        });
+    }
+
+    // ==========================================
     // 3. FAST POS CHECKOUT (WALK-IN & RX)
     // ==========================================
 
@@ -632,12 +957,10 @@ public class PharmacyController : ControllerBase
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         // Find other drugs with matching GenericName
+        var lowerGeneric = drug.GenericName.ToLower();
         var substitutes = await _db.Drugs.AsNoTracking()
             .Include(d => d.Batches)
-            .Where(d => d.Id != drugId && (
-                EF.Functions.ILike(d.GenericName, $"%{drug.GenericName}%") ||
-                EF.Functions.ILike(drug.GenericName, $"%{d.GenericName}%")
-            ))
+            .Where(d => d.Id != drugId && d.GenericName.ToLower().Contains(lowerGeneric))
             .ToListAsync(ct);
 
         var results = substitutes.Select(d =>
@@ -778,6 +1101,135 @@ public class PharmacyController : ControllerBase
         return StatusCode(201, supplier);
     }
 
+    // ==========================================
+    // 8. RETURNS / REFUND
+    // ==========================================
+
+    [HttpPost("returns/{invoiceId:guid}")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
+    public async Task<IActionResult> ProcessReturn(Guid invoiceId, [FromBody] ReturnRequest req, CancellationToken ct)
+    {
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+                .ThenInclude(li => li.DrugBatch)
+                    .ThenInclude(db => db.Drug)
+            .Include(i => i.Payments)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.InvoiceType != InvoiceType.Pharmacy)
+            return BadRequest(new { error = "not_a_pharmacy_invoice" });
+
+        if (invoice.Status == InvoiceStatus.Refunded)
+            return BadRequest(new { error = "already_refunded" });
+
+        // Idempotency check
+        if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
+        {
+            var existing = await _db.Payments
+                .FirstOrDefaultAsync(p => p.InvoiceId == invoiceId && p.IdempotencyKey == req.IdempotencyKey, ct);
+            if (existing != null)
+                return Ok(new { refundId = existing.Id, message = "idempotent_duplicate", status = existing.Status.ToString().ToLower() });
+        }
+
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            // Restore batch quantities
+            foreach (var lineItem in invoice.LineItems)
+            {
+                if (lineItem.DrugBatchId.HasValue)
+                {
+                    var batch = await _db.DrugBatches.FindAsync([lineItem.DrugBatchId.Value], ct);
+                    if (batch != null)
+                    {
+                        batch.QuantityRemaining += lineItem.Quantity;
+                    }
+                }
+            }
+
+            // Create refund payment (negative amount to reduce ledger income)
+            var originalPayment = invoice.Payments.FirstOrDefault(p => p.Status == PaymentStatus.Completed);
+            var refundMethod = originalPayment?.Method ?? PaymentMethod.Cash;
+            var refundAmount = invoice.Total;
+
+            var refundPayment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                InvoiceId = invoice.Id,
+                Amount = -refundAmount, // Negative amount for refund
+                Method = refundMethod,
+                Status = PaymentStatus.Refunded,
+                RazorpayPaymentId = originalPayment?.RazorpayPaymentId,
+                IdempotencyKey = req.IdempotencyKey,
+                CreatedAt = DateTimeOffset.UtcNow,
+                PaidAt = DateTimeOffset.UtcNow
+            };
+            _db.Payments.Add(refundPayment);
+
+            // If original was Razorpay, we'd trigger a refund via Razorpay API here
+            // For now, mark as refunded locally; real Razorpay refund integration in Track 2b follow-up
+            if (refundMethod == PaymentMethod.Razorpay && !string.IsNullOrEmpty(originalPayment?.RazorpayPaymentId))
+            {
+                // TODO: Call Razorpay refund API with originalPayment.RazorpayPaymentId
+                refundPayment.RazorpayPaymentId = $"refund_{Guid.NewGuid():N}";
+            }
+
+            // Update invoice status
+            invoice.Status = InvoiceStatus.Refunded;
+
+            // Reverse ControlledSubstanceRegister entries for scheduled drugs
+            var scheduledRegisters = await _db.ControlledSubstanceRegisters
+                .Where(r => r.InvoiceId == invoiceId)
+                .ToListAsync(ct);
+
+            foreach (var reg in scheduledRegisters)
+            {
+                // Add reversal entry with negative quantity
+                _db.ControlledSubstanceRegisters.Add(new ControlledSubstanceRegister
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = Guid.Empty,
+                    InvoiceId = invoice.Id,
+                    DrugId = reg.DrugId,
+                    ScheduleClass = reg.ScheduleClass,
+                    DrugName = reg.DrugName,
+                    BatchNumber = reg.BatchNumber,
+                    Quantity = -reg.Quantity, // Negative for return
+                    PatientName = reg.PatientName,
+                    PatientAddress = reg.PatientAddress,
+                    PrescriberName = reg.PrescriberName,
+                    PrescriberRegNo = reg.PrescriberRegNo,
+                    DispensedBy = currentUserId,
+                    DispenserName = req.ReturnedByName ?? "Return Processor",
+                    DispensedAt = DateTimeOffset.UtcNow
+                });
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                refundId = refundPayment.Id,
+                originalInvoiceId = invoice.Id,
+                invoiceNumber = $"PHARM-{invoice.InvoiceNumber:D6}",
+                refundAmount,
+                refundMethod = refundMethod.ToString(),
+                status = "refunded",
+                createdAt = refundPayment.CreatedAt,
+                reason = req.Reason
+            });
+        });
+    }
+
     private static string EscapeCsv(string s) => s.Replace("\"", "\"\"");
 }
 
@@ -840,4 +1292,35 @@ public record CreateSupplierRequest(
     string? Phone,
     string? Email,
     string? Address
+);
+
+public record ReturnRequest(
+    string? Reason,
+    string? ReturnedByName,
+    string? IdempotencyKey
+);
+
+public record ReceivePurchaseOrderRequest(
+    Dictionary<Guid, int> ReceivedQuantities,
+    Dictionary<Guid, string>? BatchNumbers,
+    Dictionary<Guid, string>? ExpiryDates,
+    Dictionary<Guid, string>? MfgDates,
+    Dictionary<Guid, decimal>? Mrps,
+    Dictionary<Guid, decimal>? PurchaseRates
+);
+
+public record PoReceiveItem(
+    Guid DrugId,
+    string DrugName,
+    int OrderedQuantity,
+    decimal UnitPrice
+);
+
+public record DispensePrescriptionRequest(
+    Guid PrescriptionId,
+    string? PatientName,
+    string? PatientAddress,
+    string? PrescriberName,
+    string? PrescriberRegNo,
+    string? IdempotencyKey
 );
