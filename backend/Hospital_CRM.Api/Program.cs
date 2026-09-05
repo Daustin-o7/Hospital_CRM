@@ -2,9 +2,11 @@ using System.Text;
 using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
+using static Hangfire.Cron;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Middlewares;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -130,6 +132,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
+// Typesense self-hosted search — proxy only, never exposed to the frontend.
+builder.Services.Configure<Hospital_CRM.Api.Services.Typesense.TypesenseOptions>(
+    builder.Configuration.GetSection(Hospital_CRM.Api.Services.Typesense.TypesenseOptions.SectionName));
+builder.Services.AddHttpClient("typesense");
+builder.Services.AddSingleton<Hospital_CRM.Api.Services.Typesense.ITypesenseClientFactory,
+                              Hospital_CRM.Api.Services.Typesense.TypesenseClientFactory>();
+builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.IPatientSearchService,
+                           Hospital_CRM.Api.Services.Typesense.PatientSearchService>();
+builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs,
+                           Hospital_CRM.Api.Services.Typesense.TypesenseHangfireJobs>();
+
 // FR-20/21: Notification services
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
 builder.Services.AddHostedService<ReminderSchedulerService>();
@@ -248,6 +261,22 @@ if (autoMigrate)
     }
 }
 
+// Typesense collection init — idempotent. If Typesense is unreachable, log and
+// continue; the API must start even if the search service is down.
+using (var tsScope = app.Services.CreateScope())
+{
+    var ts = tsScope.ServiceProvider.GetRequiredService<Hospital_CRM.Api.Services.Typesense.IPatientSearchService>();
+    try
+    {
+        await ts.EnsureCollectionAsync(default);
+        Log.Information("Typesense patients collection verified");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Typesense collection init failed; search will be unavailable until it comes back online");
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -275,6 +304,12 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new HangfireAdminAuthorizationFilter() }
 });
+
+// Hangfire recurring job: nightly Typesense full reindex at 02:00 local.
+RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs>(
+    "typesense-nightly-patient-reindex",
+    job => job.ReindexTypesenseAsync(CancellationToken.None),
+    Cron.Daily(2));
 
 app.MapControllers();
 
