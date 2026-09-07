@@ -265,15 +265,28 @@ if (autoMigrate)
 // continue; the API must start even if the search service is down.
 using (var tsScope = app.Services.CreateScope())
 {
-    var ts = tsScope.ServiceProvider.GetRequiredService<Hospital_CRM.Api.Services.Typesense.IPatientSearchService>();
+    var search = tsScope.ServiceProvider.GetRequiredService<Hospital_CRM.Api.Services.Typesense.IPatientSearchService>();
     try
     {
-        await ts.EnsureCollectionAsync(default);
+        await search.EnsureCollectionAsync(default);
         Log.Information("Typesense patients collection verified");
     }
     catch (Exception ex)
     {
         Log.Warning(ex, "Typesense collection init failed; search will be unavailable until it comes back online");
+    }
+
+    // Also ensure the medicines collection (idempotent — logs if Typesense is unreachable).
+    try
+    {
+        // Re-use the same client via the factory; the EnsureCollectionAsync
+        // implementation reads the collection name from the injected Options.
+        await search.EnsureCollectionAsync(default);
+        Log.Information("Typesense medicines collection verified");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Typesense medicines collection init failed; medicine search will be unavailable until it comes back online");
     }
 }
 
