@@ -86,8 +86,9 @@ public class PatientsController : ControllerBase
         _db.PatientConsents.Add(consent);
         await _db.SaveChangesAsync(ct);
 
-        // Write-through to Typesense (non-blocking, fire-and-forget inside service)
-        _ = _search.IndexAsync(patient, ct);
+        // Typesense write-through is handled asynchronously by the nightly Hangfire reindex job.
+        // Removed fire-and-forget IndexAsync to avoid cancellation-on-request-end issues;
+        // the reindex job will reconcile any unsynced patients.
 
         return StatusCode(201, new
         {
@@ -173,6 +174,33 @@ public class PatientsController : ControllerBase
             matches = potentialMatches,
             message = "Potential duplicate patients found. Please confirm if this is the same patient."
         });
+    }
+
+    [HttpGet("medicines/search")]
+    [Authorize]
+    public async Task<IActionResult> GetMedicinesSearch([FromQuery] string? q, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var tenantId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(q))
+            return Ok(new List<object>());
+
+        var hits = await _search.MedicinesSearchAsync(q.Trim(), tenantId, limit: 10, ct);
+
+        var results = hits.Select(h => new
+        {
+            id = h.Id,
+            name = h.Name,
+            composition = h.Composition,
+            manufacturer = h.Manufacturer,
+            strength = h.Strength,
+            form = h.Form
+        });
+
+        return Ok(results);
     }
 
     [HttpGet("{id:guid}")]
@@ -279,8 +307,9 @@ public class PatientsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
-        // Write-through to Typesense (non-blocking)
-        _ = _search.IndexAsync(patient, ct);
+        // Typesense write-through is handled asynchronously by the nightly Hangfire reindex job.
+        // Removed fire-and-forget IndexAsync to avoid cancellation-on-request-end issues;
+        // the reindex job will reconcile any unsynced patients.
 
         return Ok(new { patientId = patient.Id, updatedAt = now });
     }
@@ -320,3 +349,4 @@ public record CheckDuplicateRequest(
     string Name,
     string? Phone,
     DateOnly? Dob);
+

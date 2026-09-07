@@ -36,3 +36,41 @@ public class TypesensePatientDocument
     [JsonPropertyName("created_at")]
     public long CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Wire-format medicine document for the Typesense "medicines" collection.
+/// tenant_id is stored as string (UUID) with facet:true so scoped API keys
+/// can apply filter_by: tenant_id:=X server-side. id is the medicine UUID.
+/// </summary>
+public class TypesenseMedicineDocument
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("tenant_id")]
+    public string TenantId { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("generic_name")]
+    public string? GenericName { get; set; }
+
+    [JsonPropertyName("composition")]
+    public string? Composition { get; set; }
+
+    [JsonPropertyName("manufacturer")]
+    public string? Manufacturer { get; set; }
+
+    [JsonPropertyName("strength")]
+    public string? Strength { get; set; }
+
+    [JsonPropertyName("form")]
+    public string? Form { get; set; }
+
+    [JsonPropertyName("hsn_code")]
+    public string? HsnCode { get; set; }
+
+    [JsonPropertyName("standard_pack_size")]
+    public string? StandardPackSize { get; set; }
+}

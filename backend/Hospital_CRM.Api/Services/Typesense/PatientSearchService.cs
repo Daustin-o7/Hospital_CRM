@@ -13,6 +13,7 @@ public interface IPatientSearchService
     Task DeleteAsync(Guid id, CancellationToken ct);
     Task<List<PatientSearchHit>> SearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default);
     Task<List<PatientSearchHit>> CheckDuplicatesAsync(string name, string? phone, DateOnly? dob, Guid tenantId, CancellationToken ct = default);
+    Task<List<MedicineSearchHit>> MedicinesSearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default);
     Task EnsureCollectionAsync(CancellationToken ct);
 }
 
@@ -23,6 +24,15 @@ public record PatientSearchHit(
     string? Dob,
     string? Gender,
     string? Address,
+    int Score);
+
+public record MedicineSearchHit(
+    Guid Id,
+    string Name,
+    string? Composition,
+    string? Manufacturer,
+    string? Strength,
+    string? Form,
     int Score);
 
 /// <summary>
@@ -212,6 +222,38 @@ public class PatientSearchService : IPatientSearchService
         }
     }
 
+    public async Task<List<MedicineSearchHit>> MedicinesSearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return new List<MedicineSearchHit>();
+
+        var trimmed = query.Trim();
+        var sp = new SearchParameters(trimmed, "name,composition,manufacturer")
+        {
+            FilterBy = $"tenant_id:={tenantId}",
+            PerPage = limit,
+            NumberOfTypos = "2"
+        };
+
+        try
+        {
+            var result = await _ts.Search<TypesenseMedicineDocument>(_opts.MedicinesCollection, sp, ct);
+            return result.Hits.Select(h => new MedicineSearchHit(
+                Guid.Parse(h.Document.Id),
+                h.Document.Name,
+                h.Document.Composition,
+                h.Document.Manufacturer,
+                h.Document.Strength,
+                h.Document.Form,
+                (int)(h.TextMatch ?? 0))).ToList();
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Typesense medicine search unavailable; executing PostgreSQL fallback for query {Query}", query);
+            return await FallbackMedicinesSearchDatabaseAsync(trimmed, tenantId, limit, ct);
+        }
+    }
+
     private async Task<List<PatientSearchHit>> FallbackSearchDatabaseAsync(string query, Guid tenantId, int limit, CancellationToken ct)
     {
         try
@@ -282,6 +324,33 @@ public class PatientSearchService : IPatientSearchService
         {
             _log.LogError(dbEx, "Database fallback duplicate check failed for name {Name}", name);
             return new List<PatientSearchHit>();
+        }
+    }
+
+private async Task<List<MedicineSearchHit>> FallbackMedicinesSearchDatabaseAsync(string query, Guid tenantId, int limit, CancellationToken ct)
+    {
+        try
+        {
+            var matches = await _db.Drugs.AsNoTracking()
+                .Where(m => EF.Functions.ILike(m.Name, $"%{query}%")
+                         || EF.Functions.ILike(m.GenericName, $"%{query}%")
+                         || EF.Functions.ILike(m.CommonBrands, $"%{query}%"))
+                .Take(limit)
+                .ToListAsync(ct);
+
+            return matches.Select(m => new MedicineSearchHit(
+                m.Id,
+                m.Name,
+                m.GenericName,
+                m.CommonBrands,  // use CommonBrands as Manufacturer fallback
+                m.Strength,
+                m.DosageForm,
+                100)).ToList();
+        }
+        catch (Exception dbEx)
+        {
+            _log.LogError(dbEx, "Database fallback medicine search failed for query {Query}", query);
+            return new List<MedicineSearchHit>();
         }
     }
 
