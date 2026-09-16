@@ -155,11 +155,8 @@ export default function Login() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 420 }}>
-          {/* Mobile brand (hidden on desktop) */}
-          <div
-            className="show-mobile-only"
-            style={{ display: 'none', marginBottom: 32, textAlign: 'center' }}
-          >
+          {/* Mobile brand (visible on mobile only) */}
+          <div className="block md:hidden mb-6 text-center">
             <div
               style={{
                 width: 48,
@@ -169,7 +166,8 @@ export default function Login() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 12,
+                marginBottom: 10,
+                boxShadow: '0 4px 12px rgba(13,148,136,0.3)',
               }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
@@ -178,6 +176,9 @@ export default function Login() {
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
               SAMSTACK AI
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Healthcare Platform
             </div>
           </div>
 
@@ -327,17 +328,16 @@ export default function Login() {
                   Instant Auto-fill
                 </span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DEV_PRESETS.map(p => (
                   <button
                     key={p.label}
                     type="button"
                     onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '11.5px', justifyContent: 'center', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    className="btn btn-secondary btn-sm flex items-center justify-center gap-1.5 p-2 min-h-[40px] text-[12px] font-semibold transition-all hover:border-teal-500/40 hover:bg-teal-50/50"
                   >
-                    <span>{p.icon}</span>
-                    <span>{p.label}</span>
+                    <span className="text-sm shrink-0">{p.icon}</span>
+                    <span className="truncate">{p.label}</span>
                   </button>
                 ))}
               </div>

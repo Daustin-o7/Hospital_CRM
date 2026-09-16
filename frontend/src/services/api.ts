@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const API_BASE_URL = '/api/v1'
+const isNativeAndroid = typeof window !== 'undefined' && (
+  (window.location.hostname === 'localhost' && window.location.port === '') ||
+  /android/i.test(navigator.userAgent) ||
+  !!(window as any).Capacitor
+)
+
+const API_BASE_URL = isNativeAndroid
+  ? 'http://10.0.2.2:5000/api/v1'
+  : (import.meta.env.VITE_API_BASE_URL || '/api/v1')
 
 let inMemoryAccessToken: string | null = null
 
