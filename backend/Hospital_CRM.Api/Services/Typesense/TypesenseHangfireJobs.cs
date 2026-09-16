@@ -2,6 +2,7 @@ using Hangfire;
 using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Typesense;
 
 namespace Hospital_CRM.Api.Services.Typesense;
 

@@ -322,12 +322,93 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        {/* Page Main Content */}
-        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page Main Content with Mobile Bottom Padding */}
+        <main className="flex-1 p-3.5 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">
           <Outlet />
         </main>
+
+        {/* ── Dedicated Mobile Bottom Navigation Bar (High Frequency Actions) ── */}
+        <nav
+          aria-label="Mobile Navigation"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
+        >
+          <NavLink
+            to="/dashboard"
+            end
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                isActive
+                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
+                  : 'text-slate-500 font-medium hover:text-slate-900'
+              }`
+            }
+          >
+            <HomeIcon className="w-5 h-5 mb-0.5" />
+            <span>Home</span>
+          </NavLink>
+
+          <NavLink
+            to="/dashboard/patients"
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                isActive
+                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
+                  : 'text-slate-500 font-medium hover:text-slate-900'
+              }`
+            }
+          >
+            <UsersIcon className="w-5 h-5 mb-0.5" />
+            <span>Patients</span>
+          </NavLink>
+
+          <NavLink
+            to="/dashboard/appointments"
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                isActive
+                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
+                  : 'text-slate-500 font-medium hover:text-slate-900'
+              }`
+            }
+          >
+            <CalendarIcon className="w-5 h-5 mb-0.5" />
+            <span>Appts</span>
+          </NavLink>
+
+          <NavLink
+            to="/dashboard/queue"
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                isActive
+                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
+                  : 'text-slate-500 font-medium hover:text-slate-900'
+              }`
+            }
+          >
+            <QueueIcon className="w-5 h-5 mb-0.5" />
+            <span>Queue</span>
+          </NavLink>
+
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight text-slate-500 font-medium hover:text-slate-900 transition-all min-w-[54px] min-h-[44px]"
+            aria-label="Open full workspace menu"
+          >
+            <MenuIcon className="w-5 h-5 mb-0.5" />
+            <span>Menu</span>
+          </button>
+        </nav>
       </div>
     </div>
+  )
+}
+
+function MenuIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+    </svg>
   )
 }
 

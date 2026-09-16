@@ -149,11 +149,34 @@
     font-size: 14px;
   }
 
+  /* Mobile touch optimization — minimum 16px on mobile prevents automatic zoom */
+  @media (max-width: 640px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+    
+    button, .btn, [role="button"], a.nav-item {
+      min-height: 44px;
+      touch-action: manipulation;
+    }
+  }
+
   /* Focus ring — global, accessible */
   :focus-visible {
     outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
+  }
+
+  /* Safe Area Utility Classes */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 16px));
+  }
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  }
+  .mb-safe {
+    margin-bottom: max(1rem, env(safe-area-inset-bottom, 16px));
   }
 
   /* Reduced motion */
