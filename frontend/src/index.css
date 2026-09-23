@@ -3,13 +3,13 @@
    Premium · Minimal · Trustworthy
 ───────────────────────────────────────────────────── */
 
-/* Fonts — preconnect for performance */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+/* Fonts — Google Stitch Design System: Space Grotesk, Plus Jakarta Sans, JetBrains Mono */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 }
 
@@ -21,16 +21,16 @@
   /* ── Brand (overridden per clinic via JS) ── */
   --brand-primary:       #0d9488;
   --brand-primary-hover: #0f766e;
-  --brand-primary-10:    rgba(13, 148, 136, 0.10);
-  --brand-primary-20:    rgba(13, 148, 136, 0.20);
+  --brand-primary-10:    rgba(13, 148, 136, 0.08);
+  --brand-primary-20:    rgba(13, 148, 136, 0.18);
   --brand-secondary:     #0891b2;
 
   /* ── Surfaces ── */
-  --color-bg:            #f4f6f9;
+  --color-bg:            #f8fafc;
   --color-surface:       #ffffff;
   --color-surface-raised:#ffffff;
-  --color-surface-hover: #f8fafc;
-  --color-sidebar:       #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-sidebar:       #0b1120;
 
   /* ── Borders ── */
   --color-border:        #e2e8f0;
@@ -149,11 +149,34 @@
     font-size: 14px;
   }
 
+  /* Mobile touch optimization — minimum 16px on mobile prevents automatic zoom */
+  @media (max-width: 640px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+    
+    button, .btn, [role="button"], a.nav-item {
+      min-height: 44px;
+      touch-action: manipulation;
+    }
+  }
+
   /* Focus ring — global, accessible */
   :focus-visible {
     outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
+  }
+
+  /* Safe Area Utility Classes */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 16px));
+  }
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  }
+  .mb-safe {
+    margin-bottom: max(1rem, env(safe-area-inset-bottom, 16px));
   }
 
   /* Reduced motion */
@@ -873,6 +896,56 @@
   }
   .toast-success { background: var(--color-success); }
   .toast-error   { background: var(--color-danger); }
+
+  /* ── STITCH CLINICAL PRECISION GLASS UTILITIES ── */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .glass-panel-dark {
+    background: rgba(17, 30, 46, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid #22364f;
+    border-radius: var(--radius-xl);
+    color: #f8fafc;
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  .pill-telemetry {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid transparent;
+  }
+
+  .triage-indicator-stable { border-left: 3px solid #2dd4bf !important; }
+  .triage-indicator-observe { border-left: 3px solid #f59e0b !important; }
+  .triage-indicator-critical { border-left: 3px solid #f43f5e !important; }
+
+  .alert-hud {
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 12px 16px;
+    color: #be123c;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(8px);
+  }
 
 } /* end @layer components */
 

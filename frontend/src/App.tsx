@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
+import AuthCallback from './pages/AuthCallback'
 import DashboardLayout from './components/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
@@ -7,6 +8,9 @@ import Appointments from './pages/Appointments'
 import Queue from './pages/Queue'
 import Consultations from './pages/Consultations'
 import Billing from './pages/Billing'
+import PharmacyPOS from './pages/PharmacyPOS'
+import PharmacyBatches from './pages/PharmacyBatches'
+import PharmacyCompliance from './pages/PharmacyCompliance'
 import Inventory from './pages/Inventory'
 import Reports from './pages/Reports'
 import Messages from './pages/Messages'
@@ -26,6 +30,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/patients" element={<Patients />} />
@@ -33,6 +38,9 @@ function App() {
         <Route path="/dashboard/queue" element={<Queue />} />
         <Route path="/dashboard/consultations" element={<Consultations />} />
         <Route path="/dashboard/billing" element={<Billing />} />
+        <Route path="/dashboard/pharmacy/pos" element={<PharmacyPOS />} />
+        <Route path="/dashboard/pharmacy/batches" element={<PharmacyBatches />} />
+        <Route path="/dashboard/pharmacy/compliance" element={<PharmacyCompliance />} />
         <Route path="/dashboard/inventory" element={<Inventory />} />
         <Route path="/dashboard/reports" element={<Reports />} />
         <Route path="/dashboard/messages" element={<Messages />} />

@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
-  const { login }                 = useAuth()
+  const { login, loginWithEntra, isEntraEnabled } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +23,15 @@ export default function Login() {
       setError(friendlyError(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEntraLogin = async () => {
+    setError('')
+    try {
+      await loginWithEntra()
+    } catch (err: any) {
+      setError(err.message || 'Failed to initialize Microsoft Entra sign in')
     }
   }
 
@@ -155,11 +164,8 @@ export default function Login() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 420 }}>
-          {/* Mobile brand (hidden on desktop) */}
-          <div
-            className="show-mobile-only"
-            style={{ display: 'none', marginBottom: 32, textAlign: 'center' }}
-          >
+          {/* Mobile brand (visible on mobile only) */}
+          <div className="block md:hidden mb-6 text-center">
             <div
               style={{
                 width: 48,
@@ -169,7 +175,8 @@ export default function Login() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: 12,
+                marginBottom: 10,
+                boxShadow: '0 4px 12px rgba(13,148,136,0.3)',
               }}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
@@ -178,6 +185,9 @@ export default function Login() {
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
               SAMSTACK AI
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Healthcare Platform
             </div>
           </div>
 
@@ -210,6 +220,30 @@ export default function Login() {
                 <Alert variant="error" onDismiss={() => setError('')}>
                   {error}
                 </Alert>
+              </div>
+            )}
+
+            {isEntraEnabled && (
+              <div style={{ marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={handleEntraLogin}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', gap: 10, fontSize: 13, background: '#fff', border: '1px solid var(--color-border)' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                  Sign in with Microsoft / Entra ID
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>or sign in with credentials</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                </div>
               </div>
             )}
 
@@ -312,34 +346,31 @@ export default function Login() {
             <div
               style={{
                 marginTop: 20,
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--color-border)',
-                background: 'var(--color-surface)',
+                padding: '16px 18px',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
               }}
             >
-              <p
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-text-muted)',
-                  marginBottom: 10,
-                  textAlign: 'center',
-                }}
-              >
-                Dev — Quick access
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                  Select Role Persona
+                </span>
+                <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/60">
+                  Instant Auto-fill
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DEV_PRESETS.map(p => (
                   <button
                     key={p.label}
+                    type="button"
                     onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 11.5, justifyContent: 'center' }}
+                    className="btn btn-secondary btn-sm flex items-center justify-center gap-1.5 p-2 min-h-[40px] text-[12px] font-semibold transition-all hover:border-teal-500/40 hover:bg-teal-50/50"
                   >
-                    {p.label}
+                    <span className="text-sm shrink-0">{p.icon}</span>
+                    <span className="truncate">{p.label}</span>
                   </button>
                 ))}
               </div>
@@ -354,27 +385,27 @@ export default function Login() {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TRUST_BADGES = [
   {
-    label: 'Role-based access control',
+    label: 'NABH & DPDP Act 2023 Compliant',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
   },
   {
-    label: 'End-to-end encrypted patient data',
+    label: 'End-to-End Encrypted Patient Health Records (AES-256)',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
   },
   {
-    label: 'Audit trails on all clinical records',
+    label: 'Immutable Audit Trail & Version Control',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
@@ -383,9 +414,12 @@ const TRUST_BADGES = [
 ]
 
 const DEV_PRESETS = [
-  { label: 'Admin',     email: 'admin@samstack.ai',     pass: 'AdminPass123!' },
-  { label: 'Doctor',    email: 'doctor@samstack.ai',    pass: 'DoctorPass123!' },
-  { label: 'Reception', email: 'reception@samstack.ai', pass: 'ReceptPass123!' },
+  { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!',         icon: '🩺' },
+  { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!',      icon: '📋' },
+  { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!',     icon: '💊' },
+  { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!',          icon: '⚙️' },
+  { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!',          icon: '💉' },
+  { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!', icon: '🛡️' },
 ]
 
 // ── Inline icons ──────────────────────────────────────────────────────────────

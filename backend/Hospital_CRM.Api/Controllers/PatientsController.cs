@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -16,10 +17,12 @@ namespace Hospital_CRM.Api.Controllers;
 public class PatientsController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly IPatientSearchService _search;
 
-    public PatientsController(HospitalCrmDbContext db)
+    public PatientsController(HospitalCrmDbContext db, IPatientSearchService search)
     {
         _db = db;
+        _search = search;
     }
 
     [HttpPost]
@@ -83,32 +86,94 @@ public class PatientsController : ControllerBase
         _db.PatientConsents.Add(consent);
         await _db.SaveChangesAsync(ct);
 
-        return StatusCode(201, new { patientId = patient.Id, possibleDuplicateOf = (Guid?)null });
+        // Typesense write-through is handled asynchronously by the nightly Hangfire reindex job.
+        // Removed fire-and-forget IndexAsync to avoid cancellation-on-request-end issues;
+        // the reindex job will reconcile any unsynced patients.
+
+        return StatusCode(201, new
+        {
+            id = patient.Id,
+            name = patient.Name,
+            phone = patient.Phone,
+            gender = patient.Gender.ToString(),
+            dob = patient.Dob?.ToString("yyyy-MM-dd"),
+            approxAge = patient.ApproxAge,
+            address = patient.Address,
+            createdAt = patient.CreatedAt,
+            patientId = patient.Id,
+            possibleDuplicateOf = (Guid?)null
+        });
     }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<IActionResult> GetAll(CancellationToken ct) => await Search(null, ct);
 
     [HttpGet("search")]
     [Authorize]
-    public async Task<IActionResult> Search([FromQuery] string q, CancellationToken ct)
+    public async Task<IActionResult> Search([FromQuery] string? q, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(q) || q.Length < 3)
-            return BadRequest(new { error = "query_must_be_at_least_3_characters" });
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        var patients = await _db.Patients
-            .Where(p => p.Name.Contains(q) || p.Phone.StartsWith(q))
-            .OrderBy(p => p.Name)
-            .Take(50)
-            .Select(p => new
-            {
-                id = p.Id,
-                name = p.Name,
-                phone = p.Phone,
-                age = p.Dob.HasValue
-                    ? DateOnly.FromDateTime(DateTime.Today).Year - p.Dob.Value.Year
-                    : p.ApproxAge ?? 0
-            })
-            .ToListAsync(ct);
+        // TenantId is Guid.Empty for single-tenant Phase 1
+        var tenantId = Guid.Empty;
 
-        return Ok(patients);
+        if (string.IsNullOrWhiteSpace(q))
+            return Ok(new List<object>());
+
+        var hits = await _search.SearchAsync(q.Trim(), tenantId, limit: 10, ct);
+
+        // Composite dropdown format: name + DOB + last 4 phone
+        var results = hits.Select(h => new
+        {
+            id = h.Id,
+            name = h.Name,
+            dob = h.Dob,
+            phoneLast4 = h.Phone.Length >= 4 ? h.Phone.Substring(h.Phone.Length - 4) : h.Phone,
+            phone = h.Phone,
+            gender = h.Gender,
+            address = h.Address,
+            score = h.Score
+        });
+
+        return Ok(results);
+    }
+
+    [HttpPost("check-duplicate")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> CheckDuplicate([FromBody] CheckDuplicateRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "name_required" });
+
+        var tenantId = Guid.Empty;
+        var hits = await _search.CheckDuplicatesAsync(request.Name, request.Phone, request.Dob, tenantId, ct);
+
+        var potentialMatches = hits.Select(h => new
+        {
+            id = h.Id,
+            name = h.Name,
+            dob = h.Dob,
+            phoneLast4 = h.Phone.Length >= 4 ? h.Phone.Substring(h.Phone.Length - 4) : h.Phone,
+            phone = h.Phone,
+            gender = h.Gender,
+            address = h.Address,
+            score = h.Score
+        }).ToList();
+
+        if (potentialMatches.Count == 0)
+            return Ok(new { duplicate = false, matches = potentialMatches });
+
+        return Ok(new
+        {
+            duplicate = true,
+            matches = potentialMatches,
+            message = "Potential duplicate patients found. Please confirm if this is the same patient."
+        });
     }
 
     [HttpGet("{id:guid}")]
@@ -215,6 +280,10 @@ public class PatientsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
+        // Typesense write-through is handled asynchronously by the nightly Hangfire reindex job.
+        // Removed fire-and-forget IndexAsync to avoid cancellation-on-request-end issues;
+        // the reindex job will reconcile any unsynced patients.
+
         return Ok(new { patientId = patient.Id, updatedAt = now });
     }
 
@@ -248,3 +317,9 @@ public record PatientPatchRequest(
     DateOnly? Dob,
     string? Gender,
     string? Address);
+
+public record CheckDuplicateRequest(
+    string Name,
+    string? Phone,
+    DateOnly? Dob);
+

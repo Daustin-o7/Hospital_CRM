@@ -51,7 +51,16 @@ public class AppointmentsController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == doctor.ClinicId, ct);
 
         if (clinic is null)
-            return BadRequest(new { error = "doctor_has_no_clinic" });
+        {
+            clinic = await _db.Clinics
+                .Include(c => c.WorkingHours)
+                .Include(c => c.Holidays)
+                .Include(c => c.SpecialHours)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (clinic is null)
+            return BadRequest(new { error = "no_clinic_configured" });
 
         // Check if the requested date falls within a holiday range (exact date or recurring annually MM-dd)
         var requestDate = appointmentDate.ToString("yyyy-MM-dd");
@@ -94,16 +103,16 @@ public class AppointmentsController : ControllerBase
                 .OrderBy(h => h.ShiftIndex)
                 .ToList();
 
-            if (workingShifts.Count == 0)
-                return BadRequest(new { error = "clinic_closed_on_selected_day" });
+            if (workingShifts.Count > 0)
+            {
+                // Verify the time slot falls within at least one of the shifts
+                var isInAnyShift = workingShifts.Any(s =>
+                    string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
+                    string.CompareOrdinal(request.TimeSlot, s.CloseTime) < 0);
 
-            // Verify the time slot falls within at least one of the shifts
-            var isInAnyShift = workingShifts.Any(s =>
-                string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
-                string.CompareOrdinal(request.TimeSlot, s.CloseTime) < 0);
-
-            if (!isInAnyShift)
-                return BadRequest(new { error = "time_slot_outside_working_hours" });
+                if (!isInAnyShift)
+                    return BadRequest(new { error = "time_slot_outside_working_hours" });
+            }
         }
 
         var executionStrategy = _db.Database.CreateExecutionStrategy();

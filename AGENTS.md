@@ -84,9 +84,41 @@ npm run test:e2e
 npm run lint
 ```
 
+### Mobile App (React Native / Android + Maestro)
+```bash
+cd ../MobileApp
+
+# Install deps
+npm install
+
+# Build & Run on Android Emulator / Device
+npm run android
+
+# Maestro E2E Mobile Testing
+maestro test .maestro/app-launch.yaml
+maestro test .maestro
+```
+
+
 ### Database
 - Local PostgreSQL required. Connection string in `backend/Hospital_CRM.Api/appsettings.json`
 - Migrations live in `backend/Hospital_CRM.Infrastructure/Migrations/`
+
+### Docker (recommended for local dev)
+```bash
+# One-shot bring-up: postgres + azurite + api (Hangfire in-process) + frontend (Vite/HMR)
+cp .env.example .env
+docker compose up -d
+
+# Tail logs / shut down
+docker compose logs -f
+docker compose down
+
+# Rebuild images after Dockerfile changes
+docker compose build
+```
+
+`docker compose up -d` runs EF migrations and seeds development data automatically (Program.cs startup). Migrations are NOT a manual step in the Docker path. Hangfire uses the existing Postgres instance via `Hangfire.PostgreSql` — no separate Hangfire container. Azurite (Azure Storage emulator) is wired for FR-08-02 lab file uploads; production swaps to real Azure Blob via `AzureStorage__ConnectionString` env override.
 
 ---
 
@@ -151,7 +183,45 @@ npm run lint
 
 ---
 
+## MCP Servers & Extensibility Tooling
+
+To accelerate full-stack development, database introspection, and end-to-end testing across Antigravity and OpenCode, the following Model Context Protocol (MCP) server toolchains and skill managers are integrated and referenced:
+
+### 1. Database & SQL Management
+- **PostgreSQL MCP** (`@modelcontextprotocol/server-postgres`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/postgres`
+  - **Usage:** Safe schema inspection, query validation, and migration review against PostgreSQL (`localhost:5432`).
+  - **Rule:** Enforce read-only or staged migration mode; never execute destructive `DROP`/`TRUNCATE` operations directly.
+- **SQLite MCP** (`@modelcontextprotocol/server-sqlite`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite`
+  - **Usage:** Local testing, offline sync caching verification, and client-side database validation.
+
+### 2. Codebase & Repository Management
+- **FileSystem MCP** (`@modelcontextprotocol/server-filesystem`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem`
+  - **Usage:** Secure file workspace operations within project root.
+- **Git & GitHub MCP** (`@modelcontextprotocol/server-git`, `@modelcontextprotocol/server-github`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/git` | `https://github.com/modelcontextprotocol/servers/tree/main/src/github`
+  - **Usage:** Feature branch tracking, commit staging, PR generation, and diff reviews.
+
+### 3. Frontend, 3D & Live Automation
+- **Puppeteer MCP** (`@modelcontextprotocol/server-puppeteer`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer`
+  - **Usage:** Live browser automation, visual regression verification, and UI flow validation.
+- **Fetch MCP** (`@modelcontextprotocol/server-fetch`):
+  - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/fetch`
+  - **Usage:** Fetch and convert updated external documentation (e.g. React 19, .NET 10, Three.js) into LLM-optimized context.
+
+### 4. Dynamic Rules & Skill Discovery
+- **OpenCode-Rules Plugin**:
+  - **Git Reference:** `https://github.com/frap129/opencode-rules`
+  - **Usage:** Dynamically discovers and injects context-specific markdown rules and skills (`.opencode/skills/` and `.agents/skills/`) without manual per-project configuration.
+- **Awesome MCP Directory**:
+  - **Git Reference:** `https://github.com/appcypher/awesome-mcp-servers`
+
+---
+
 ## Ports (confirm locally)
 - Backend API: `https://localhost:7001` (dev cert)
 - Frontend Vite: `http://localhost:5173`
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: `localhost:5432`
