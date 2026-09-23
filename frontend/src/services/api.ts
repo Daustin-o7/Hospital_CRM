@@ -1,14 +1,24 @@
 import axios from 'axios'
 
-const isNativeAndroid = typeof window !== 'undefined' && (
-  (window.location.hostname === 'localhost' && window.location.port === '') ||
-  /android/i.test(navigator.userAgent) ||
-  !!(window as any).Capacitor
+const isCapacitorOrWebView = typeof window !== 'undefined' && (
+  !!(window as any).Capacitor ||
+  (window.location.hostname === 'localhost' && window.location.port === '')
 )
 
-const API_BASE_URL = isNativeAndroid
-  ? 'http://10.0.2.2:5000/api/v1'
-  : (import.meta.env.VITE_API_BASE_URL || '/api/v1')
+const resolveApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  if (isCapacitorOrWebView) {
+    // In Android Emulator WebView, match protocol to prevent Mixed Content security blocking
+    return window.location.protocol === 'https:'
+      ? 'https://10.0.2.2:7001/api/v1'
+      : 'http://10.0.2.2:5000/api/v1'
+  }
+  return '/api/v1'
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 
 let inMemoryAccessToken: string | null = null
 
