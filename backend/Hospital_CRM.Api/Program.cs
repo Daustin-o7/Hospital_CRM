@@ -112,19 +112,50 @@ var allowedOrigins = new HashSet<string>(configuredOrigins, StringComparer.Ordin
     "http://localhost:8080",
     "http://localhost:80",
     "http://localhost",
+    "https://localhost",
     "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173",
     "http://127.0.0.1:8080",
-    "http://127.0.0.1"
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://10.0.2.2:5000",
+    "https://10.0.2.2:7001",
+    "http://10.0.2.2:5173"
 };
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins.ToArray())
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin)) return false;
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return uri.Host == "localhost"
+                        || uri.Host == "127.0.0.1"
+                        || uri.Host == "10.0.2.2"
+                        || uri.Scheme.Equals("capacitor", StringComparison.OrdinalIgnoreCase)
+                        || uri.Scheme.Equals("ionic", StringComparison.OrdinalIgnoreCase)
+                        || allowedOrigins.Contains(origin);
+                }
+                return false;
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins.ToArray())
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
     });
 });
 
@@ -268,25 +299,12 @@ using (var tsScope = app.Services.CreateScope())
     var search = tsScope.ServiceProvider.GetRequiredService<Hospital_CRM.Api.Services.Typesense.IPatientSearchService>();
     try
     {
-        await search.EnsureCollectionAsync(default);
-        Log.Information("Typesense patients collection verified");
+        await search.EnsureCollectionsAsync(default);
+        Log.Information("Typesense patient and medicine collections verified");
     }
     catch (Exception ex)
     {
-        Log.Warning(ex, "Typesense collection init failed; search will be unavailable until it comes back online");
-    }
-
-    // Also ensure the medicines collection (idempotent — logs if Typesense is unreachable).
-    try
-    {
-        // Re-use the same client via the factory; the EnsureCollectionAsync
-        // implementation reads the collection name from the injected Options.
-        await search.EnsureCollectionAsync(default);
-        Log.Information("Typesense medicines collection verified");
-    }
-    catch (Exception ex)
-    {
-        Log.Warning(ex, "Typesense medicines collection init failed; medicine search will be unavailable until it comes back online");
+        Log.Warning(ex, "Typesense collections init failed; search will be unavailable until Typesense is online");
     }
 }
 
@@ -318,11 +336,16 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = new[] { new HangfireAdminAuthorizationFilter() }
 });
 
-// Hangfire recurring job: nightly Typesense full reindex at 02:00 local.
+// Hangfire recurring jobs: nightly Typesense full reindexes at 02:00 and 03:00 local.
 RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs>(
     "typesense-nightly-patient-reindex",
     job => job.ReindexTypesenseAsync(CancellationToken.None),
     Cron.Daily(2));
+
+RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs>(
+    "typesense-nightly-medicine-reindex",
+    job => job.ReindexMedicinesTypesenseAsync(CancellationToken.None),
+    Cron.Daily(3));
 
 app.MapControllers();
 
