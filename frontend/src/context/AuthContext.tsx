@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api, { setAccessToken, getAccessToken, setRefreshToken, getRefreshToken, clearTokens, refreshClient } from '../services/api'
+import { userManager, isEntraConfigured } from '../services/oidc'
 
 interface User {
   id: string
@@ -13,9 +14,12 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginWithEntra: () => Promise<void>
   logout: () => void
   isAuthenticated: boolean
   hasRole: (roles: string[]) => boolean
+  setUserFromEntra: (user: User) => void
+  isEntraEnabled: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,9 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return roles.includes(user.role.toLowerCase()) || roles.includes(user.role)
   }, [user])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     clearTokens()
     setUser(null)
+    if (isEntraConfigured && userManager) {
+      try {
+        await userManager.signoutRedirect()
+        return
+      } catch (err) {
+        console.warn('Entra signout redirect failed:', err)
+      }
+    }
     navigate('/login')
   }, [navigate])
 
@@ -57,48 +69,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const res = await api.post('/auth/login', { email, password })
-      const { accessToken, refreshToken, expiresIn, user: userData } = res.data
-
-      setAccessToken(accessToken)
-      setRefreshToken(refreshToken)
-      setUser(userData)
-      scheduleProactiveRefresh(expiresIn || 900)
-      navigate('/dashboard')
-    } catch (err: any) {
-      // Offline / Emulator fallback for standard role personas
-      const normalizedEmail = email.trim().toLowerCase()
-      const roleMap: Record<string, { name: string; role: string; pass: string }> = {
-        'doctor@samstack.ai': { name: 'Dr. Sarah Jenkins', role: 'doctor', pass: 'DoctorPass123!' },
-        'reception@samstack.ai': { name: 'Front Desk Reception', role: 'reception', pass: 'ReceptPass123!' },
-        'nurse@samstack.ai': { name: 'Nurse Triage', role: 'nurse', pass: 'NursePass123!' },
-        'pharmacist@samstack.ai': { name: 'Lead Pharmacist', role: 'pharmacist', pass: 'PharmacistPass123!' },
-        'admin@samstack.ai': { name: 'Clinic Administrator', role: 'admin', pass: 'AdminPass123!' },
-        'platform-admin@samstack.ai': { name: 'Platform Admin', role: 'platform_admin', pass: 'PlatformAdminPass123!' },
-      }
-
-      const match = roleMap[normalizedEmail]
-      if (match && (password === match.pass || password === '1234' || password === 'password')) {
-        const mockUser: User = {
-          id: 'dev-' + match.role,
-          name: match.name,
-          email: normalizedEmail,
-          role: match.role,
-        }
-        setAccessToken('dev-offline-access-token-' + Date.now())
-        setUser(mockUser)
-        navigate('/dashboard')
-        return
-      }
-
-      throw err
+  const loginWithEntra = useCallback(async () => {
+    if (userManager) {
+      await userManager.signinRedirect()
+    } else {
+      throw new Error('Azure Entra External ID is not configured.')
     }
+  }, [])
+
+  const setUserFromEntra = useCallback((userData: User) => {
+    setUser(userData)
+  }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await api.post('/auth/login', { email, password })
+    const { accessToken, refreshToken, expiresIn, user: userData } = res.data
+
+    setAccessToken(accessToken)
+    setRefreshToken(refreshToken)
+    setUser(userData)
+    scheduleProactiveRefresh(expiresIn || 900)
+    navigate('/dashboard')
   }, [navigate, scheduleProactiveRefresh])
 
   useEffect(() => {
     const initAuth = async () => {
+      // 1. Check if OIDC user is cached in storage
+      if (isEntraConfigured && userManager) {
+        try {
+          const oidcUser = await userManager.getUser()
+          if (oidcUser && !oidcUser.expired && oidcUser.access_token) {
+            setAccessToken(oidcUser.access_token)
+            const profile = oidcUser.profile
+            const roles = (profile.roles as string[]) || (profile.extension_Role as string) || (profile.role as string) || 'doctor'
+            const role = Array.isArray(roles) ? roles[0] : roles
+
+            setUser({
+              id: oidcUser.profile.sub,
+              name: oidcUser.profile.name || oidcUser.profile.preferred_username || 'Doctor',
+              email: oidcUser.profile.email || (oidcUser.profile as any).upn || '',
+              role: String(role).toLowerCase()
+            })
+            setLoading(false)
+            return
+          }
+        } catch (err) {
+          console.warn('OIDC restore failed:', err)
+        }
+      }
+
+      // 2. Standard refresh token flow
       const refreshToken = getRefreshToken()
       if (refreshToken) {
         try {
@@ -120,7 +140,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [scheduleProactiveRefresh])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user && !!getAccessToken(), hasRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        loginWithEntra,
+        logout,
+        isAuthenticated: !!user && !!getAccessToken(),
+        hasRole,
+        setUserFromEntra,
+        isEntraEnabled: isEntraConfigured,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

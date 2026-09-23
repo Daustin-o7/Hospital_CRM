@@ -158,7 +158,7 @@ export default function Settings() {
 
   const onDeleteSpecialHour = async (id: string) => {
     try {
-      await api.delete(`/cllinic/special-hours/${id}`)
+      await api.delete(`/clinic/special-hours/${id}`)
       showToast('Special hour removed')
       fetchProfile()
     } catch {

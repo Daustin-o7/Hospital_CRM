@@ -207,7 +207,7 @@ export default function Dashboard() {
               {stats.totalPatients}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-              DPDP 2023 Verified
+              Registered Records
             </span>
           </div>
         </div>

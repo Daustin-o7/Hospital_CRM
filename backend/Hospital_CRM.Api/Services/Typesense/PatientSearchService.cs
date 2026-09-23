@@ -13,8 +13,11 @@ public interface IPatientSearchService
     Task DeleteAsync(Guid id, CancellationToken ct);
     Task<List<PatientSearchHit>> SearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default);
     Task<List<PatientSearchHit>> CheckDuplicatesAsync(string name, string? phone, DateOnly? dob, Guid tenantId, CancellationToken ct = default);
+    Task IndexMedicineAsync(Drug drug, CancellationToken ct);
+    Task IndexManyMedicinesAsync(IEnumerable<Drug> drugs, CancellationToken ct);
     Task<List<MedicineSearchHit>> MedicinesSearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default);
     Task EnsureCollectionAsync(CancellationToken ct);
+    Task EnsureCollectionsAsync(CancellationToken ct);
 }
 
 public record PatientSearchHit(
@@ -29,14 +32,14 @@ public record PatientSearchHit(
 public record MedicineSearchHit(
     Guid Id,
     string Name,
-    string? Composition,
-    string? Manufacturer,
+    string? GenericName,
+    string? CommonBrands,
     string? Strength,
-    string? Form,
+    string? DosageForm,
     int Score);
 
 /// <summary>
-/// Patient search via self-hosted Typesense with automatic PostgreSQL fallback.
+/// Patient and Medicine search via self-hosted Typesense with automatic PostgreSQL fallback.
 /// Write-through is fire-and-forget inside try/catch so a Typesense outage never blocks clinical writes.
 /// Nightly Hangfire reindex is the repair mechanism for silent failures.
 /// </summary>
@@ -59,7 +62,15 @@ public class PatientSearchService : IPatientSearchService
         _log = log;
     }
 
-    public async Task EnsureCollectionAsync(CancellationToken ct)
+    public async Task EnsureCollectionsAsync(CancellationToken ct)
+    {
+        await EnsurePatientCollectionAsync(ct);
+        await EnsureMedicineCollectionAsync(ct);
+    }
+
+    public Task EnsureCollectionAsync(CancellationToken ct) => EnsureCollectionsAsync(ct);
+
+    private async Task EnsurePatientCollectionAsync(CancellationToken ct)
     {
         try
         {
@@ -85,7 +96,39 @@ public class PatientSearchService : IPatientSearchService
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Typesense EnsureCollectionAsync failed. Typesense service may be offline or starting up.");
+            _log.LogWarning(ex, "Typesense EnsurePatientCollectionAsync failed. Typesense service may be offline or starting up.");
+        }
+    }
+
+    private async Task EnsureMedicineCollectionAsync(CancellationToken ct)
+    {
+        try
+        {
+            await _ts.RetrieveCollection(_opts.MedicinesCollection, ct);
+        }
+        catch (TypesenseApiNotFoundException)
+        {
+            var fields = new List<Field>
+            {
+                new Field("id", FieldType.String),
+                new Field("tenant_id", FieldType.String) { Facet = true },
+                new Field("name", FieldType.String) { Sort = true },
+                new Field("generic_name", FieldType.String) { Optional = true },
+                new Field("common_brands", FieldType.String) { Optional = true },
+                new Field("strength", FieldType.String) { Optional = true },
+                new Field("dosage_form", FieldType.String) { Optional = true },
+                new Field("therapeutic_category", FieldType.String) { Optional = true },
+                new Field("hsn_code", FieldType.String) { Optional = true },
+                new Field("standard_pack_size", FieldType.String) { Optional = true },
+                new Field("created_at", FieldType.Int64)
+            };
+            var schema = new Schema(_opts.MedicinesCollection, fields, "created_at");
+            await _ts.CreateCollection(schema);
+            _log.LogInformation("Created Typesense collection {Collection}", _opts.MedicinesCollection);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Typesense EnsureMedicineCollectionAsync failed. Typesense service may be offline or starting up.");
         }
     }
 
@@ -133,6 +176,50 @@ public class PatientSearchService : IPatientSearchService
         }
     }
 
+    public async Task IndexMedicineAsync(Drug drug, CancellationToken ct)
+    {
+        var doc = ToMedicineDocument(drug);
+        try
+        {
+            await _ts.UpsertDocument<TypesenseMedicineDocument>(_opts.MedicinesCollection, doc);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Typesense index failed for medicine {Id}; nightly reindex will reconcile", drug.Id);
+        }
+    }
+
+    public async Task IndexManyMedicinesAsync(IEnumerable<Drug> drugs, CancellationToken ct)
+    {
+        var docs = drugs.Select(ToMedicineDocument).ToList();
+        if (docs.Count == 0) return;
+
+        const int batchSize = 1000;
+        for (var i = 0; i < docs.Count; i += batchSize)
+        {
+            var batch = docs.Skip(i).Take(batchSize);
+            try
+            {
+                var importResponse = await _ts.ImportDocuments<TypesenseMedicineDocument>(
+                    _opts.MedicinesCollection,
+                    batch,
+                    batchSize,
+                    ImportType.Upsert);
+
+                var failed = importResponse.Where(r => !r.Success).ToList();
+                if (failed.Count > 0)
+                {
+                    _log.LogWarning("Typesense bulk medicine import: {Failed}/{Total} documents failed",
+                        failed.Count, importResponse.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Typesense bulk medicine import batch failed");
+            }
+        }
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {
         try
@@ -159,7 +246,7 @@ public class PatientSearchService : IPatientSearchService
         var sp = new SearchParameters(trimmed, isNumeric ? "phone,name" : "name,phone")
         {
             Prefix = true,
-            FilterBy = $"tenant_id:={tenantId}",
+            FilterBy = tenantId != Guid.Empty ? $"tenant_id:={tenantId}" : null,
             PerPage = limit,
             NumberOfTypos = isNumeric ? "0" : "2"
         };
@@ -195,7 +282,7 @@ public class PatientSearchService : IPatientSearchService
         var sp = new SearchParameters(composite, "name,phone,dob")
         {
             Prefix = true,
-            FilterBy = $"tenant_id:={tenantId}",
+            FilterBy = tenantId != Guid.Empty ? $"tenant_id:={tenantId}" : null,
             PerPage = 5,
             NumberOfTypos = "1"
         };
@@ -228,9 +315,9 @@ public class PatientSearchService : IPatientSearchService
             return new List<MedicineSearchHit>();
 
         var trimmed = query.Trim();
-        var sp = new SearchParameters(trimmed, "name,composition,manufacturer")
+        var sp = new SearchParameters(trimmed, "name,generic_name,common_brands")
         {
-            FilterBy = $"tenant_id:={tenantId}",
+            FilterBy = tenantId != Guid.Empty ? $"tenant_id:={tenantId}" : null,
             PerPage = limit,
             NumberOfTypos = "2"
         };
@@ -241,10 +328,10 @@ public class PatientSearchService : IPatientSearchService
             return result.Hits.Select(h => new MedicineSearchHit(
                 Guid.Parse(h.Document.Id),
                 h.Document.Name,
-                h.Document.Composition,
-                h.Document.Manufacturer,
+                h.Document.GenericName,
+                h.Document.CommonBrands,
                 h.Document.Strength,
-                h.Document.Form,
+                h.Document.DosageForm,
                 (int)(h.TextMatch ?? 0))).ToList();
         }
         catch (Exception ex)
@@ -259,7 +346,8 @@ public class PatientSearchService : IPatientSearchService
         try
         {
             var matches = await _db.Patients.AsNoTracking()
-                .Where(p => EF.Functions.ILike(p.Name, $"%{query}%") || EF.Functions.ILike(p.Phone, $"%{query}%"))
+                .Where(p => (tenantId == Guid.Empty || p.TenantId == tenantId)
+                         && (EF.Functions.ILike(p.Name, $"%{query}%") || EF.Functions.ILike(p.Phone, $"%{query}%")))
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(limit)
                 .ToListAsync(ct);
@@ -284,7 +372,7 @@ public class PatientSearchService : IPatientSearchService
     {
         try
         {
-            var query = _db.Patients.AsNoTracking().AsQueryable();
+            var query = _db.Patients.AsNoTracking().Where(p => tenantId == Guid.Empty || p.TenantId == tenantId);
 
             if (!string.IsNullOrWhiteSpace(phone))
             {
@@ -327,14 +415,15 @@ public class PatientSearchService : IPatientSearchService
         }
     }
 
-private async Task<List<MedicineSearchHit>> FallbackMedicinesSearchDatabaseAsync(string query, Guid tenantId, int limit, CancellationToken ct)
+    private async Task<List<MedicineSearchHit>> FallbackMedicinesSearchDatabaseAsync(string query, Guid tenantId, int limit, CancellationToken ct)
     {
         try
         {
             var matches = await _db.Drugs.AsNoTracking()
-                .Where(m => EF.Functions.ILike(m.Name, $"%{query}%")
-                         || EF.Functions.ILike(m.GenericName, $"%{query}%")
-                         || EF.Functions.ILike(m.CommonBrands, $"%{query}%"))
+                .Where(m => (tenantId == Guid.Empty || m.TenantId == tenantId)
+                         && (EF.Functions.ILike(m.Name, $"%{query}%")
+                             || EF.Functions.ILike(m.GenericName, $"%{query}%")
+                             || (m.CommonBrands != null && EF.Functions.ILike(m.CommonBrands, $"%{query}%"))))
                 .Take(limit)
                 .ToListAsync(ct);
 
@@ -342,7 +431,7 @@ private async Task<List<MedicineSearchHit>> FallbackMedicinesSearchDatabaseAsync
                 m.Id,
                 m.Name,
                 m.GenericName,
-                m.CommonBrands,  // use CommonBrands as Manufacturer fallback
+                m.CommonBrands,
                 m.Strength,
                 m.DosageForm,
                 100)).ToList();
@@ -365,5 +454,20 @@ private async Task<List<MedicineSearchHit>> FallbackMedicinesSearchDatabaseAsync
         Address = p.Address,
         Email = null,
         CreatedAt = p.CreatedAt.ToUnixTimeSeconds()
+    };
+
+    private static TypesenseMedicineDocument ToMedicineDocument(Drug d) => new()
+    {
+        Id = d.Id.ToString(),
+        TenantId = d.TenantId.ToString(),
+        Name = d.Name,
+        GenericName = d.GenericName,
+        CommonBrands = d.CommonBrands,
+        Strength = d.Strength,
+        DosageForm = d.DosageForm,
+        TherapeuticCategory = d.TherapeuticCategory,
+        HsnCode = d.HsnCode,
+        StandardPackSize = d.StandardPackSize,
+        CreatedAt = d.CreatedAt.ToUnixTimeSeconds()
     };
 }

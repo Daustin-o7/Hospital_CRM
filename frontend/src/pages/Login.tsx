@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
-  const { login }                 = useAuth()
+  const { login, loginWithEntra, isEntraEnabled } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +23,15 @@ export default function Login() {
       setError(friendlyError(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEntraLogin = async () => {
+    setError('')
+    try {
+      await loginWithEntra()
+    } catch (err: any) {
+      setError(err.message || 'Failed to initialize Microsoft Entra sign in')
     }
   }
 
@@ -211,6 +220,30 @@ export default function Login() {
                 <Alert variant="error" onDismiss={() => setError('')}>
                   {error}
                 </Alert>
+              </div>
+            )}
+
+            {isEntraEnabled && (
+              <div style={{ marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={handleEntraLogin}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', gap: 10, fontSize: 13, background: '#fff', border: '1px solid var(--color-border)' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                  Sign in with Microsoft / Entra ID
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>or sign in with credentials</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                </div>
               </div>
             )}
 

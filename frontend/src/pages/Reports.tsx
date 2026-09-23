@@ -30,7 +30,7 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
-              Statutory ITR & GSTR-1 Ready
+              ITR-4 & GSTR-1 Summaries
             </span>
             <span className="text-xs text-slate-400 font-mono">Module 11 & 14</span>
           </div>

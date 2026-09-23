@@ -56,21 +56,24 @@ public class TypesenseMedicineDocument
     [JsonPropertyName("generic_name")]
     public string? GenericName { get; set; }
 
-    [JsonPropertyName("composition")]
-    public string? Composition { get; set; }
-
-    [JsonPropertyName("manufacturer")]
-    public string? Manufacturer { get; set; }
+    [JsonPropertyName("common_brands")]
+    public string? CommonBrands { get; set; }
 
     [JsonPropertyName("strength")]
     public string? Strength { get; set; }
 
-    [JsonPropertyName("form")]
-    public string? Form { get; set; }
+    [JsonPropertyName("dosage_form")]
+    public string? DosageForm { get; set; }
+
+    [JsonPropertyName("therapeutic_category")]
+    public string? TherapeuticCategory { get; set; }
 
     [JsonPropertyName("hsn_code")]
     public string? HsnCode { get; set; }
 
     [JsonPropertyName("standard_pack_size")]
     public string? StandardPackSize { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public long CreatedAt { get; set; }
 }

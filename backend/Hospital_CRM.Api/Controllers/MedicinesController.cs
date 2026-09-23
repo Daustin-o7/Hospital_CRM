@@ -1,30 +1,48 @@
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services.Typesense;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hospital_CRM.Api.Controllers;
 
-[Route("api/v1/[controller]")]
 [ApiController]
+[Route("api/v1/[controller]")]
+[Authorize]
 public class MedicinesController : ControllerBase
 {
     private readonly IPatientSearchService _search;
+    private readonly ILogger<MedicinesController> _logger;
 
-    public MedicinesController(IPatientSearchService search)
+    public MedicinesController(IPatientSearchService search, ILogger<MedicinesController> logger)
     {
         _search = search;
+        _logger = logger;
     }
 
-    /// <summary>
-    /// Search the Typesense medicines collection.
-    /// Query parameter: q (free-text search term)
-    /// Results include medicine name, generic name, strength, form, manufacturer, HSN code.
-    /// Typesense fallback to PostgreSQL is handled internally by the service.
-    /// </summary>
     [HttpGet("search")]
-    public async Task<ActionResult> Search([FromQuery] string q = null!, CancellationToken ct = default)
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] int limit = 10, CancellationToken ct = default)
     {
-        var tenantId = Guid.Empty; // single-tenant Phase 1; will be sourced from JWT claims in multi-tenant phase
-        var results = await _search.MedicinesSearchAsync(q, tenantId, ct: ct);
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var tenantId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(q))
+            return Ok(Array.Empty<object>());
+
+        var hits = await _search.MedicinesSearchAsync(q.Trim(), tenantId, Math.Clamp(limit, 1, 50), ct);
+
+        var results = hits.Select(h => new
+        {
+            id = h.Id,
+            name = h.Name,
+            genericName = h.GenericName,
+            commonBrands = h.CommonBrands,
+            strength = h.Strength,
+            dosageForm = h.DosageForm,
+            score = h.Score
+        });
+
         return Ok(results);
     }
 }
