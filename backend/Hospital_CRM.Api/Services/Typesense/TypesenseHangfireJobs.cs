@@ -9,6 +9,7 @@ namespace Hospital_CRM.Api.Services.Typesense;
 public interface ITypesenseHangfireJobs
 {
     Task ReindexTypesenseAsync(CancellationToken ct = default);
+    Task ReindexMedicinesTypesenseAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -43,6 +44,22 @@ public class TypesenseHangfireJobs : ITypesenseHangfireJobs
         catch (Exception ex)
         {
             _log.LogError(ex, "Failed to reindex patients in Typesense");
+            throw;
+        }
+    }
+
+    public async Task ReindexMedicinesTypesenseAsync(CancellationToken ct = default)
+    {
+        _log.LogInformation("Starting nightly Typesense medicine reindexing...");
+        try
+        {
+            var drugs = await _db.Drugs.AsNoTracking().ToListAsync(ct);
+            await _search.IndexManyMedicinesAsync(drugs, ct);
+            _log.LogInformation("Typesense medicine reindexing completed successfully for {Count} medicines", drugs.Count);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Failed to reindex medicines in Typesense");
             throw;
         }
     }

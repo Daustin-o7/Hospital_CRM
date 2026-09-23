@@ -18,26 +18,20 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
 
 ## Verified Information
 
-- **Current Milestone**: Phase 2 Track 1 Fast-Follow — **100% shipped (9 of 9 modules)**.
-- **Active Focus**: All 9 Phase 2 modules complete. Voice Agent (MOD-27) formally Phase 3 per FRD-Phase2 §9. Pilot launch prep (real WhatsApp/Razorpay/Entra configuration) is the next team-level work.
-- **Module Status**:
-  - ✅ MOD-23 Pre-Check Form (FR-23-01/02/03)
-  - ✅ MOD-24 Emergency Queue (FR-24-01/02)
-  - ✅ MOD-25 Live Ticket Tracking (FR-25-01)
-  - ✅ MOD-12 Speciality EMR Templates (FR-12-01/02)
-  - ✅ MOD-13 Notification Rules Engine (FR-13-01/02/03)
-  - ✅ MOD-09 Inventory (FR-09-01/02/03)
-  - ✅ MOD-10 Wishlist (FR-10-01)
-  - ✅ MOD-08 Lab Records (FR-08-01/02/03)
-  - ✅ MOD-11 Finance Ledger (FR-11-01/02/03)
-  - ✅ MOD-14 Platform Admin Portal (FR-14-01/02/03/04)
-- **Phase 1 Compatibility**: FR-20/21 now MOD-13 defaults (seeded rules, no flow loss).
-- **Outstanding pilot-prep work** (not module backlog, just real-integration config):
-  - WhatsApp Meta/BSP account + template submission for approval
-  - Razorpay merchant account + webhook secret
-  - Azure Entra External ID tenant config + role claim mapping
-  - S3-compatible blob storage for MOD-08 (currently local disk `lab-uploads/`)
-  - S3/storage for `PrecheckSubmission` file attachments if MOD-23 scope expands
+- **Current Milestone**: Core Platform Hardening, Azure Entra ID OIDC Auth, and Design System Consolidation — **Shipped**.
+- **Active Focus**:
+  - ✅ **Phase 0: Backend Correctness**: Fixed Typesense dual collection provisioning (`EnsureCollectionsAsync`), corrected `MedicinesSearchAsync` search fields, implemented typed `TypesenseMedicineDocument` and Hangfire reindexing job (`ITypesenseHangfireJobs`), aligned `SyncController` with offline sync contract (patient/walk-in invoice validation + bounds), created dedicated `GET /api/v1/medicines/search` endpoint.
+  - ✅ **Phase 1: Auth Hardening**: Implemented Azure Entra External ID (CIAM) OIDC via PKCE (`oidc.ts`, `AuthCallback.tsx`, `AuthContext.tsx`, `Login.tsx`), removed dev backdoor bypass credentials from auth flow.
+  - ✅ **Phase 2: CSS Design System Consolidation**: Aligned outlier views to standard design tokens (`.card`, `.btn`, `.form-*`, `.data-table`, `.stat-card`, `.badge`), fixed Settings typo (`/cllinic/` -> `/clinic/`), hooked up global `Ctrl+K` patient search & notification bell in topbar, updated `.gitignore` with secrets exclusions, and sanitized unsupported compliance claims.
+  - ✅ **Phase 3: Core Workflow Wiring**: Fully wired `Billing.tsx` (invoices, payments, expense ledger) and `Consultations.tsx` (clinical queues, v1 notes, immutable amendments, live drug search & e-prescriptions).
+- **Pending Works Catalog** (Deferred for explicit separate phases):
+  - ⏳ Mobile App: React Native Android project scaffolding & Maestro testing (Dual-path preserved with PWA; held).
+  - ⏳ Full backend wiring for Messages / Notification Rules UI.
+  - ⏳ Full backend wiring for Inventory inwarding / stock batch sync.
+  - ⏳ Backend endpoint for Reports / Tax analytics (`ReportsController`).
+  - ⏳ Dedicated Lab Orders UI & Wishlist UI pages.
+  - ⏳ Dedicated Platform Admin Multi-Tenant Portal UI.
+  - ⏳ End-to-End Playwright test suite for PWA & Doctor workflows.
 
 ---
 

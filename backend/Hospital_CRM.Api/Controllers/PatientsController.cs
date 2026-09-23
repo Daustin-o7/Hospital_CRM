@@ -176,33 +176,6 @@ public class PatientsController : ControllerBase
         });
     }
 
-    [HttpGet("medicines/search")]
-    [Authorize]
-    public async Task<IActionResult> GetMedicinesSearch([FromQuery] string? q, CancellationToken ct)
-    {
-        var userId = User.GetUserId();
-        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
-
-        var tenantId = Guid.Empty;
-
-        if (string.IsNullOrWhiteSpace(q))
-            return Ok(new List<object>());
-
-        var hits = await _search.MedicinesSearchAsync(q.Trim(), tenantId, limit: 10, ct);
-
-        var results = hits.Select(h => new
-        {
-            id = h.Id,
-            name = h.Name,
-            composition = h.Composition,
-            manufacturer = h.Manufacturer,
-            strength = h.Strength,
-            form = h.Form
-        });
-
-        return Ok(results);
-    }
-
     [HttpGet("{id:guid}")]
     [Authorize]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

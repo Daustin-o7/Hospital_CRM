@@ -42,6 +42,20 @@ public record InvoiceSyncPayload(
     string? WalkInCustomerPhone
 );
 
+public record SyncItemResultDto(
+    Guid Id,
+    string? IdempotencyKey,
+    string Status,
+    string Type,
+    string? Reason = null
+);
+
+public record SyncPushResponse(
+    int Synced,
+    int Skipped,
+    List<SyncItemResultDto> Results
+);
+
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
@@ -50,6 +64,8 @@ public class SyncController : ControllerBase
     private readonly HospitalCrmDbContext _db;
     private readonly IPatientSearchService _search;
     private readonly ILogger<SyncController> _logger;
+
+    private const int MaxPayloadLength = 65536; // 64 KB
 
     public SyncController(HospitalCrmDbContext db, IPatientSearchService search, ILogger<SyncController> logger)
     {
@@ -67,10 +83,10 @@ public class SyncController : ControllerBase
 
         if (request?.Items == null || request.Items.Count == 0)
         {
-            return Ok(new { synced = 0, skipped = 0, results = Array.Empty<object>() });
+            return Ok(new SyncPushResponse(0, 0, new List<SyncItemResultDto>()));
         }
 
-        var results = new List<object>();
+        var results = new List<SyncItemResultDto>();
         var synced = 0;
         var skipped = 0;
 
@@ -81,7 +97,14 @@ public class SyncController : ControllerBase
             {
                 if (string.IsNullOrWhiteSpace(item.IdempotencyKey))
                 {
-                    results.Add(new { id = item.Id, status = "rejected", reason = "Missing IdempotencyKey" });
+                    results.Add(new SyncItemResultDto(item.Id, null, "rejected", "unknown", "Missing IdempotencyKey"));
+                    skipped++;
+                    continue;
+                }
+
+                if (item.PayloadJson != null && item.PayloadJson.Length > MaxPayloadLength)
+                {
+                    results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "rejected", "payload_too_large", "Payload exceeds 64KB limit"));
                     skipped++;
                     continue;
                 }
@@ -94,12 +117,22 @@ public class SyncController : ControllerBase
 
                         if (existingPatient is null)
                         {
-                            var payload = JsonSerializer.Deserialize<PatientSyncPayload>(item.PayloadJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            PatientSyncPayload? payload = null;
+                            try
+                            {
+                                payload = JsonSerializer.Deserialize<PatientSyncPayload>(item.PayloadJson ?? "{}", new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            }
+                            catch (Exception)
+                            {
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "patient", "Malformed JSON payload"));
+                                skipped++;
+                                continue;
+                            }
 
                             // Check for duplicate phone number before creating patient
-                            if (payload != null && !string.IsNullOrWhiteSpace(payload.Phone) && await _db.Patients.AnyAsync(p => p.Phone == payload.Phone, ct))
+                            if (payload != null && !string.IsNullOrWhiteSpace(payload.Phone) && await _db.Patients.AnyAsync(p => p.Phone == payload.Phone.Trim(), ct))
                             {
-                                results.Add(new { id = item.Id, idempotencyKey = item.IdempotencyKey, status = "phone_conflict", type = "patient" });
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "phone_conflict", "patient", "A patient with this phone already exists"));
                                 skipped++;
                                 continue;
                             }
@@ -109,6 +142,7 @@ public class SyncController : ControllerBase
                                 var patient = new Patient
                                 {
                                     Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
+                                    TenantId = Guid.Empty,
                                     Name = payload.Name.Trim(),
                                     Phone = payload.Phone.Trim(),
                                     DobHasValue = payload.Dob.HasValue,
@@ -125,19 +159,19 @@ public class SyncController : ControllerBase
                                 await _db.SaveChangesAsync(ct);
                                 _ = _search.IndexAsync(patient, CancellationToken.None);
 
-                                results.Add(new { id = patient.Id, idempotencyKey = item.IdempotencyKey, status = "created", type = "patient" });
+                                results.Add(new SyncItemResultDto(patient.Id, item.IdempotencyKey, "created", "patient"));
                                 synced++;
                             }
                             else
                             {
-                                results.Add(new { id = item.Id, idempotencyKey = item.IdempotencyKey, status = "invalid_payload", type = "patient" });
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "patient", "Patient Name and Phone are required"));
                                 skipped++;
                             }
                         }
                         else
                         {
                             // Idempotent duplicate: acknowledge success
-                            results.Add(new { id = existingPatient.Id, idempotencyKey = item.IdempotencyKey, status = "idempotent_duplicate", type = "patient" });
+                            results.Add(new SyncItemResultDto(existingPatient.Id, item.IdempotencyKey, "idempotent_duplicate", "patient"));
                             synced++;
                         }
                         break;
@@ -148,21 +182,35 @@ public class SyncController : ControllerBase
 
                         if (existingInvoice is null)
                         {
-                            var payload = JsonSerializer.Deserialize<InvoiceSyncPayload>(item.PayloadJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            InvoiceSyncPayload? payload = null;
+                            try
+                            {
+                                payload = JsonSerializer.Deserialize<InvoiceSyncPayload>(item.PayloadJson ?? "{}", new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            }
+                            catch (Exception)
+                            {
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "invoice", "Malformed JSON payload"));
+                                skipped++;
+                                continue;
+                            }
+
+                            var hasValidCustomer = (payload?.PatientId.HasValue == true && payload.PatientId.Value != Guid.Empty)
+                                                || !string.IsNullOrWhiteSpace(payload?.WalkInCustomerName);
+
                             if (payload != null
-        && payload.PatientId.HasValue
-        && payload.Subtotal >= 0
-        && payload.GstAmount >= 0
-        && payload.Total > 0
-        && !string.IsNullOrWhiteSpace(payload.WalkInCustomerName)
-        && payload.Total == payload.Subtotal + payload.GstAmount)
+                                && hasValidCustomer
+                                && payload.Subtotal >= 0
+                                && payload.GstAmount >= 0
+                                && payload.Total > 0
+                                && payload.Total == payload.Subtotal + payload.GstAmount)
                             {
                                 var invoice = new Invoice
                                 {
                                     Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
-                                    PatientId = payload.PatientId.Value,
-                                    WalkInCustomerName = payload.WalkInCustomerName,
-                                    WalkInCustomerPhone = payload.WalkInCustomerPhone,
+                                    TenantId = Guid.Empty,
+                                    PatientId = payload.PatientId.HasValue && payload.PatientId.Value != Guid.Empty ? payload.PatientId.Value : null,
+                                    WalkInCustomerName = payload.WalkInCustomerName?.Trim(),
+                                    WalkInCustomerPhone = payload.WalkInCustomerPhone?.Trim(),
                                     Subtotal = payload.Subtotal,
                                     GstAmount = payload.GstAmount,
                                     Total = payload.Total,
@@ -174,24 +222,24 @@ public class SyncController : ControllerBase
                                 _db.Invoices.Add(invoice);
                                 await _db.SaveChangesAsync(ct);
 
-                                results.Add(new { id = invoice.Id, idempotencyKey = item.IdempotencyKey, status = "created", type = "invoice" });
+                                results.Add(new SyncItemResultDto(invoice.Id, item.IdempotencyKey, "created", "invoice"));
                                 synced++;
                             }
                             else
                             {
-                                results.Add(new { id = item.Id, idempotencyKey = item.IdempotencyKey, status = "invalid_payload", type = "invoice" });
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "invoice", "Invoice requires either PatientId or WalkInCustomerName, non-negative amounts, and Total = Subtotal + GstAmount"));
                                 skipped++;
                             }
                         }
                         else
                         {
-                            results.Add(new { id = existingInvoice.Id, idempotencyKey = item.IdempotencyKey, status = "idempotent_duplicate", type = "invoice" });
+                            results.Add(new SyncItemResultDto(existingInvoice.Id, item.IdempotencyKey, "idempotent_duplicate", "invoice"));
                             synced++;
                         }
                         break;
 
                     default:
-                        results.Add(new { id = item.Id, status = "unsupported_type", type = item.Type });
+                        results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "unsupported_type", item.Type.ToString(), $"Unsupported sync item type {item.Type}"));
                         skipped++;
                         break;
                 }
@@ -206,7 +254,7 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = "sync_batch_failed", message = ex.Message });
         }
 
-        return Ok(new { synced, skipped, results });
+        return Ok(new SyncPushResponse(synced, skipped, results));
     }
 
     private static Gender ParseGender(string? g) => g?.ToLowerInvariant() switch

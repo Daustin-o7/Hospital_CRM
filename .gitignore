@@ -34,9 +34,14 @@ android/local.properties
 *.bak
 *.backup
 
-# Environment & logs
-.env.local
-.env.*.local
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+*.cert
 logs/
 *.log
 test-results/
