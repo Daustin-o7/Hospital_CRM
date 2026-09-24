@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Text;
 using Hospital_CRM.Api.Authorization;
@@ -1238,65 +1239,143 @@ public class PharmacyController : ControllerBase
 // ==========================================
 
 public record CreateDrugRequest(
+    [Required(ErrorMessage = "Drug Name is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Drug Name must be 2–150 characters")]
     string Name,
+
+    [Required(ErrorMessage = "Generic Name is required"), StringLength(150, MinimumLength = 2)]
     string GenericName,
+
+    [StringLength(100)]
     string? TherapeuticCategory,
+
+    [StringLength(50)]
     string? DosageForm,
+
+    [StringLength(50)]
     string? Strength,
+
     string? ScheduleClass,
+
+    [RegularExpression(@"^\d{4,8}$", ErrorMessage = "HSN code must be 4 to 8 digits")]
     string? HsnCode,
+
+    [Range(0, 28, ErrorMessage = "GST Rate must be between 0% and 28%")]
     decimal GstRate,
+
     bool NlemCovered,
+
+    [Range(0.01, 500000.00)]
     decimal? DpcoCeilingPrice,
+
+    [StringLength(50)]
     string? StandardPackSize,
+
+    [Range(0.01, 500000.00)]
     decimal IndicativeMrp,
+
+    [StringLength(300)]
     string? CommonBrands
 );
 
 public record InwardBatchRequest(
+    [Required(ErrorMessage = "Batch Number is required"), StringLength(50, MinimumLength = 2)]
     string BatchNumber,
+
+    [Required(ErrorMessage = "Expiry Date is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Expiry Date must be YYYY-MM-DD")]
     string ExpiryDate,
+
+    [RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Mfg Date must be YYYY-MM-DD")]
     string? MfgDate,
+
+    [Range(1, 100000, ErrorMessage = "QuantityReceived must be between 1 and 1,00,000")]
     int QuantityReceived,
+
+    [Range(0.01, 500000.00, ErrorMessage = "MRP must be > 0")]
     decimal Mrp,
+
+    [Range(0.01, 500000.00, ErrorMessage = "PurchaseRate must be > 0")]
     decimal PurchaseRate,
+
     Guid? SupplierId
 );
 
 public record PosCheckoutRequest(
+    [StringLength(100, MinimumLength = 2)]
     string? WalkInCustomerName,
+
+    [RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Customer phone must be a valid 10-digit number")]
     string? WalkInCustomerPhone,
+
     Guid? PatientId,
+
+    [StringLength(100)]
     string? PatientName,
+
+    [StringLength(500)]
     string? PatientAddress,
+
+    [StringLength(100)]
     string? PrescriberName,
+
+    [StringLength(50)]
     string? PrescriberRegNo,
+
     string? PaymentMethod,
+
+    [Range(0.00, 1000000.00)]
     decimal TenderedAmount,
+
+    [RegularExpression(@"^IDEMP-INV-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-INV-{UUID}")]
     string? IdempotencyKey,
+
+    [Required(ErrorMessage = "Items are required"), MinLength(1, ErrorMessage = "At least one checkout item required")]
     List<PosCheckoutItem> Items
 );
 
 public record PosCheckoutItem(
+    [Required]
     Guid DrugId,
+
+    [Required]
     Guid DrugBatchId,
+
+    [Range(1, 1000, ErrorMessage = "Quantity must be between 1 and 1000")]
     int Quantity,
+
+    [Range(0.01, 500000.00)]
     decimal UnitPrice,
+
+    [Range(0, 28)]
     decimal GstRate,
+
+    [RegularExpression(@"^\d{4,8}$")]
     string? HsnCode
 );
 
 public record CreateSupplierRequest(
+    [Required(ErrorMessage = "Supplier Name is required"), StringLength(150, MinimumLength = 2)]
     string Name,
+
+    [StringLength(20)]
     string? Gstin,
+
+    [RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Phone must be a valid 10-digit number")]
     string? Phone,
+
+    [EmailAddress(ErrorMessage = "Must be a valid email")]
     string? Email,
+
+    [StringLength(500)]
     string? Address
 );
 
 public record ReturnRequest(
+    [StringLength(300)]
     string? Reason,
+
+    [StringLength(100)]
     string? ReturnedByName,
+
     string? IdempotencyKey
 );
 
@@ -1317,10 +1396,20 @@ public record PoReceiveItem(
 );
 
 public record DispensePrescriptionRequest(
+    [Required]
     Guid PrescriptionId,
+
+    [StringLength(100)]
     string? PatientName,
+
+    [StringLength(500)]
     string? PatientAddress,
+
+    [StringLength(100)]
     string? PrescriberName,
+
+    [StringLength(50)]
     string? PrescriberRegNo,
+
     string? IdempotencyKey
 );

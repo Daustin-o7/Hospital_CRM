@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
@@ -210,6 +211,57 @@ public class LedgerController : ControllerBase
         });
     }
 
+    // ----- FR-11-01: Daily Collections (accessible to Receptionist/Doctor for shift reconciliation) -----
+
+    [HttpGet("daily")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> Daily([FromQuery] string? date, CancellationToken ct)
+    {
+        var targetDate = DateOnly.TryParse(date, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow);
+        var start = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var end = start.AddDays(1);
+
+        // Income from completed payments on the given date
+        var payments = await _db.Payments
+            .Include(p => p.Invoice)
+            .Where(p => p.Status == PaymentStatus.Completed
+                     && p.PaidAt >= start
+                     && p.PaidAt < end)
+            .ToListAsync(ct);
+
+        var totalIncome = payments.Sum(p => p.Amount);
+        var gstCollected = payments.Sum(p => p.Invoice?.GstAmount ?? 0);
+        var paymentCount = payments.Count;
+
+        // Expenses recorded on the given date
+        var expenses = await _db.LedgerExpenses
+            .Where(e => e.TenantId == Guid.Empty && e.ExpenseDate == targetDate)
+            .ToListAsync(ct);
+
+        var totalExpenses = expenses.Sum(e => e.Amount);
+        var expenseByCategory = expenses
+            .GroupBy(e => e.Category)
+            .Select(g => new { category = g.Key.ToString().ToLower(), total = g.Sum(e => e.Amount) })
+            .ToList();
+
+        return Ok(new
+        {
+            date = targetDate.ToString("yyyy-MM-dd"),
+            income = new
+            {
+                total = totalIncome,
+                gstCollected,
+                paymentCount
+            },
+            expenses = new
+            {
+                total = totalExpenses,
+                byCategory = expenseByCategory
+            },
+            net = totalIncome - totalExpenses
+        });
+    }
+
     private static (int year, int month) ParseMonth(string? month)
     {
         if (!string.IsNullOrWhiteSpace(month) &&
@@ -222,5 +274,33 @@ public class LedgerController : ControllerBase
     }
 }
 
-public record CreateExpenseRequest(string Category, string? CategoryOther, decimal Amount, string ExpenseDate, string? Note);
-public record UpdateExpenseRequest(decimal? Amount, string? Category, string? CategoryOther, string? Note, string? ExpenseDate);
+public record CreateExpenseRequest(
+    [Required(ErrorMessage = "Expense Category is required")]
+    string Category,
+
+    [StringLength(100, ErrorMessage = "CategoryOther cannot exceed 100 characters")]
+    string? CategoryOther,
+
+    [Range(0.01, 10000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹1,00,00,000")]
+    decimal Amount,
+
+    [Required(ErrorMessage = "ExpenseDate is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "ExpenseDate must be YYYY-MM-DD")]
+    string ExpenseDate,
+
+    [StringLength(500, ErrorMessage = "Note cannot exceed 500 characters")]
+    string? Note);
+
+public record UpdateExpenseRequest(
+    [Range(0.01, 10000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹1,00,00,000")]
+    decimal? Amount,
+
+    string? Category,
+
+    [StringLength(100, ErrorMessage = "CategoryOther cannot exceed 100 characters")]
+    string? CategoryOther,
+
+    [StringLength(500, ErrorMessage = "Note cannot exceed 500 characters")]
+    string? Note,
+
+    [RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "ExpenseDate must be YYYY-MM-DD")]
+    string? ExpenseDate);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
+import { useTheme, type ThemeMode } from '../context/ThemeContext'
 
 interface WorkingHour {
   day: string
@@ -207,6 +208,9 @@ export default function Settings() {
         </div>
       )}
 
+      {/* ── Appearance & Dark Mode Settings ── */}
+      <AppearanceSettingsEditor />
+
       <WorkingHoursEditor
         initialHours={profile.workingHours}
         isAdmin={isAdmin}
@@ -299,18 +303,18 @@ function WorkingHoursEditor({ initialHours, isAdmin, onSave, saving }: {
           </button>
         )}
       </div>
-      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-xs text-[var(--color-text-secondary)]">
         Each day can have one or more shifts (e.g. split shifts 09:00–13:00 and 14:00–18:00).
-        <span className="font-semibold"> Sunday is fully configurable </span> — it is not hard-coded as closed.
+        <span className="font-semibold text-[var(--color-text)]"> Sunday is fully configurable </span> — it is not hard-coded as closed.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {ALL_DAYS.map(d => {
           const dayShifts = hoursByDay[d.key] || []
           return (
-            <div key={d.key} className="rounded-xl border border-slate-200 p-4 space-y-2">
+            <div key={d.key} className="rounded-xl border border-[var(--color-border)] p-4 space-y-2 bg-[var(--color-surface)]">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900">{d.label}</span>
+                <span className="text-sm font-bold text-[var(--color-text)]">{d.label}</span>
                 {dayShifts.length === 0 && isAdmin && (
                   <button
                     onClick={() => enableDay(d.key)}
@@ -320,13 +324,13 @@ function WorkingHoursEditor({ initialHours, isAdmin, onSave, saving }: {
                   </button>
                 )}
                 {dayShifts.length > 0 && isAdmin && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
                     Open · {dayShifts.length} shift{dayShifts.length > 1 ? 's' : ''}
                   </span>
                 )}
               </div>
               {dayShifts.length === 0 && (
-                <p className="text-xs text-slate-500">Closed</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">Closed</p>
               )}
               {dayShifts.map(s => (
                 <div key={s.shiftIndex} className="flex items-center gap-2">
@@ -335,20 +339,20 @@ function WorkingHoursEditor({ initialHours, isAdmin, onSave, saving }: {
                     value={s.open}
                     onChange={e => updateShift(d.key, s.shiftIndex, 'open', e.target.value)}
                     disabled={!isAdmin}
-                    className="input-field text-xs py-1 px-2 mono disabled:bg-slate-100"
+                    className="form-input text-xs py-1 px-2 mono disabled:bg-[var(--color-surface-hover)]"
                   />
-                  <span className="text-xs text-slate-500">to</span>
+                  <span className="text-xs text-[var(--color-text-secondary)] font-medium">to</span>
                   <input
                     type="time"
                     value={s.close}
                     onChange={e => updateShift(d.key, s.shiftIndex, 'close', e.target.value)}
                     disabled={!isAdmin}
-                    className="input-field text-xs py-1 px-2 mono disabled:bg-slate-100"
+                    className="form-input text-xs py-1 px-2 mono disabled:bg-[var(--color-surface-hover)]"
                   />
                   {isAdmin && (
                     <button
                       onClick={() => removeShift(d.key, s.shiftIndex)}
-                      className="text-xs text-rose-600 hover:text-rose-800"
+                      className="text-xs text-rose-600 hover:text-rose-800 font-bold px-1"
                       title="Remove shift"
                     >
                       ×
@@ -359,7 +363,7 @@ function WorkingHoursEditor({ initialHours, isAdmin, onSave, saving }: {
               {isAdmin && dayShifts.length > 0 && (
                 <button
                   onClick={() => addShift(d.key)}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+                  className="text-xs font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
                 >
                   + Add shift
                 </button>
@@ -452,14 +456,14 @@ function HolidaysEditor({ holidays, isAdmin, onAdd, onDelete }: {
       )}
 
       {holidays.length === 0 ? (
-        <p className="text-xs text-slate-500">No holidays configured.</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">No holidays configured.</p>
       ) : (
         <div className="space-y-2">
           {holidays.map(h => (
-            <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)]">
               <div>
-                <p className="text-sm font-semibold text-slate-900">{h.name}</p>
-                <p className="text-xs text-slate-500 mono">
+                <p className="text-sm font-semibold text-[var(--color-text)]">{h.name}</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mono">
                   {h.startDate}{h.startDate !== h.endDate ? ` to ${h.endDate}` : ''}
                   {h.recurringAnnually && ' · annual'}
                 </p>
@@ -467,7 +471,7 @@ function HolidaysEditor({ holidays, isAdmin, onAdd, onDelete }: {
               {isAdmin && (
                 <button
                   onClick={() => onDelete(h.id)}
-                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                 >
                   Remove
                 </button>
@@ -505,68 +509,68 @@ function SpecialHoursEditor({ specialHours, isAdmin, onAdd, onDelete }: {
       <div className="flex items-center justify-between">
         <h2 className="section-title">Special Opening Days</h2>
         {isAdmin && (
-          <button onClick={() => setShowAdd(!showAdd)} className="btn-secondary text-xs">
+          <button onClick={() => setShowAdd(!showAdd)} className="btn btn-secondary text-xs">
             {showAdd ? 'Cancel' : '+ Add Special Hour'}
           </button>
         )}
       </div>
-      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+      <p className="text-xs text-[var(--color-text-secondary)]">
         Override the normal weekly schedule for a specific date (e.g. a Sunday that's normally closed but open for a special clinic).
       </p>
 
       {showAdd && (
-        <div className="rounded-xl border border-slate-200 p-4 space-y-3 bg-slate-50">
+        <div className="rounded-xl border border-[var(--color-border)] p-4 space-y-3 bg-[var(--color-surface-raised)]">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label">Date</label>
+              <label className="form-label">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="input-field"
+                className="form-input"
               />
             </div>
             <div>
-              <label className="label">Reason (optional)</label>
+              <label className="form-label">Reason (optional)</label>
               <input
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                className="input-field"
+                className="form-input"
                 placeholder="Special Sunday clinic"
               />
             </div>
             <div>
-              <label className="label">Open Time</label>
+              <label className="form-label">Open Time</label>
               <input
                 type="time"
                 value={open}
                 onChange={e => setOpen(e.target.value)}
-                className="input-field mono"
+                className="form-input mono"
               />
             </div>
             <div>
-              <label className="label">Close Time</label>
+              <label className="form-label">Close Time</label>
               <input
                 type="time"
                 value={close}
                 onChange={e => setClose(e.target.value)}
-                className="input-field mono"
+                className="form-input mono"
               />
             </div>
           </div>
-          <button onClick={handleAdd} className="btn-primary text-xs">Save Special Hour</button>
+          <button onClick={handleAdd} className="btn btn-primary text-xs">Save Special Hour</button>
         </div>
       )}
 
       {specialHours.length === 0 ? (
-        <p className="text-xs text-slate-500">No special opening days configured.</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">No special opening days configured.</p>
       ) : (
         <div className="space-y-2">
           {specialHours.map(s => (
-            <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)]">
               <div>
-                <p className="text-sm font-semibold text-amber-900 mono">{s.date}</p>
-                <p className="text-xs text-amber-700 mono">
+                <p className="text-sm font-semibold text-[var(--color-text)] mono">{s.date}</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mono">
                   {s.open} – {s.close}
                   {s.reason && ` · ${s.reason}`}
                 </p>
@@ -574,7 +578,7 @@ function SpecialHoursEditor({ specialHours, isAdmin, onAdd, onDelete }: {
               {isAdmin && (
                 <button
                   onClick={() => onDelete(s.id)}
-                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                 >
                   Remove
                 </button>
@@ -602,28 +606,28 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
     <div className="card p-6 space-y-6">
       <div>
         <h2 className="section-title">Clinic Profile</h2>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-xs mt-1 text-[var(--color-text-secondary)]">
           Organization details used across invoices, prescriptions, and communications.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">Clinic Name *</label>
+          <label className="form-label">Clinic Name *</label>
           <input
             value={profile.name}
             onChange={e => update('name', e.target.value)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-input disabled:bg-[var(--color-surface-hover)]"
           />
         </div>
         <div>
-          <label className="label">Organization Type</label>
+          <label className="form-label">Organization Type</label>
           <select
             value={profile.organizationType || ''}
             onChange={e => update('organizationType', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-select disabled:bg-[var(--color-surface-hover)]"
           >
             <option value="">— Select —</option>
             <option value="Clinic">Clinic</option>
@@ -634,31 +638,31 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
           </select>
         </div>
         <div>
-          <label className="label">Legal Name</label>
+          <label className="form-label">Legal Name</label>
           <input
             value={profile.legalName || ''}
             onChange={e => update('legalName', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-input disabled:bg-[var(--color-surface-hover)]"
           />
         </div>
         <div>
-          <label className="label">Timezone</label>
+          <label className="form-label">Timezone</label>
           <input
             value={profile.timezone}
             onChange={e => update('timezone', e.target.value)}
             disabled={!isAdmin}
-            className="input-field mono disabled:bg-slate-50"
+            className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             placeholder="Asia/Kolkata"
           />
         </div>
         <div>
-          <label className="label">Currency</label>
+          <label className="form-label">Currency</label>
           <select
             value={profile.currency}
             onChange={e => update('currency', e.target.value)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-select disabled:bg-[var(--color-surface-hover)]"
           >
             <option value="INR">INR (₹)</option>
             <option value="USD">USD ($)</option>
@@ -669,12 +673,12 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
           </select>
         </div>
         <div>
-          <label className="label">Language</label>
+          <label className="form-label">Language</label>
           <select
             value={profile.language}
             onChange={e => update('language', e.target.value)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-select disabled:bg-[var(--color-surface-hover)]"
           >
             <option value="en">English</option>
             <option value="hi">Hindi</option>
@@ -682,87 +686,87 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className="label">Address</label>
+          <label className="form-label">Address</label>
           <textarea
             value={profile.address || ''}
             onChange={e => update('address', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field disabled:bg-slate-50"
+            className="form-textarea disabled:bg-[var(--color-surface-hover)]"
             rows={2}
           />
         </div>
         <div>
-          <label className="label">Phone</label>
+          <label className="form-label">Phone</label>
           <input
             value={profile.phone || ''}
             onChange={e => update('phone', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field mono disabled:bg-slate-50"
+            className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             placeholder="+91 80 2345 6789"
           />
         </div>
         <div>
-          <label className="label">Email</label>
+          <label className="form-label">Email</label>
           <input
             type="email"
             value={profile.email || ''}
             onChange={e => update('email', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field mono disabled:bg-slate-50"
+            className="form-input mono disabled:bg-[var(--color-surface-hover)]"
           />
         </div>
         <div>
-          <label className="label">Website</label>
+          <label className="form-label">Website</label>
           <input
             value={profile.website || ''}
             onChange={e => update('website', e.target.value || null)}
             disabled={!isAdmin}
-            className="input-field mono disabled:bg-slate-50"
+            className="form-input mono disabled:bg-[var(--color-surface-hover)]"
           />
         </div>
       </div>
 
-      <div className="pt-4 border-t border-slate-200">
-        <h3 className="text-sm font-bold text-slate-900 mb-3">Branding</h3>
+      <div className="pt-4 border-t border-[var(--color-border)]">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Branding</h3>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="label">Primary Color</label>
+            <label className="form-label">Primary Color</label>
             <input
               type="color"
               value={profile.primaryColor}
               onChange={e => update('primaryColor', e.target.value)}
               disabled={!isAdmin}
-              className="input-field h-10"
+              className="form-input h-10 cursor-pointer"
             />
           </div>
           <div>
-            <label className="label">Secondary Color</label>
+            <label className="form-label">Secondary Color</label>
             <input
               type="color"
               value={profile.secondaryColor}
               onChange={e => update('secondaryColor', e.target.value)}
               disabled={!isAdmin}
-              className="input-field h-10"
+              className="form-input h-10 cursor-pointer"
             />
           </div>
           <div>
-            <label className="label">Accent Color</label>
+            <label className="form-label">Accent Color</label>
             <input
               type="color"
               value={profile.accentColor}
               onChange={e => update('accentColor', e.target.value)}
               disabled={!isAdmin}
-              className="input-field h-10"
+              className="form-input h-10 cursor-pointer"
             />
           </div>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-slate-200">
-        <h3 className="text-sm font-bold text-slate-900 mb-3">Appointment Defaults</h3>
+      <div className="pt-4 border-t border-[var(--color-border)]">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Appointment Defaults</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="label">Duration (min)</label>
+            <label className="form-label">Duration (min)</label>
             <input
               type="number"
               min="5"
@@ -770,11 +774,11 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
               value={profile.defaultAppointmentDurationMinutes}
               onChange={e => update('defaultAppointmentDurationMinutes', Number(e.target.value))}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
           <div>
-            <label className="label">Buffer (min)</label>
+            <label className="form-label">Buffer (min)</label>
             <input
               type="number"
               min="0"
@@ -782,80 +786,80 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
               value={profile.bufferMinutes}
               onChange={e => update('bufferMinutes', Number(e.target.value))}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
           <div>
-            <label className="label">Min Advance (hrs)</label>
+            <label className="form-label">Min Advance (hrs)</label>
             <input
               type="number"
               min="0"
               value={profile.minAdvanceBookingHours}
               onChange={e => update('minAdvanceBookingHours', Number(e.target.value))}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
           <div>
-            <label className="label">Max Advance (days)</label>
+            <label className="form-label">Max Advance (days)</label>
             <input
               type="number"
               min="1"
               value={profile.maxAdvanceBookingDays}
               onChange={e => update('maxAdvanceBookingDays', Number(e.target.value))}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
             <input
               type="checkbox"
               checked={profile.sameDayBookingAllowed}
               onChange={e => update('sameDayBookingAllowed', e.target.checked)}
               disabled={!isAdmin}
-              className="w-4 h-4"
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
             />
             <span>Same-day booking</span>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
             <input
               type="checkbox"
               checked={profile.walkInsAllowed}
               onChange={e => update('walkInsAllowed', e.target.checked)}
               disabled={!isAdmin}
-              className="w-4 h-4"
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
             />
             <span>Walk-ins allowed</span>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
             <input
               type="checkbox"
               checked={profile.reschedulingAllowed}
               onChange={e => update('reschedulingAllowed', e.target.checked)}
               disabled={!isAdmin}
-              className="w-4 h-4"
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
             />
             <span>Rescheduling allowed</span>
           </label>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-slate-200">
-        <h3 className="text-sm font-bold text-slate-900 mb-3">Billing Defaults</h3>
+      <div className="pt-4 border-t border-[var(--color-border)]">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Billing Defaults</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="label">Invoice Prefix</label>
+            <label className="form-label">Invoice Prefix</label>
             <input
               value={profile.invoicePrefix}
               onChange={e => update('invoicePrefix', e.target.value)}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
           <div>
-            <label className="label">Default GST Rate (%)</label>
+            <label className="form-label">Default GST Rate (%)</label>
             <input
               type="number"
               min="0"
@@ -864,19 +868,109 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
               value={profile.defaultGstRate}
               onChange={e => update('defaultGstRate', Number(e.target.value))}
               disabled={!isAdmin}
-              className="input-field mono disabled:bg-slate-50"
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
           </div>
         </div>
       </div>
 
       {isAdmin && (
-        <div className="flex justify-end pt-4 border-t border-slate-200">
-          <button onClick={onSave} disabled={saving} className="btn-primary">
+        <div className="flex justify-end pt-4 border-t border-[var(--color-border)]">
+          <button onClick={onSave} disabled={saving} className="btn btn-primary">
             {saving ? 'Saving...' : 'Save Clinic Profile'}
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function AppearanceSettingsEditor() {
+  const { theme, resolvedTheme, setTheme } = useTheme()
+
+  const THEME_OPTIONS: Array<{
+    mode: ThemeMode
+    title: string
+    subtitle: string
+    icon: string
+  }> = [
+    {
+      mode: 'light',
+      title: 'Light Precision',
+      subtitle: 'Crisp clinical white canvas with surgical teal accents',
+      icon: '☀️',
+    },
+    {
+      mode: 'dark',
+      title: 'Dark Precision Glass',
+      subtitle: 'Stitch deep clinical obsidian with luminous electric mint accents',
+      icon: '🌙',
+    },
+    {
+      mode: 'system',
+      title: 'Auto Device Detection',
+      subtitle: 'Synchronizes automatically with your mobile or desktop OS theme',
+      icon: '📱',
+    },
+  ]
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[var(--color-border)] mb-4 gap-2">
+        <div>
+          <h2 className="text-base font-bold text-[var(--color-text)] font-heading">
+            Interface Theme &amp; Visual Appearance
+          </h2>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+            Choose your preferred display theme or let it automatically follow your mobile device's day/night schedule.
+          </p>
+        </div>
+        <span className="badge badge-brand font-mono text-[11px] self-start sm:self-auto">
+          Active: {theme === 'system' ? `Auto (${resolvedTheme.toUpperCase()})` : theme.toUpperCase()}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {THEME_OPTIONS.map((opt) => {
+          const isSelected = theme === opt.mode
+          return (
+            <button
+              key={opt.mode}
+              type="button"
+              onClick={() => setTheme(opt.mode)}
+              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
+                isSelected
+                  ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-10)] shadow-md ring-2 ring-[var(--brand-primary)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">{opt.icon}</span>
+                  {isSelected && (
+                    <span className="w-5 h-5 rounded-full bg-[var(--brand-primary)] text-[var(--color-text-inverse)] flex items-center justify-center text-xs font-bold shadow-xs">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
+                  {opt.title}
+                </h3>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {opt.subtitle}
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[11px] font-mono text-[var(--color-text-secondary)]">
+                <span>Mode: {opt.mode}</span>
+                {opt.mode === 'system' && (
+                  <span className="text-teal-600 dark:text-teal-400 font-bold">OS-Reactive</span>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

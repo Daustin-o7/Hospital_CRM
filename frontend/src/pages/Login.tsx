@@ -38,7 +38,7 @@ export default function Login() {
   const preset = (e: string, p: string) => { setEmail(e); setPassword(p); setError('') }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', background: '#f4f6f9' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', background: 'var(--color-bg)' }}>
       {/* ── Left panel — branding with 3D canvas ────────────────────── */}
       <div
         aria-hidden="true"
@@ -229,7 +229,7 @@ export default function Login() {
                   type="button"
                   onClick={handleEntraLogin}
                   className="btn btn-secondary"
-                  style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', gap: 10, fontSize: 13, background: '#fff', border: '1px solid var(--color-border)' }}
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', gap: 10, fontSize: 13 }}
                 >
                   <svg width="18" height="18" viewBox="0 0 23 23">
                     <path fill="#f35325" d="M1 1h10v10H1z"/>
@@ -344,20 +344,17 @@ export default function Login() {
           {/* Dev role presets — visible in development only */}
           {IS_DEV && (
             <div
+              className="card"
               style={{
                 marginTop: 20,
                 padding: '16px 18px',
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                background: '#ffffff',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
               }}
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text)]">
                   Select Role Persona
                 </span>
-                <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/60">
+                <span className="badge badge-brand text-[10px]">
                   Instant Auto-fill
                 </span>
               </div>
@@ -367,7 +364,7 @@ export default function Login() {
                     key={p.label}
                     type="button"
                     onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm flex items-center justify-center gap-1.5 p-2 min-h-[40px] text-[12px] font-semibold transition-all hover:border-teal-500/40 hover:bg-teal-50/50"
+                    className="btn btn-secondary btn-sm flex items-center justify-center gap-1.5 p-2 min-h-[40px] text-[12px] font-semibold transition-all cursor-pointer"
                   >
                     <span className="text-sm shrink-0">{p.icon}</span>
                     <span className="truncate">{p.label}</span>
@@ -385,7 +382,7 @@ export default function Login() {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TRUST_BADGES = [
   {
-    label: 'NABH & DPDP Act 2023 Compliant',
+    label: 'DPDP Consent Capture on Registration',
     icon: (
       <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -394,7 +391,7 @@ const TRUST_BADGES = [
     ),
   },
   {
-    label: 'End-to-End Encrypted Patient Health Records (AES-256)',
+    label: 'TLS-Secured API with Role-Based Access Control',
     icon: (
       <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -403,7 +400,7 @@ const TRUST_BADGES = [
     ),
   },
   {
-    label: 'Immutable Audit Trail & Version Control',
+    label: 'Append-Only Audit Trail & Version Control',
     icon: (
       <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

@@ -24,26 +24,25 @@ export default function PharmacyCompliance() {
   const [endDate, setEndDate] = useState('')
   const [error, setError] = useState('')
 
-  const fetchRegister = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await api.get('/pharmacy/compliance/register', {
-        params: {
-          schedule: selectedSchedule || undefined,
-          startDate: startDate || undefined,
-          endDate: endDate || undefined
-        }
-      })
-      setRecords(res.data || [])
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load statutory compliance register')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    const fetchRegister = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await api.get('/pharmacy/compliance/register', {
+          params: {
+            schedule: selectedSchedule || undefined,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined
+          }
+        })
+        setRecords(res.data || [])
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to load statutory compliance register')
+      } finally {
+        setLoading(false)
+      }
+    }
     fetchRegister()
   }, [selectedSchedule, startDate, endDate])
 
@@ -66,7 +65,7 @@ export default function PharmacyCompliance() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-    } catch (err) {
+    } catch {
       setError('Failed to export compliance register CSV')
     }
   }
@@ -74,16 +73,16 @@ export default function PharmacyCompliance() {
   return (
     <div className="space-y-6">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="page-header">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-900 border border-purple-200">
+            <span className="badge badge-info">
               CDSCO & NDPS Act Statutory Compliance
             </span>
             <span className="text-xs text-slate-500 font-mono">Form 20/21 Mandated Register</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Controlled Substance & Schedule H1 Register</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="page-title mt-1">Controlled Substance & Schedule H1 Register</h1>
+          <p className="page-description">
             Immutable audit record of restricted 3rd/4th generation antibiotics, sedatives, and narcotics per 2013 Gazette notification.
           </p>
         </div>
@@ -91,9 +90,9 @@ export default function PharmacyCompliance() {
         <div className="flex items-center gap-2">
           <button
             onClick={exportInspectionCsv}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5"
+            className="btn btn-secondary btn-sm"
           >
-            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Export Drug Inspector CSV
@@ -104,23 +103,23 @@ export default function PharmacyCompliance() {
       {error && <Alert variant="error" onDismiss={() => setError('')}>{error}</Alert>}
 
       {/* ── Regulatory Advisory Notice ── */}
-      <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-4 shadow-sm text-amber-950 flex gap-3">
+      <div className="alert alert-warning">
         <div className="text-xl">⚖️</div>
         <div className="text-xs space-y-1">
           <p className="font-bold">Drug Inspector Verification Readiness (Drugs & Cosmetics Rules 65(9))</p>
-          <p className="text-amber-900">
+          <p>
             Every dispense of <strong>Schedule H1</strong> (e.g. <em>Augmentin 625, Azithromycin, Cefixime, Alprazolam, Tramadol</em>) and <strong>NDPS/Schedule X</strong> must preserve the Prescribing Doctor's Name & Medical Registration Number, Patient Name & Address, Batch Number, and Dispensing Date for at least <strong>3 years</strong>.
           </p>
         </div>
       </div>
 
       {/* ── Filters Toolbar ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="card p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={selectedSchedule}
             onChange={e => setSelectedSchedule(e.target.value)}
-            className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white text-slate-700 outline-none"
+            className="form-select text-xs"
           >
             <option value="">All Controlled Schedules</option>
             <option value="ScheduleH1">Schedule H1 (Restricted Antibiotics & Sedatives)</option>
@@ -129,64 +128,67 @@ export default function PharmacyCompliance() {
             <option value="ScheduleH">Schedule H (Standard Rx)</option>
           </select>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
             <span>From:</span>
             <input
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="px-2.5 py-1.5 text-xs rounded border border-slate-300"
+              className="form-input text-xs py-1.5 w-40"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
             <span>To:</span>
             <input
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="px-2.5 py-1.5 text-xs rounded border border-slate-300"
+              className="form-input text-xs py-1.5 w-40"
             />
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 font-medium">
-          Total Logged Entries: <strong className="text-slate-900 font-bold">{records.length}</strong>
+        <div className="text-xs font-medium text-[var(--color-text-muted)]">
+          Total Logged Entries: <strong className="font-bold text-[var(--color-text)]">{records.length}</strong>
         </div>
       </div>
 
       {/* ── Register Table ── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase text-[10px] tracking-wider">
+          <table className="data-table">
+            <thead>
               <tr>
-                <th className="py-3 px-4">Date & Time</th>
-                <th className="py-3 px-3">Schedule</th>
-                <th className="py-3 px-3">Drug & Batch</th>
-                <th className="py-3 px-2 text-center">Qty</th>
-                <th className="py-3 px-4">Patient Details</th>
-                <th className="py-3 px-4">Prescribing Doctor (Reg #)</th>
-                <th className="py-3 px-3">Dispensed By</th>
+                <th>Date & Time</th>
+                <th>Schedule</th>
+                <th>Drug & Batch</th>
+                <th className="text-center">Qty</th>
+                <th>Patient Details</th>
+                <th>Prescribing Doctor (Reg #)</th>
+                <th>Dispensed By</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    <span className="spinner spinner-md" /> Loading statutory register…
+                  <td colSpan={7} className="text-center py-12 text-[var(--color-text-muted)]">
+                    <span className="spinner" /> Loading statutory register…
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    No Schedule H1 / NDPS records found for the selected timeframe.
+                  <td colSpan={7}>
+                    <div className="empty-state">
+                      <div className="empty-state-title">No records found</div>
+                      <p className="empty-state-description">No Schedule H1 / NDPS records found for the selected timeframe.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 records.map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-600 text-[11px]">
+                  <tr key={r.id}>
+                    <td className="whitespace-nowrap mono text-[var(--color-text-secondary)]">
                       {new Date(r.dispensedAt).toLocaleString('en-IN', {
                         day: '2-digit',
                         month: 'short',
@@ -196,32 +198,32 @@ export default function PharmacyCompliance() {
                       })}
                     </td>
 
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    <td>
+                      <span className="badge badge-warning">
                         {r.scheduleClass}
                       </span>
                     </td>
 
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-slate-900">{r.drugName}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">Batch: {r.batchNumber}</div>
+                    <td>
+                      <div className="font-bold text-[var(--color-text)]">{r.drugName}</div>
+                      <div className="text-[10px] mono text-[var(--color-text-muted)]">Batch: {r.batchNumber}</div>
                     </td>
 
-                    <td className="py-3 px-2 text-center font-bold text-slate-900">
+                    <td className="text-center font-bold text-[var(--color-text)]">
                       {r.quantity}
                     </td>
 
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">{r.patientName}</div>
-                      <div className="text-[10px] text-slate-400">{r.patientAddress}</div>
+                    <td>
+                      <div className="font-semibold text-[var(--color-text)]">{r.patientName}</div>
+                      <div className="text-[10px] text-[var(--color-text-muted)]">{r.patientAddress}</div>
                     </td>
 
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">{r.prescriberName}</div>
-                      <div className="text-[10px] text-indigo-700 font-mono font-semibold">Reg: {r.prescriberRegNo}</div>
+                    <td>
+                      <div className="font-semibold text-[var(--color-text)]">{r.prescriberName}</div>
+                      <div className="text-[10px] mono font-semibold text-[var(--brand-primary)]">Reg: {r.prescriberRegNo}</div>
                     </td>
 
-                    <td className="py-3 px-3 text-slate-600 font-medium">
+                    <td className="font-medium text-[var(--color-text-secondary)]">
                       {r.dispenserName}
                     </td>
                   </tr>

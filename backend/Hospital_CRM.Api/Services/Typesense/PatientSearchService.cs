@@ -75,6 +75,7 @@ public class PatientSearchService : IPatientSearchService
         try
         {
             await _ts.RetrieveCollection(_opts.PatientsCollection, ct);
+            _log.LogInformation("Typesense collection {Collection} verified", _opts.PatientsCollection);
         }
         catch (TypesenseApiNotFoundException)
         {
@@ -105,6 +106,7 @@ public class PatientSearchService : IPatientSearchService
         try
         {
             await _ts.RetrieveCollection(_opts.MedicinesCollection, ct);
+            _log.LogInformation("Typesense collection {Collection} verified", _opts.MedicinesCollection);
         }
         catch (TypesenseApiNotFoundException)
         {
@@ -315,7 +317,7 @@ public class PatientSearchService : IPatientSearchService
             return new List<MedicineSearchHit>();
 
         var trimmed = query.Trim();
-        var sp = new SearchParameters(trimmed, "name,generic_name,common_brands")
+        var sp = new SearchParameters(trimmed, "name,generic_name,common_brands,dosage_form,strength,hsn_code")
         {
             FilterBy = tenantId != Guid.Empty ? $"tenant_id:={tenantId}" : null,
             PerPage = limit,
@@ -423,7 +425,9 @@ public class PatientSearchService : IPatientSearchService
                 .Where(m => (tenantId == Guid.Empty || m.TenantId == tenantId)
                          && (EF.Functions.ILike(m.Name, $"%{query}%")
                              || EF.Functions.ILike(m.GenericName, $"%{query}%")
-                             || (m.CommonBrands != null && EF.Functions.ILike(m.CommonBrands, $"%{query}%"))))
+                             || (m.CommonBrands != null && EF.Functions.ILike(m.CommonBrands, $"%{query}%"))
+                             || (m.DosageForm != null && EF.Functions.ILike(m.DosageForm, $"%{query}%"))
+                             || (m.Strength != null && EF.Functions.ILike(m.Strength, $"%{query}%"))))
                 .Take(limit)
                 .ToListAsync(ct);
 

@@ -113,19 +113,19 @@ export default function Staff() {
   return (
     <div className="space-y-6 pb-12 animate-fadein">
       {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+            <span className="badge badge-brand">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
               Azure Entra External ID Role Governance
             </span>
-            <span className="text-xs text-slate-400 font-mono">Module 01 & 08</span>
+            <span className="text-xs font-mono text-[var(--color-text-muted)]">Module 01 & 08</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-heading mt-1">
+          <h1 className="text-2xl font-bold tracking-tight font-heading mt-1 text-[var(--color-text)]">
             Clinical Team Directory & Access Control
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
+          <p className="text-xs font-medium mt-0.5 text-[var(--color-text-muted)]">
             {loading ? 'Loading…' : `${staff.length} team members · ${doctors.length} Doctors · ${receptionists.length} Reception · ${pharmacists.length} Pharmacy`}
           </p>
         </div>
@@ -133,13 +133,13 @@ export default function Staff() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setShowMatrix(!showMatrix)}
-            className="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-secondary btn-sm cursor-pointer"
           >
             <span>🛡️ View RBAC Matrix</span>
           </button>
           <button
             id="invite-staff-btn"
-            className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-primary btn-sm cursor-pointer"
             onClick={() => { setSubmitError(''); reset({ name: '', email: '', role: 'Doctor' }); setShowModal(true) }}
           >
             <PlusIcon />
@@ -149,8 +149,8 @@ export default function Staff() {
       </div>
 
       {toast && (
-        <div className="p-3 bg-teal-50 border border-teal-200 text-teal-900 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs">
-          <svg className="w-4 h-4 text-teal-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <div className="alert alert-success">
+          <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
           <span>{toast}</span>
@@ -159,17 +159,17 @@ export default function Staff() {
 
       {/* ── RBAC Permissions Matrix Drawer (Collapsible) ── */}
       {showMatrix && (
-        <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-lg space-y-4 animate-fadein border border-slate-800">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="card p-5 shadow-lg space-y-4 animate-fadein" style={{ background: 'var(--color-surface-raised)', borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
             <div>
-              <h3 className="text-sm font-bold tracking-tight font-heading flex items-center gap-2">
+              <h3 className="text-sm font-bold tracking-tight font-heading flex items-center gap-2 text-[var(--color-text)]">
                 <span>Clinical Role-Based Access Control Matrix (RBAC)</span>
               </h3>
-              <p className="text-[11px] text-slate-400">Statutory role scoping enforced server-side</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Statutory role scoping enforced server-side</p>
             </div>
             <button
               onClick={() => setShowMatrix(false)}
-              className="text-slate-400 hover:text-white text-xs cursor-pointer"
+              className="text-xs cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
             >
               ✕ Close
             </button>
@@ -177,12 +177,12 @@ export default function Staff() {
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {Object.entries(ROLE_PERMISSIONS).map(([roleName, perms]) => (
-              <div key={roleName} className="p-3 bg-slate-800/80 rounded-xl border border-slate-700/80 space-y-2">
-                <div className="text-xs font-bold text-teal-400 font-heading">{roleName}</div>
+              <div key={roleName} className="p-3 rounded-xl border space-y-2" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                <div className="text-xs font-bold font-heading text-[var(--brand-primary)]">{roleName}</div>
                 <div className="space-y-1">
                   {perms.map(p => (
-                    <div key={p} className="text-[10px] text-slate-300 flex items-center gap-1.5">
-                      <span className="text-teal-400 font-bold">✓</span>
+                    <div key={p} className="text-[10px] flex items-center gap-1.5 text-[var(--color-text-secondary)]">
+                      <span className="font-bold text-[var(--color-success)]">✓</span>
                       <span>{p}</span>
                     </div>
                   ))}
@@ -194,8 +194,8 @@ export default function Staff() {
       )}
 
       {/* ── Filter Tabs & Table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl border w-fit" style={{ background: 'var(--color-surface-raised)', borderColor: 'var(--color-border)' }}>
           {[
             { id: 'all', label: 'All Team Members' },
             { id: 'Active', label: 'Active Sessions' },
@@ -205,7 +205,7 @@ export default function Staff() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                activeTab === tab.id ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeTab === tab.id ? 'btn-primary' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
               }`}
             >
               {tab.label}
@@ -214,7 +214,7 @@ export default function Staff() {
         </div>
 
         {loading ? (
-          <table className="w-full text-left text-xs">
+          <table className="data-table">
             <thead>
               <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr>
             </thead>
@@ -234,50 +234,50 @@ export default function Staff() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs" aria-label="Staff directory">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+            <table className="data-table" aria-label="Staff directory">
+              <thead>
                 <tr>
-                  <th className="py-3 px-3">Name</th>
-                  <th className="py-3 px-3">Email Address</th>
-                  <th className="py-3 px-3">Clinical Role</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-3">Joined Date</th>
-                  <th className="py-3 px-3 text-right">Actions</th>
+                  <th>Name</th>
+                  <th>Email Address</th>
+                  <th>Clinical Role</th>
+                  <th>Status</th>
+                  <th>Joined Date</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <tbody>
                 {filteredStaff.map(s => (
-                  <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-3">
+                  <tr key={s.id}>
+                    <td>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 border border-teal-200/60 font-bold text-xs flex items-center justify-center">
+                        <div className="avatar avatar-sm font-bold text-xs flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff' }}>
                           {getInitials(s.name)}
                         </div>
-                        <span className="font-bold text-slate-900">{s.name}</span>
+                        <span className="font-bold text-[var(--color-text)]">{s.name}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-3 font-mono text-slate-600">{s.email}</td>
-                    <td className="py-3.5 px-3">
+                    <td className="mono text-[var(--color-text-secondary)]">{s.email}</td>
+                    <td>
                       <Badge variant={s.role === 'Doctor' ? 'brand' : s.role === 'Pharmacist' ? 'warning' : 'info'}>
                         {s.role}
                       </Badge>
                     </td>
-                    <td className="py-3.5 px-3">
+                    <td>
                       <Badge variant={s.status === 'Active' ? 'success' : 'warning'} dot>
                         {s.status}
                       </Badge>
                     </td>
-                    <td className="py-3.5 px-3 text-slate-500">{fmtDate(s.joinedAt)}</td>
-                    <td className="py-3.5 px-3 text-right">
+                    <td className="text-[var(--color-text-muted)]">{fmtDate(s.joinedAt)}</td>
+                    <td className="text-right">
                       {s.status === 'Invited' ? (
                         <button
                           onClick={() => copyInviteLink(s.email)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 transition cursor-pointer"
+                          className="btn btn-secondary btn-sm cursor-pointer"
                         >
                           Copy Invite Link
                         </button>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-semibold">Authorized</span>
+                        <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Authorized</span>
                       )}
                     </td>
                   </tr>

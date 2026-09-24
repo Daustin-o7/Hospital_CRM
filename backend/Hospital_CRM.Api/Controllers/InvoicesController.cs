@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
@@ -127,6 +128,7 @@ public class InvoicesController : ControllerBase
                 Method = PaymentMethod.Cash,
                 Amount = request.Amount,
                 Status = PaymentStatus.Completed,
+                PaidAt = DateTimeOffset.UtcNow,
                 IdempotencyKey = request.IdempotencyKey,
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -273,15 +275,28 @@ public class InvoicesController : ControllerBase
 }
 
 public record GenerateInvoiceRequest(
+    [Required(ErrorMessage = "Appointment ID is required")]
     Guid AppointmentId,
+
+    [Required(ErrorMessage = "LineItems are required"), MinLength(1, ErrorMessage = "At least one line item is required"), MaxLength(50, ErrorMessage = "Maximum 50 line items per invoice")]
     List<InvoiceLineItemRequest> LineItems,
+
+    [RegularExpression(@"^IDEMP-INV-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-INV-{UUID}")]
     string? IdempotencyKey);
 
 public record InvoiceLineItemRequest(
+    [Required(ErrorMessage = "Description is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Description must be between 2 and 150 characters")]
     string Description,
+
+    [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
     decimal Amount);
 
 public record CollectPaymentRequest(
+    [Required(ErrorMessage = "Payment Method is required"), RegularExpression("(?i)^(cash|razorpay)$", ErrorMessage = "Method must be cash or razorpay")]
     string Method,
+
+    [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
     decimal Amount,
+
+    [RegularExpression(@"^IDEMP-PAY-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-PAY-{UUID}")]
     string? IdempotencyKey);

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -169,5 +170,13 @@ public class AuthController : ControllerBase
         Base64UrlEncode(Encoding.UTF8.GetBytes(text));
 }
 
-public record LoginRequest(string Email, string Password);
-public record RefreshRequest(string RefreshToken);
+public record LoginRequest(
+    [Required(ErrorMessage = "Email is required"), EmailAddress(ErrorMessage = "Please enter a valid email address")]
+    string Email,
+
+    [Required(ErrorMessage = "Password is required")]
+    string Password);
+
+public record RefreshRequest(
+    [Required(ErrorMessage = "RefreshToken is required")]
+    string RefreshToken);

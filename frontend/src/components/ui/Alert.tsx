@@ -39,7 +39,17 @@ const ALERT_ICONS: Record<AlertVariant, React.ReactNode> = {
 /** Maps friendly, user-facing messages from raw API errors */
 export function friendlyError(raw: unknown): string {
   if (!raw) return 'Something went wrong. Please try again.'
-  const msg = typeof raw === 'string' ? raw : (raw as any)?.response?.data?.error || (raw as any)?.message || ''
+  const data = (raw as any)?.response?.data
+  const msg = typeof raw === 'string' ? raw : data?.error || data?.message || ''
+  
+  // Handle RFC 7807 validation problem details (errors object)
+  if (data?.errors && typeof data.errors === 'object') {
+    const errorMessages = Object.values(data.errors).flat().filter(Boolean)
+    if (errorMessages.length > 0) {
+      return errorMessages.join('; ')
+    }
+  }
+  
   const lower = msg.toLowerCase()
   if (lower.includes('401') || lower.includes('unauthorized')) return "We couldn't sign you in. Check your email and password and try again."
   if (lower.includes('403') || lower.includes('forbidden')) return "You don't have permission to perform this action."

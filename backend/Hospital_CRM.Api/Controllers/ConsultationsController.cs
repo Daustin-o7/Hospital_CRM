@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
@@ -17,6 +18,215 @@ public class ConsultationsController : ControllerBase
     public ConsultationsController(HospitalCrmDbContext db)
     {
         _db = db;
+    }
+
+    [HttpGet("consultations")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> List(
+        [FromQuery] Guid? doctorId,
+        [FromQuery] Guid? patientId,
+        [FromQuery] Guid? appointmentId,
+        [FromQuery] string? fromDate,
+        [FromQuery] string? toDate,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var userId = User.GetUserId();
+        var userRole = User.GetUserRole();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
+        var query = _db.Consultations
+            .Include(c => c.Appointment).ThenInclude(a => a.Patient)
+            .Include(c => c.Doctor)
+            .Include(c => c.Prescriptions).ThenInclude(p => p.Items)
+            .AsQueryable();
+
+        // Role-based filtering
+        if (string.Equals(userRole, "Doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(c => c.DoctorId == userId.Value);
+        }
+        else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase))
+        {
+            // Receptionist sees consultations for patients they registered or appointments they booked
+            // For simplicity, allow access to consultations in their clinic
+            var user = await _db.Users.FindAsync([userId.Value], ct);
+            if (user?.ClinicId != null)
+            {
+                query = query.Where(c => c.Appointment.ClinicId == user.ClinicId);
+            }
+        }
+        else if (string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
+        {
+            var user = await _db.Users.FindAsync([userId.Value], ct);
+            if (user?.ClinicId != null)
+            {
+                query = query.Where(c => c.Appointment.ClinicId == user.ClinicId);
+            }
+        }
+
+        // Filters
+        if (doctorId.HasValue)
+            query = query.Where(c => c.DoctorId == doctorId.Value);
+
+        if (patientId.HasValue)
+            query = query.Where(c => c.Appointment.PatientId == patientId.Value);
+
+        if (appointmentId.HasValue)
+            query = query.Where(c => c.AppointmentId == appointmentId.Value);
+
+        if (DateOnly.TryParse(fromDate, out var from))
+            query = query.Where(c => c.CreatedAt >= from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+
+        if (DateOnly.TryParse(toDate, out var to))
+            query = query.Where(c => c.CreatedAt < to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+
+        var total = await query.CountAsync(ct);
+
+        var consultations = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new
+            {
+                consultationId = c.Id,
+                appointmentId = c.AppointmentId,
+                patientName = c.Appointment.Patient.Name,
+                patientPhone = c.Appointment.Patient.Phone,
+                doctorName = c.Doctor.Name,
+                chiefComplaint = c.ChiefComplaint,
+                diagnosis = c.Diagnosis,
+                version = c.Version,
+                previousVersionId = c.PreviousVersionId,
+                createdAt = c.CreatedAt,
+                prescriptionCount = c.Prescriptions.Count
+            })
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            total,
+            page,
+            pageSize,
+            data = consultations
+        });
+    }
+
+    [HttpGet("consultations/{consultationId:guid}")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> Get(Guid consultationId, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        var userRole = User.GetUserRole();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
+        var consultation = await _db.Consultations
+            .Include(c => c.Appointment).ThenInclude(a => a.Patient)
+            .Include(c => c.Doctor)
+            .Include(c => c.Prescriptions).ThenInclude(p => p.Items)
+            .FirstOrDefaultAsync(c => c.Id == consultationId, ct);
+
+        if (consultation is null)
+            return NotFound(new { error = "consultation_not_found" });
+
+        // Role-based access check
+        if (string.Equals(userRole, "Doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            if (consultation.DoctorId != User.GetUserId().Value)
+                return Forbid();
+        }
+        else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
+        {
+            var user = await _db.Users.FindAsync([User.GetUserId().Value], ct);
+            if (user?.ClinicId != null && consultation.Appointment.ClinicId != user.ClinicId)
+                return Forbid();
+        }
+
+        return Ok(new
+        {
+            consultationId = consultation.Id,
+            appointmentId = consultation.AppointmentId,
+            patient = new
+            {
+                id = consultation.Appointment.Patient.Id,
+                name = consultation.Appointment.Patient.Name,
+                phone = consultation.Appointment.Patient.Phone
+            },
+            doctor = new
+            {
+                id = consultation.Doctor.Id,
+                name = consultation.Doctor.Name
+            },
+            chiefComplaint = consultation.ChiefComplaint,
+            observations = consultation.Observations,
+            diagnosis = consultation.Diagnosis,
+            version = consultation.Version,
+            previousVersionId = consultation.PreviousVersionId,
+            createdAt = consultation.CreatedAt,
+            prescriptions = consultation.Prescriptions.Select(p => new
+            {
+                prescriptionId = p.Id,
+                createdAt = p.CreatedAt,
+                items = p.Items.Select(i => new
+                {
+                    medicine = i.MedicineText,
+                    dosage = i.DosageText,
+                    frequency = i.FrequencyText,
+                    duration = i.DurationText
+                }).ToList()
+            }).ToList()
+        });
+    }
+
+    [HttpGet("consultations/{consultationId:guid}/prescriptions")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> GetPrescriptions(Guid consultationId, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        var userRole = User.GetUserRole();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
+        var consultation = await _db.Consultations
+            .Include(c => c.Appointment)
+            .Include(c => c.Prescriptions).ThenInclude(p => p.Items)
+            .FirstOrDefaultAsync(c => c.Id == consultationId, ct);
+
+        if (consultation is null)
+            return NotFound(new { error = "consultation_not_found" });
+
+        // Role-based access check
+        if (string.Equals(userRole, "Doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            if (consultation.DoctorId != User.GetUserId().Value)
+                return Forbid();
+        }
+        else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
+        {
+            var user = await _db.Users.FindAsync([User.GetUserId().Value], ct);
+            if (user?.ClinicId != null && consultation.Appointment.ClinicId != user.ClinicId)
+                return Forbid();
+        }
+
+        var prescriptions = consultation.Prescriptions.Select(p => new
+        {
+            prescriptionId = p.Id,
+            createdAt = p.CreatedAt,
+            items = p.Items.Select(i => new
+            {
+                medicine = i.MedicineText,
+                dosage = i.DosageText,
+                frequency = i.FrequencyText,
+                duration = i.DurationText
+            }).ToList()
+        }).ToList();
+
+        return Ok(new { consultationId, prescriptions });
     }
 
     [HttpPost("appointments/{appointmentId:guid}/consultation")]
@@ -147,6 +357,31 @@ public class ConsultationsController : ControllerBase
     }
 }
 
-public record CreateConsultationRequest(string? ChiefComplaint, string? Observations, string? Diagnosis, Guid? PreviousVersionId);
-public record AddPrescriptionRequest(List<PrescriptionItemRequest> Items);
-public record PrescriptionItemRequest(string Medicine, string Dosage, string Frequency, string Duration);
+public record CreateConsultationRequest(
+    [StringLength(1000, MinimumLength = 3, ErrorMessage = "Chief complaint must be between 3 and 1000 characters")]
+    string? ChiefComplaint,
+
+    [StringLength(2500, ErrorMessage = "Observations cannot exceed 2500 characters")]
+    string? Observations,
+
+    [StringLength(500, MinimumLength = 2, ErrorMessage = "Diagnosis must be between 2 and 500 characters")]
+    string? Diagnosis,
+
+    Guid? PreviousVersionId);
+
+public record AddPrescriptionRequest(
+    [Required, MinLength(1, ErrorMessage = "At least one prescription item is required"), MaxLength(30, ErrorMessage = "Maximum 30 prescription items")]
+    List<PrescriptionItemRequest> Items);
+
+public record PrescriptionItemRequest(
+    [Required(ErrorMessage = "Medicine name is required"), StringLength(200, MinimumLength = 2, ErrorMessage = "Medicine name must be 2–200 characters")]
+    string Medicine,
+
+    [Required(ErrorMessage = "Dosage is required"), StringLength(100, MinimumLength = 1)]
+    string Dosage,
+
+    [Required(ErrorMessage = "Frequency is required"), StringLength(100, MinimumLength = 1)]
+    string Frequency,
+
+    [Required(ErrorMessage = "Duration is required"), StringLength(100, MinimumLength = 1)]
+    string Duration);

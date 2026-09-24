@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 // ── Navigation definition ────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -96,7 +97,6 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 export default function DashboardLayout() {
-
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showNotifications, setShowNotifications] = useState(false)
@@ -131,14 +131,13 @@ export default function DashboardLayout() {
   }
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
+    weekday: 'short',
     day: 'numeric',
     month: 'short',
-    year: 'numeric'
   })
 
   return (
-    <div className="min-h-screen bg-slate-50/60 flex text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-[var(--color-bg)] flex text-[var(--color-text)] font-sans antialiased selection:bg-teal-500 selection:text-white transition-colors duration-200">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -155,7 +154,7 @@ export default function DashboardLayout() {
         }`}
       >
         {/* Brand Header */}
-        <div className="p-4 border-b border-[#22364f]/80 flex items-center justify-between bg-[#070f19]/80 backdrop-blur-md">
+        <div className="p-4 border-b border-[#22364f]/80 flex items-center justify-between bg-[#070f19]/90 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
             {branding.logoUrl ? (
               <img
@@ -177,7 +176,7 @@ export default function DashboardLayout() {
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" />
                 <p className="text-[10px] uppercase font-bold tracking-wider text-[#2dd4bf] truncate font-mono">
-                  <span>Clinical OS</span>
+                  <span>Clinical Precision</span>
                 </p>
               </div>
             </div>
@@ -198,7 +197,7 @@ export default function DashboardLayout() {
         {/* Navigation items */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
           <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono">
-            Workspace Modules
+            Clinical Modules
           </div>
           {filteredNav.map((item) => (
             <NavLink
@@ -209,48 +208,56 @@ export default function DashboardLayout() {
                 `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-tight transition-all duration-150 group ${
                   isActive
                     ? 'bg-gradient-to-r from-[#0d5c63] to-[#14b8a6] text-[#f8fafc] border border-[#2dd4bf]/40 shadow-lg shadow-teal-950/40 font-bold'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-[#111e2e]/90 hover:border hover:border-[#22364f]/60'
+                    : 'text-slate-200 hover:text-white hover:bg-[#111e2e]/90 hover:border hover:border-[#22364f]/60'
                 }`
               }
             >
-              <item.icon className="w-4 h-4 transition-transform group-hover:scale-110 shrink-0" />
+              <item.icon className="w-4 h-4 text-teal-400 group-hover:text-teal-300 transition-transform group-hover:scale-110 shrink-0" />
               <span className="truncate">{item.name}</span>
             </NavLink>
           ))}
 
-          {/* Shortcuts Section */}
+          {/* Quick Actions Section */}
           <div className="pt-4 mt-4 border-t border-[#22364f]/80">
             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono">
-              Quick Actions
+              Fast Shortcuts
             </div>
             <div className="space-y-1 mt-1">
               <button
                 onClick={() => navigate('/dashboard/appointments')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-[#111e2e]/70 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]"></span>
+                <span className="w-2 h-2 rounded-full bg-[#2dd4bf] shadow-[0_0_8px_#2dd4bf]"></span>
                 <span>Today's OPD Queue</span>
               </button>
               <button
                 onClick={() => navigate('/dashboard/patients')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-[#111e2e]/70 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
                 <span>Register Patient</span>
               </button>
               <button
                 onClick={() => navigate('/dashboard/pharmacy/pos')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-[#111e2e]/70 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#44e2cd]"></span>
+                <span className="w-2 h-2 rounded-full bg-[#5eead4] shadow-[0_0_8px_#5eead4]"></span>
                 <span>Pharmacy Fast POS</span>
               </button>
             </div>
           </div>
+
+          {/* Mobile Theme Switcher inside Drawer */}
+          <div className="lg:hidden pt-4 mt-4 border-t border-[#22364f]/80 px-2">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono mb-2">
+              Appearance Theme
+            </div>
+            <ThemeToggle variant="segmented" className="w-full justify-between" />
+          </div>
         </nav>
 
         {/* User Footer Card */}
-        <div className="p-3 border-t border-[#22364f]/80 bg-[#070f19]/80">
+        <div className="p-3 border-t border-[#22364f]/80 bg-[#070f19]/90">
           <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[#111e2e]/90 border border-[#22364f] shadow-inner">
             <div className="w-8 h-8 rounded-lg bg-[#0d5c63] text-[#2dd4bf] border border-[#2dd4bf]/40 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -278,12 +285,12 @@ export default function DashboardLayout() {
 
       {/* Main Layout Area */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0 min-h-screen">
-        {/* Modern Topbar */}
-        <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 lg:px-8 flex items-center justify-between gap-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        {/* Modern Theme-Aware Topbar */}
+        <header className="sticky top-0 z-30 h-16 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] px-4 lg:px-8 flex items-center justify-between gap-4 shadow-xs transition-colors">
           <div className="flex items-center gap-3 flex-1 max-w-lg">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+              className="lg:hidden p-2 rounded-lg text-teal-700 dark:text-teal-400 hover:bg-[var(--color-surface-hover)]"
               aria-label="Open sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,7 +300,7 @@ export default function DashboardLayout() {
 
             {/* Global Search Bar */}
             <form onSubmit={handleSearchSubmit} className="relative w-full">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-teal-600 dark:text-teal-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -303,47 +310,50 @@ export default function DashboardLayout() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Quick search patients (press Enter)..."
-                className="w-full pl-9 pr-14 py-2 text-xs bg-slate-50/80 hover:bg-slate-100/90 focus:bg-white border border-slate-200/90 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
+                placeholder="Search patient records, tokens, or bills (Ctrl+K)…"
+                className="w-full pl-9 pr-14 py-2 text-xs bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)] focus:bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-[var(--brand-primary)] transition-all font-medium"
               />
               <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
+                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-secondary)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xs font-semibold">
                   Ctrl K
                 </kbd>
               </span>
             </form>
           </div>
 
-          {/* Right Area: Date, Notifications, User */}
-          <div className="flex items-center gap-3 relative">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100/80 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200/70">
-              <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Right Area: Date, Theme Toggle, Notifications, User */}
+          <div className="flex items-center gap-2.5 relative">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]">
+              <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span>{todayFormatted}</span>
             </div>
+
+            {/* Theme Toggle (Light / Dark / Mobile OS Auto) */}
+            <ThemeToggle variant="compact" />
 
             {/* Notification Bell with interactive popover */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 title="Notifications"
-                className="relative p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                className="relative p-2 rounded-xl text-teal-700 dark:text-teal-400 hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] border border-[var(--color-border)] transition-colors"
                 aria-expanded={showNotifications}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[var(--color-surface)]"></span>
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200/80 p-3 z-50 text-xs animate-fadein">
-                  <div className="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-100 mb-2">
+                <div className="absolute right-0 mt-2 w-72 bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] p-3 z-50 text-xs animate-fadein">
+                  <div className="flex items-center justify-between font-bold text-[var(--color-text)] pb-2 border-b border-[var(--color-border)] mb-2">
                     <span>Notifications</span>
                     <span className="badge badge-success text-[10px]">All caught up</span>
                   </div>
-                  <div className="py-2 text-slate-500 text-center">
+                  <div className="py-2 text-[var(--color-text-secondary)] text-center font-medium">
                     No unread clinical alerts or appointment requests.
                   </div>
                 </div>
@@ -351,7 +361,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Quick Profile Chip */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <div className="flex items-center gap-2 pl-2 border-l border-[var(--color-border)]">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-600 to-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-sm">
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
               </div>
@@ -364,10 +374,10 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
 
-        {/* ── Dedicated Mobile Bottom Navigation Bar (High Frequency Actions) ── */}
+        {/* ── Dedicated Mobile Bottom Navigation Bar ── */}
         <nav
           aria-label="Mobile Navigation"
-          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border)] px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg transition-colors"
         >
           <NavLink
             to="/dashboard"
@@ -375,12 +385,12 @@ export default function DashboardLayout() {
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
                 isActive
-                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
-                  : 'text-slate-500 font-medium hover:text-slate-900'
+                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
               }`
             }
           >
-            <HomeIcon className="w-5 h-5 mb-0.5" />
+            <HomeIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
             <span>Home</span>
           </NavLink>
 
@@ -389,12 +399,12 @@ export default function DashboardLayout() {
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
                 isActive
-                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
-                  : 'text-slate-500 font-medium hover:text-slate-900'
+                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
               }`
             }
           >
-            <UsersIcon className="w-5 h-5 mb-0.5" />
+            <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
             <span>Patients</span>
           </NavLink>
 
@@ -403,12 +413,12 @@ export default function DashboardLayout() {
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
                 isActive
-                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
-                  : 'text-slate-500 font-medium hover:text-slate-900'
+                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
               }`
             }
           >
-            <CalendarIcon className="w-5 h-5 mb-0.5" />
+            <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
             <span>Appts</span>
           </NavLink>
 
@@ -417,22 +427,22 @@ export default function DashboardLayout() {
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
                 isActive
-                  ? 'text-teal-700 font-extrabold bg-teal-50/80 scale-105'
-                  : 'text-slate-500 font-medium hover:text-slate-900'
+                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
               }`
             }
           >
-            <QueueIcon className="w-5 h-5 mb-0.5" />
+            <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
             <span>Queue</span>
           </NavLink>
 
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight text-slate-500 font-medium hover:text-slate-900 transition-all min-w-[54px] min-h-[44px]"
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600 transition-all min-w-[54px] min-h-[44px]"
             aria-label="Open full workspace menu"
           >
-            <MenuIcon className="w-5 h-5 mb-0.5" />
+            <MenuIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
             <span>Menu</span>
           </button>
         </nav>
@@ -449,7 +459,6 @@ function MenuIcon(props: { className?: string }) {
   )
 }
 
-// ── SVG Icon Helpers ──────────────────────────────────────────────────────────
 function HomeIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,18 +467,18 @@ function HomeIcon(props: { className?: string }) {
   )
 }
 
-function UsersIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-  )
-}
-
 function CalendarIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+function UsersIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   )
 }
@@ -494,6 +503,30 @@ function CreditCardIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  )
+}
+
+function ShoppingBagIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  )
+}
+
+function PillIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+    </svg>
+  )
+}
+
+function ShieldCheckIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   )
 }
@@ -527,30 +560,6 @@ function SettingsIcon(props: { className?: string }) {
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  )
-}
-
-function ShoppingBagIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-    </svg>
-  )
-}
-
-function PillIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-    </svg>
-  )
-}
-
-function ShieldCheckIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   )
 }
