@@ -58,7 +58,8 @@ function getInitials(name: string) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Patients() {
   const [patients, setPatients] = useState<Patient[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
+  // Seed from the topbar global search: /dashboard/patients?q=…
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [searchResults, setSearchResults] = useState<Patient[]>([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -225,17 +226,17 @@ export default function Patients() {
   return (
     <div className="animate-fadein space-y-5">
       {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h1 className="text-xl font-bold tracking-tight text-[var(--color-text)]" style={{ fontFamily: 'var(--font-heading)' }}>
               Patients
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200/70">
+            <span className="badge badge-brand">
               DPDP 2023 Compliant
             </span>
           </div>
-          <p className="text-xs text-slate-500 font-medium mt-1">
+          <p className="text-xs font-medium mt-1 text-[var(--color-text-muted)]">
             {loading ? 'Synchronizing patient registry…' : `${patients.length} active patient profile${patients.length !== 1 ? 's' : ''} in electronic database`}
           </p>
         </div>
@@ -269,7 +270,7 @@ export default function Patients() {
           {searchQuery && (
             <button
               onClick={() => { setSearchQuery(''); setShowSearchDropdown(false); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full w-5 h-5 flex items-center justify-center transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs rounded-full w-5 h-5 flex items-center justify-center transition-colors text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]"
               aria-label="Clear search"
             >
               ✕
@@ -278,22 +279,23 @@ export default function Patients() {
 
           {/* Search Results Dropdown with Composite Info & Quick Select */}
           {showSearchDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-96 overflow-y-auto animate-fadein">
+            <div className="card absolute top-full left-0 right-0 mt-1.5 z-50 shadow-xl overflow-hidden max-h-96 overflow-y-auto animate-fadein" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
               {searchLoading ? (
-                <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <div className="p-4 text-center text-xs flex items-center justify-center gap-2 text-[var(--color-text-muted)]">
                   <span className="spinner spinner-sm" />
                   <span>Searching Typesense registry…</span>
                 </div>
               ) : searchResults.length > 0 ? (
                 <div>
-                  <div className="px-3.5 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Disambiguated Matches</span>
-                    <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">{searchResults.length} found</span>
+                  <div className="px-3.5 py-2 border-b flex items-center justify-between" style={{ background: 'var(--color-surface-raised)', borderColor: 'var(--color-border)' }}>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Disambiguated Matches</span>
+                    <span className="badge badge-brand text-[11px]">{searchResults.length} found</span>
                   </div>
                   {searchResults.map(r => (
                     <div
                       key={r.id}
-                      className="w-full px-3.5 py-2.5 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-0 flex items-center justify-between gap-3 group"
+                      className="w-full px-3.5 py-2.5 transition-colors border-b last:border-0 flex items-center justify-between gap-3 group hover:bg-[var(--color-surface-hover)]"
+                      style={{ borderColor: 'var(--color-border-subtle)' }}
                     >
                       <button
                         onClick={() => { setSearchQuery(r.name); setShowSearchDropdown(false); fetchPatients(r.name); }}
@@ -303,18 +305,18 @@ export default function Patients() {
                           {getInitials(r.name)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-slate-900 text-sm truncate">{r.name}</div>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <div className="font-semibold text-sm truncate text-[var(--color-text)]">{r.name}</div>
+                          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mt-0.5">
                             {r.dob && <span>DOB: {new Date(r.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                             {r.dob && r.phone && <span>•</span>}
                             {r.phone && <span className="mono font-medium">…{r.phone.slice(-4)}</span>}
-                            <span className="capitalize text-slate-400">• {r.gender || '—'}</span>
+                            <span className="capitalize">• {r.gender || '—'}</span>
                           </div>
                         </div>
                       </button>
                       <button
                         onClick={() => { setShowSearchDropdown(false); openPatient(r.id); }}
-                        className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-lg transition-colors flex-shrink-0"
+                        className="btn btn-secondary btn-sm flex-shrink-0"
                       >
                         Open Chart →
                       </button>
@@ -322,7 +324,7 @@ export default function Patients() {
                   ))}
                 </div>
               ) : searchQuery.trim().length >= 2 ? (
-                <div className="p-4 text-center text-xs text-slate-500">
+                <div className="p-4 text-center text-xs text-[var(--color-text-muted)]">
                   No matching patients found for "{searchQuery}".
                 </div>
               ) : null}
@@ -341,14 +343,14 @@ export default function Patients() {
             <button
               key={chip.id}
               onClick={() => setFilterType(chip.id as any)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 filterType === chip.id
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/80 hover:border-slate-300'
+                  ? 'btn-primary'
+                  : 'btn-secondary'
               }`}
             >
               <span>{chip.label}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${filterType === chip.id ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${filterType === chip.id ? 'bg-white/20 text-white' : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)]'}`}>
                 {chip.count}
               </span>
             </button>
@@ -409,7 +411,7 @@ export default function Patients() {
               </thead>
               <tbody>
                 {filteredPatients.map(p => (
-                  <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => openPatient(p.id)} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => openPatient(p.id)}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div
@@ -439,12 +441,12 @@ export default function Patients() {
                     <td>
                       {p.approxAge ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-800 text-xs">{p.approxAge} yrs</span>
-                          <span className="text-slate-300">•</span>
-                          <span className="text-xs text-slate-500 font-medium capitalize">{p.gender}</span>
+                          <span className="font-semibold text-xs text-[var(--color-text)]">{p.approxAge} yrs</span>
+                          <span className="text-[var(--color-text-muted)]">•</span>
+                          <span className="text-xs font-medium capitalize text-[var(--color-text-secondary)]">{p.gender}</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 capitalize">{p.gender || '—'}</span>
+                        <span className="text-xs capitalize text-[var(--color-text-muted)]">{p.gender || '—'}</span>
                       )}
                     </td>
                     <td>
@@ -453,8 +455,8 @@ export default function Patients() {
                       </span>
                     </td>
                     <td>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                        <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                      <span className="badge badge-success">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                         <span>Consented</span>
@@ -587,13 +589,13 @@ export default function Patients() {
         description="A patient with matching details already exists in the electronic registry. Please review below."
       >
         <div className="space-y-4">
-          <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-start gap-3">
-            <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="alert alert-warning">
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
-              <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Duplicate Prevention Active</h4>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider">Duplicate Prevention Active</h4>
+              <p className="text-xs mt-0.5">
                 We found existing records that match the name, contact number, or birth date you entered.
               </p>
             </div>
@@ -603,7 +605,7 @@ export default function Patients() {
             {duplicateMatches.map(match => (
               <div
                 key={match.id}
-                className="p-3.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs hover:border-teal-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="card p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="avatar avatar-md flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff', fontWeight: 700 }}>
@@ -611,12 +613,12 @@ export default function Patients() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm truncate">{match.name}</span>
+                      <span className="font-bold text-sm truncate text-[var(--color-text)]">{match.name}</span>
                       <span className="mono text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/60">
                         UHID-{match.id.slice(0, 8).toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-slate-500 mt-1">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[var(--color-text-muted)] mt-1">
                       {match.dob && <span>DOB: {new Date(match.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                       {match.phone && <span className="mono">Phone: ••••• {match.phoneLast4 || match.phone.slice(-4)}</span>}
                       {match.gender && <span className="capitalize">{match.gender}</span>}
@@ -640,7 +642,7 @@ export default function Patients() {
             ))}
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+          <div className="pt-3 border-t flex items-center justify-between gap-3" style={{ borderColor: 'var(--color-border)' }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -650,7 +652,7 @@ export default function Patients() {
             </button>
             <button
               type="button"
-              className="btn btn-ghost btn-sm text-slate-600 hover:text-slate-900 font-semibold"
+              className="btn btn-ghost btn-sm font-semibold"
               disabled={isCreatingDuplicate}
               onClick={() => {
                 if (pendingFormData) {
@@ -675,7 +677,7 @@ export default function Patients() {
         {viewingPatient && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Header banner */}
-            <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+            <div className="flex items-center justify-between p-4 rounded-2xl" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
                   className="avatar avatar-lg"
@@ -696,15 +698,15 @@ export default function Patients() {
                     <span className="mono text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200/60">
                       UHID-{viewingPatient.id.slice(0, 8).toUpperCase()}
                     </span>
-                    <span className="text-xs text-slate-400">•</span>
-                    <span className="text-xs text-slate-500 font-medium">
+                    <span className="text-xs text-[var(--color-text-muted)]">•</span>
+                    <span className="text-xs font-medium text-[var(--color-text-secondary)]">
                       {viewingPatient.approxAge ? `${viewingPatient.approxAge} yrs` : 'Age N/A'} · {viewingPatient.gender}
                     </span>
                   </div>
                 </div>
               </div>
               <div className="hidden sm:flex flex-col items-end">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Consent Status</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Consent Status</span>
                 <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active Care Delivery
                 </span>
@@ -712,7 +714,7 @@ export default function Patients() {
             </div>
 
             {/* Quick Details Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-white border border-slate-200/70 rounded-2xl">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
               {[
                 { label: 'Primary Contact', value: viewingPatient.phone, mono: true },
                 { label: 'Gender Identity', value: viewingPatient.gender },
@@ -721,11 +723,11 @@ export default function Patients() {
                 { label: 'First Registered', value: formatDate(viewingPatient.createdAt) },
                 { label: 'Residential City', value: viewingPatient.address || 'Standard local residency' },
               ].map(f => (
-                <div key={f.label} className="p-2.5 rounded-xl bg-slate-50/60 border border-slate-100">
+                <div key={f.label} className="p-2.5 rounded-xl" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border-subtle)' }}>
                   <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
                     {f.label}
                   </div>
-                  <div className={`${f.mono ? 'mono' : ''} text-slate-900 font-semibold text-xs mt-1 truncate`}>
+                  <div className={`${f.mono ? 'mono' : ''} font-semibold text-xs mt-1 truncate text-[var(--color-text)]`}>
                     {f.value}
                   </div>
                 </div>
@@ -733,8 +735,8 @@ export default function Patients() {
             </div>
 
             {/* Patient Clinical Quick Actions */}
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <span className="text-xs text-slate-400 font-medium">Ready for next clinical interaction</span>
+            <div className="pt-2 flex items-center justify-between border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs font-medium text-[var(--color-text-muted)]">Ready for next clinical interaction</span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setViewingPatient(null)}

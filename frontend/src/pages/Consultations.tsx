@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { Alert, friendlyError } from '../components/ui/Alert'
+import { consultationSoapSchema } from '../schemas'
 
 interface ToothStatus {
   id: number
@@ -58,7 +59,7 @@ const INITIAL_TEETH: ToothStatus[] = [
   // Lower arch: 48 down to 41, then 31 up to 38
   { id: 48, label: '48', status: 'healthy', arch: 'lower' },
   { id: 47, label: '47', status: 'healthy', arch: 'lower' },
-  { id: 46, label: '46', status: 'caries',  arch: 'lower' },
+  { id: 46, label: '46', status: 'healthy', arch: 'lower' },
   { id: 45, label: '45', status: 'healthy', arch: 'lower' },
   { id: 44, label: '44', status: 'healthy', arch: 'lower' },
   { id: 43, label: '43', status: 'healthy', arch: 'lower' },
@@ -69,68 +70,85 @@ const INITIAL_TEETH: ToothStatus[] = [
   { id: 33, label: '33', status: 'healthy', arch: 'lower' },
   { id: 34, label: '34', status: 'healthy', arch: 'lower' },
   { id: 35, label: '35', status: 'healthy', arch: 'lower' },
-  { id: 36, label: '36', status: 'filling',  arch: 'lower' },
+  { id: 36, label: '36', status: 'healthy', arch: 'lower' },
   { id: 37, label: '37', status: 'healthy', arch: 'lower' },
   { id: 38, label: '38', status: 'healthy', arch: 'lower' },
 ]
 
+const DEFAULT_PLACEHOLDERS = {
+  complaint: "Patient's primary complaint, duration, severity…",
+  observations: 'Vitals, systemic examination findings, ENT/Oral findings…',
+  diagnosis: 'e.g. Acute Viral Pharyngitis, Dental Caries 46',
+}
+
 export default function Consultations() {
   const [appointments, setAppointments] = useState<AppointmentItem[]>([])
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null)
-  const [activeTab, setActiveTab] = useState<'soap' | 'dental' | 'rx' | 'history'>('soap')
+  const [activeTab, setActiveTab] = useState<'soap' | 'dental' | 'rx'>('soap')
   const [templateType, setTemplateType] = useState<'General' | 'Dental' | 'Ayurveda'>('General')
   
-  // Clinical state
-  const [chiefComplaint, setChiefComplaint] = useState('Throat irritation and mild fever since 2 days')
-  const [observations, setObservations] = useState('Pharyngeal erythema present. No tonsillar exudates. Chest clear.')
-  const [diagnosis, setDiagnosis] = useState('Acute Viral Pharyngitis')
+  const [chiefComplaint, setChiefComplaint] = useState('')
+  const [observations, setObservations] = useState('')
+  const [diagnosis, setDiagnosis] = useState('')
   const [teeth, setTeeth] = useState<ToothStatus[]>(INITIAL_TEETH)
-  
+
   // Prescriptions state
-  const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>([
-    { medicine: 'Tab. Paracetamol 650mg', dosage: '1 Tab', frequency: 'TID (After Food)', duration: '3 Days' },
-    { medicine: 'Tab. Cetirizine 10mg', dosage: '1 Tab', frequency: 'HS (Night)', duration: '5 Days' }
-  ])
+  const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>([])
   const [medQuery, setMedQuery] = useState('')
   const [medHits, setMedHits] = useState<MedicineHit[]>([])
   const [isSearchingMeds, setIsSearchingMeds] = useState(false)
 
+  // Status & Versioning
   const [activeConsultationId, setActiveConsultationId] = useState<string | null>(null)
   const [versionNumber, setVersionNumber] = useState(1)
-  const [toast, setToast] = useState<{ msg: string; type?: 'success' | 'err' } | null>(null)
-  const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState<{ msg: string; type?: 'success' | 'err' } | null>(null)
+  const [placeholders, setPlaceholders] = useState(DEFAULT_PLACEHOLDERS)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const showToast = (msg: string, type: 'success' | 'err' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Load appointment queue
+  const resetClinicalNote = useCallback(() => {
+    setChiefComplaint('')
+    setObservations('')
+    setDiagnosis('')
+    setPrescriptions([])
+    setTeeth(INITIAL_TEETH)
+    setValidationErrors({})
+  }, [])
+
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/appointments')
-      const items: AppointmentItem[] = (res.data || []).map((a: any) => ({
-        id: a.id || a.appointmentId,
-        patientId: a.patientId,
-        patientName: a.patientName || a.patient?.name || 'Walk-in Patient',
-        patientPhone: a.patientPhone || a.patient?.phone || '',
-        doctorName: a.doctorName || a.doctor?.name,
-        status: a.status || 'Scheduled',
-        appointmentDate: a.appointmentDate || a.scheduledAt || new Date().toISOString(),
-        queueNumber: a.queueNumber || 1
-      }))
-      setAppointments(items)
-      if (items.length > 0 && !selectedAppointment) {
-        setSelectedAppointment(items[0])
+      const todayISO = new Date().toISOString().split('T')[0]
+      const res = await api.get(`/appointments?date=${todayISO}`)
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: AppointmentItem[] = res.data.map((a: any, idx: number) => ({
+          id: a.id || a.appointmentId,
+          patientId: a.patientId,
+          patientName: a.patientName || a.patient?.name || `Patient #${idx + 1}`,
+          patientPhone: a.patientPhone || a.patient?.phone || '—',
+          doctorName: a.doctorName || a.doctor?.name || 'Dr. Mehta',
+          status: a.status || 'Waiting',
+          appointmentDate: a.appointmentDate || a.date || todayISO,
+          queueNumber: a.queueToken || a.queueNumber || idx + 1
+        }))
+        setAppointments(mapped)
+        setSelectedAppointment(mapped[0])
+      } else {
+        setAppointments([])
+        setSelectedAppointment(null)
       }
-    } catch (err) {
-      console.warn('Appointments fetch:', err)
+    } catch {
+      setAppointments([])
     } finally {
       setLoading(false)
     }
-  }, [selectedAppointment])
+  }, [])
 
   useEffect(() => {
     fetchAppointments()
@@ -186,6 +204,26 @@ export default function Consultations() {
   const handleSaveConsultation = async (isAmendment = false) => {
     if (!selectedAppointment) {
       showToast('Please select a patient appointment first.', 'err')
+      return
+    }
+
+    // Comprehensive Zod Validation
+    setValidationErrors({})
+    const valResult = consultationSoapSchema.safeParse({
+      chiefComplaint,
+      observations,
+      diagnosis,
+      prescriptions
+    })
+
+    if (!valResult.success) {
+      const errMap: Record<string, string> = {}
+      valResult.error.issues.forEach(issue => {
+        const fieldName = issue.path[0] as string
+        errMap[fieldName] = issue.message
+      })
+      setValidationErrors(errMap)
+      showToast('Please fix the validation errors in the clinical note.', 'err')
       return
     }
 
@@ -275,11 +313,11 @@ export default function Consultations() {
       )}
 
       {/* ── Active Patient Banner & Queue Switcher ── */}
-      <div className="card" style={{ padding: 20 }}>
+      <div className="card p-5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
-              className="w-12 h-12 rounded-2xl text-white flex items-center justify-center font-bold text-lg shadow-md"
+              className="w-12 h-12 rounded-2xl text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0"
               style={{
                 background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
                 fontFamily: 'var(--font-heading)'
@@ -289,19 +327,19 @@ export default function Consultations() {
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                <h2 className="text-base font-bold text-[var(--color-text)] tracking-tight font-heading">
                   {selectedAppointment?.patientName || 'No patient selected'}
                 </h2>
                 <span className="badge badge-success">
                   Active Consultation
                 </span>
                 {activeConsultationId && (
-                  <span className="badge badge-primary">
+                  <span className="badge badge-brand">
                     v{versionNumber} Note
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-xs text-[var(--color-text-muted)] font-medium mt-0.5">
                 Phone: {selectedAppointment?.patientPhone || '—'} • Queue: #{selectedAppointment?.queueNumber || 1} • Status: {selectedAppointment?.status || 'Active'}
               </p>
             </div>
@@ -309,19 +347,20 @@ export default function Consultations() {
 
           {/* Queue Selector */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-slate-600">Select Queue Patient:</label>
+            <label className="text-xs font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">Select Patient:</label>
             <select
               value={selectedAppointment?.id || ''}
               disabled={loading}
               onChange={(e) => {
                 const found = appointments.find(a => a.id === e.target.value)
                 if (found) {
+                  resetClinicalNote()
                   setSelectedAppointment(found)
                   setActiveConsultationId(null)
                   setVersionNumber(1)
                 }
               }}
-              className="form-select text-xs py-1.5"
+              className="form-select text-xs py-1.5 min-w-[200px]"
             >
               {loading ? (
                 <option value="">Loading queue…</option>
@@ -339,12 +378,12 @@ export default function Consultations() {
       </div>
 
       {/* ── Consultation Tabs ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2">
         <button
           onClick={() => setActiveTab('soap')}
           className={`btn btn-sm ${activeTab === 'soap' ? 'btn-primary' : 'btn-ghost'}`}
         >
-          SOAP & Clinical Notes
+          SOAP &amp; Clinical Notes
         </button>
         <button
           onClick={() => setActiveTab('dental')}
@@ -364,69 +403,87 @@ export default function Consultations() {
       {activeTab === 'soap' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <div className="card" style={{ padding: 20 }}>
+            <div className="card p-5 space-y-4">
               <div className="form-group">
-                <label className="form-label">Chief Complaint & Symptoms</label>
+                <label className="form-label">Chief Complaint &amp; Symptoms *</label>
                 <textarea
                   rows={3}
                   value={chiefComplaint}
-                  onChange={(e) => setChiefComplaint(e.target.value)}
-                  placeholder="Patient's primary complaint, duration, severity…"
+                  onChange={(e) => {
+                    setChiefComplaint(e.target.value)
+                    if (validationErrors.chiefComplaint) {
+                      setValidationErrors(prev => ({ ...prev, chiefComplaint: '' }))
+                    }
+                  }}
+                  placeholder={placeholders.complaint}
                   className="form-textarea"
                 />
+                {validationErrors.chiefComplaint && (
+                  <p className="form-error">{validationErrors.chiefComplaint}</p>
+                )}
               </div>
 
               <div className="form-group">
-                <label className="form-label">Clinical Observations & Physical Examination</label>
+                <label className="form-label">Clinical Observations &amp; Physical Examination</label>
                 <textarea
                   rows={4}
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Vitals, systemic examination findings, ENT/Oral findings…"
+                  placeholder={placeholders.observations}
                   className="form-textarea"
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Provisional / Final Diagnosis (ICD-11 / SNOMED)</label>
+                <label className="form-label">Provisional / Final Diagnosis (ICD-11 / SNOMED) *</label>
                 <input
                   type="text"
                   value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  placeholder="e.g. Acute Viral Pharyngitis, Dental Caries 46"
+                  onChange={(e) => {
+                    setDiagnosis(e.target.value)
+                    if (validationErrors.diagnosis) {
+                      setValidationErrors(prev => ({ ...prev, diagnosis: '' }))
+                    }
+                  }}
+                  placeholder={placeholders.diagnosis}
                   className="form-input"
                 />
+                {validationErrors.diagnosis && (
+                  <p className="form-error">{validationErrors.diagnosis}</p>
+                )}
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="card" style={{ padding: 20 }}>
-              <h3 className="text-sm font-bold text-slate-900 mb-2" style={{ fontFamily: 'var(--font-heading)' }}>
+            <div className="card p-5">
+              <h3 className="text-sm font-bold text-[var(--color-text)] mb-2 font-heading">
                 Specialty Templates
               </h3>
-              <p className="text-xs text-slate-500 mb-3">Load structured clinical template frameworks.</p>
+              <p className="text-xs text-[var(--color-text-muted)] mb-3">Load structured clinical template frameworks.</p>
               
               <div className="flex flex-col gap-2">
                 {(['General', 'Dental', 'Ayurveda'] as const).map(t => (
                   <button
                     key={t}
-                    onClick={() => {
+                    onClick={async () => {
                       setTemplateType(t)
-                      if (t === 'Dental') {
-                        setChiefComplaint('Tooth pain and sensitivity in lower right quadrant')
-                        setObservations('Localized tenderness in 46. Caries detected occlusally.')
-                        setDiagnosis('Irreversible pulpitis in 46')
-                      } else if (t === 'Ayurveda') {
-                        setChiefComplaint('Vata-Pitta imbalance, chronic indigestion and lethargy')
-                        setObservations('Nadi: Mandagni present. Jihva: coated (Sama).')
-                        setDiagnosis('Agnimandya / Grahani')
-                      } else {
-                        setChiefComplaint('Throat irritation and mild fever since 2 days')
-                        setObservations('Pharyngeal erythema present. No tonsillar exudates.')
-                        setDiagnosis('Acute Viral Pharyngitis')
+                      resetClinicalNote()
+                      setPlaceholders(DEFAULT_PLACEHOLDERS)
+                      try {
+                        const res = await api.get('/consult-templates', { params: { specialty: t.toLowerCase() } })
+                        const sections: Array<{ key: string; placeholder?: string }> =
+                          res.data?.[0]?.structure?.sections || []
+                        const hint = (key: string) => sections.find(s => s.key === key)?.placeholder
+                        setPlaceholders({
+                          complaint: hint('chief_complaint') || DEFAULT_PLACEHOLDERS.complaint,
+                          observations: hint('examination') || DEFAULT_PLACEHOLDERS.observations,
+                          diagnosis: hint('diagnosis') || DEFAULT_PLACEHOLDERS.diagnosis,
+                        })
+                        showToast(res.data?.[0]?.name ? `Loaded ${res.data[0].name}.` : `Started ${t} consultation.`)
+                      } catch {
+                        showToast(`Started ${t} consultation.`)
                       }
-                      showToast(`Loaded ${t} consultation template.`)
                     }}
                     className={`btn btn-sm ${templateType === t ? 'btn-primary' : 'btn-secondary'} justify-start`}
                   >
@@ -441,36 +498,36 @@ export default function Consultations() {
 
       {/* ── Tab Content: Odontogram (Dental Chart) ── */}
       {activeTab === 'dental' && (
-        <div className="card" style={{ padding: 20 }}>
-          <div className="flex items-center justify-between mb-4">
+        <div className="card p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
             <div>
-              <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+              <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
                 FDI Two-Digit Dental Odontogram
               </h3>
-              <p className="text-xs text-slate-500">Click any tooth to cycle status: Healthy → Caries → Filling → Missing → Crown</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Click any tooth to cycle status: Healthy → Caries → Filling → Missing → Crown</p>
             </div>
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-text-secondary)]">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"/> Healthy</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-rose-500 inline-block"/> Caries</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block"/> Filling</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-slate-300 inline-block"/> Missing</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block"/> Missing</span>
             </div>
           </div>
 
           {/* Upper Arch */}
           <div className="mb-6">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Maxilla (Upper Arch)</div>
+            <div className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 font-mono">Maxilla (Upper Arch)</div>
             <div className="grid grid-cols-8 sm:grid-cols-16 gap-2">
               {teeth.filter(t => t.arch === 'upper').map(tooth => (
                 <button
                   key={tooth.id}
                   onClick={() => cycleToothStatus(tooth.id)}
                   className={`p-2 rounded-xl border text-center transition-all ${
-                    tooth.status === 'caries' ? 'bg-rose-50 border-rose-300 text-rose-800' :
-                    tooth.status === 'filling' ? 'bg-amber-50 border-amber-300 text-amber-800' :
-                    tooth.status === 'missing' ? 'bg-slate-100 border-slate-200 text-slate-400' :
-                    tooth.status === 'crown' ? 'bg-purple-50 border-purple-300 text-purple-800' :
-                    'bg-white border-slate-200 text-slate-800 hover:border-teal-500'
+                    tooth.status === 'caries' ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200' :
+                    tooth.status === 'filling' ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200' :
+                    tooth.status === 'missing' ? 'bg-[var(--color-surface-hover)] border-[var(--color-border)] text-[var(--color-text-muted)]' :
+                    tooth.status === 'crown' ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200' :
+                    'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--brand-primary)]'
                   }`}
                 >
                   <div className="text-xs font-bold font-mono">{tooth.label}</div>
@@ -482,18 +539,18 @@ export default function Consultations() {
 
           {/* Lower Arch */}
           <div>
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mandible (Lower Arch)</div>
+            <div className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 font-mono">Mandible (Lower Arch)</div>
             <div className="grid grid-cols-8 sm:grid-cols-16 gap-2">
               {teeth.filter(t => t.arch === 'lower').map(tooth => (
                 <button
                   key={tooth.id}
                   onClick={() => cycleToothStatus(tooth.id)}
                   className={`p-2 rounded-xl border text-center transition-all ${
-                    tooth.status === 'caries' ? 'bg-rose-50 border-rose-300 text-rose-800' :
-                    tooth.status === 'filling' ? 'bg-amber-50 border-amber-300 text-amber-800' :
-                    tooth.status === 'missing' ? 'bg-slate-100 border-slate-200 text-slate-400' :
-                    tooth.status === 'crown' ? 'bg-purple-50 border-purple-300 text-purple-800' :
-                    'bg-white border-slate-200 text-slate-800 hover:border-teal-500'
+                    tooth.status === 'caries' ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200' :
+                    tooth.status === 'filling' ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200' :
+                    tooth.status === 'missing' ? 'bg-[var(--color-surface-hover)] border-[var(--color-border)] text-[var(--color-text-muted)]' :
+                    tooth.status === 'crown' ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200' :
+                    'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--brand-primary)]'
                   }`}
                 >
                   <div className="text-xs font-bold font-mono">{tooth.label}</div>
@@ -507,13 +564,13 @@ export default function Consultations() {
 
       {/* ── Tab Content: Prescriptions Rx ── */}
       {activeTab === 'rx' && (
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
-                Electronic Prescription & Medicine Formulary
+              <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
+                Electronic Prescription &amp; Medicine Formulary
               </h3>
-              <p className="text-xs text-slate-500">Live search against Typesense / PostgreSQL drug formulary.</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Live search against Typesense / PostgreSQL drug formulary.</p>
             </div>
           </div>
 
@@ -533,18 +590,18 @@ export default function Consultations() {
             )}
 
             {medHits.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-fadein">
+              <div className="absolute left-0 right-0 mt-1 bg-[var(--color-surface)] rounded-xl shadow-xl border border-[var(--color-border)] p-2 z-50 animate-fadein">
                 {medHits.map((hit) => (
                   <div
                     key={hit.id}
                     onClick={() => handleSelectMedicine(hit)}
-                    className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between text-xs"
+                    className="p-2 hover:bg-[var(--color-surface-hover)] rounded-lg cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div>
-                      <span className="font-bold text-slate-900">{hit.name}</span>
-                      {hit.genericName && <span className="text-slate-500 ml-2">({hit.genericName})</span>}
+                      <span className="font-bold text-[var(--color-text)]">{hit.name}</span>
+                      {hit.genericName && <span className="text-[var(--color-text-muted)] ml-2">({hit.genericName})</span>}
                     </div>
-                    <span className="badge badge-primary">{hit.dosageForm || 'Oral'}</span>
+                    <span className="badge badge-brand">{hit.dosageForm || 'Oral'}</span>
                   </div>
                 ))}
               </div>
@@ -555,7 +612,7 @@ export default function Consultations() {
           {prescriptions.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-title">No Medicines Prescribed</div>
-              <p className="empty-state-desc">Search drug formulary above to add prescription line items.</p>
+              <p className="empty-state-description">Search drug formulary above to add prescription line items.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -572,7 +629,7 @@ export default function Consultations() {
                 <tbody>
                   {prescriptions.map((rx, idx) => (
                     <tr key={idx}>
-                      <td className="font-bold text-slate-900">{rx.medicine}</td>
+                      <td className="font-bold text-[var(--color-text)]">{rx.medicine}</td>
                       <td>
                         <input
                           type="text"

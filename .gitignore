@@ -37,6 +37,8 @@ android/local.properties
 # Environment & secrets
 .env
 .env.*
+.env.local
+*.local
 !.env.example
 *.pem
 *.pfx

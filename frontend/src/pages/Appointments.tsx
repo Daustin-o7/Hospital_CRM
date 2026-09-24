@@ -138,17 +138,17 @@ export default function Appointments() {
   return (
     <div className="animate-fadein space-y-5">
       {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h1 className="text-xl font-bold tracking-tight text-[var(--color-text)]" style={{ fontFamily: 'var(--font-heading)' }}>
               Appointments
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/70">
+            <span className="badge badge-info">
               Live Queue Active
             </span>
           </div>
-          <p className="text-xs text-slate-500 font-medium mt-1">
+          <p className="text-xs font-medium mt-1 text-[var(--color-text-muted)]">
             Schedule slots, assign OPD queue tokens, and track real-time doctor availability.
           </p>
         </div>
@@ -166,9 +166,9 @@ export default function Appointments() {
       {/* ── Date Selector & Queue Stats Strip ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
         {/* Date picker + Quick date pills (7 cols) */}
-        <div className="lg:col-span-7 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3">
+        <div className="card lg:col-span-7 p-4 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="appt-date" className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+            <label htmlFor="appt-date" className="text-xs font-bold uppercase tracking-wider whitespace-nowrap text-[var(--color-text-muted)]">
               Date:
             </label>
             <input
@@ -185,10 +185,10 @@ export default function Appointments() {
             <button
               type="button"
               onClick={() => setRelativeDate(0)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 formatRelativeDate(selectedDate) === 'Today'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200/70 text-slate-700'
+                  ? 'btn-primary'
+                  : 'btn-secondary'
               }`}
             >
               Today
@@ -196,27 +196,27 @@ export default function Appointments() {
             <button
               type="button"
               onClick={() => setRelativeDate(1)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 formatRelativeDate(selectedDate) === 'Tomorrow'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200/70 text-slate-700'
+                  ? 'btn-primary'
+                  : 'btn-secondary'
               }`}
             >
               Tomorrow
             </button>
-            <span className="text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200/80 px-2.5 py-1 rounded-full ml-1">
+            <span className="badge badge-brand ml-1">
               {formatRelativeDate(selectedDate)}
             </span>
           </div>
 
           {doctors.length > 0 && (
-            <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 w-full mt-1">
-              <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mr-1">Doctor:</span>
+            <div className="flex items-center gap-1.5 pt-2 border-t w-full mt-1" style={{ borderColor: 'var(--color-border-subtle)' }}>
+              <span className="text-[10.5px] font-bold uppercase tracking-wider mr-1 text-[var(--color-text-muted)]">Doctor:</span>
               <button
                 type="button"
                 onClick={() => setSelectedDocFilter('all')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors ${
-                  selectedDocFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  selectedDocFilter === 'all' ? 'btn-primary' : 'btn-secondary'
                 }`}
               >
                 All
@@ -226,8 +226,8 @@ export default function Appointments() {
                   key={d.id}
                   type="button"
                   onClick={() => setSelectedDocFilter(d.name)}
-                  className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors ${
-                    selectedDocFilter === d.name ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    selectedDocFilter === d.name ? 'btn-primary' : 'btn-secondary'
                   }`}
                 >
                   {d.name.replace('Dr. ', '')}
@@ -239,23 +239,23 @@ export default function Appointments() {
 
         {/* Live OPD Stats Mini-Cards (5 cols) */}
         <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs text-center">
-            <div className="text-lg font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+          <div className="card p-3 text-center">
+            <div className="text-lg font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-heading)' }}>
               {loading ? '—' : stats.total}
             </div>
-            <div className="text-[10.5px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Total Slots</div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider mt-0.5 text-[var(--color-text-muted)]">Total Slots</div>
           </div>
-          <div className="bg-white p-3 rounded-2xl border border-amber-200/80 bg-amber-50/30 shadow-xs text-center">
-            <div className="text-lg font-bold text-amber-700" style={{ fontFamily: 'var(--font-heading)' }}>
+          <div className="card p-3 text-center" style={{ background: 'var(--color-warning-bg)', borderColor: 'var(--color-warning-border)' }}>
+            <div className="text-lg font-bold text-[var(--color-warning-text)]" style={{ fontFamily: 'var(--font-heading)' }}>
               {loading ? '—' : stats.waiting}
             </div>
-            <div className="text-[10.5px] text-amber-700 font-semibold uppercase tracking-wider mt-0.5">Waiting Queue</div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider mt-0.5 text-[var(--color-warning-text)]">Waiting Queue</div>
           </div>
-          <div className="bg-white p-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 shadow-xs text-center">
-            <div className="text-lg font-bold text-emerald-700" style={{ fontFamily: 'var(--font-heading)' }}>
+          <div className="card p-3 text-center" style={{ background: 'var(--color-success-bg)', borderColor: 'var(--color-success-border)' }}>
+            <div className="text-lg font-bold text-[var(--color-success-text)]" style={{ fontFamily: 'var(--font-heading)' }}>
               {loading ? '—' : stats.completed}
             </div>
-            <div className="text-[10.5px] text-emerald-700 font-semibold uppercase tracking-wider mt-0.5">Completed</div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider mt-0.5 text-[var(--color-success-text)]">Completed</div>
           </div>
         </div>
       </div>
@@ -289,7 +289,7 @@ export default function Appointments() {
               </thead>
               <tbody>
                 {filteredAppointments.map(appt => (
-                  <tr key={appt.appointmentId} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={appt.appointmentId}>
                     <td>
                       {appt.queueToken ? (
                         <span
@@ -305,7 +305,7 @@ export default function Appointments() {
                           #{String(appt.queueToken).padStart(2, '0')}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400 font-medium">—</span>
+                        <span className="text-xs font-medium text-[var(--color-text-muted)]">—</span>
                       )}
                     </td>
                     <td>
@@ -315,7 +315,7 @@ export default function Appointments() {
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                           {appt.patientName.slice(0, 1).toUpperCase()}
                         </div>
                         <span style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '13.5px' }}>
@@ -325,15 +325,15 @@ export default function Appointments() {
                     </td>
                     <td>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-slate-800">{appt.doctorName}</span>
+                        <span className="text-xs font-semibold text-[var(--color-text)]">{appt.doctorName}</span>
                       </div>
                     </td>
                     <td>
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
                           appt.type === 'walkin'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                            ? 'badge badge-warning'
+                            : 'badge badge-info'
                         }`}
                       >
                         {appt.type === 'walkin' ? 'Walk-in' : 'Scheduled'}

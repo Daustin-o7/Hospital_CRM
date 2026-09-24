@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
@@ -149,5 +150,19 @@ public class StaffController : ControllerBase
     }
 }
 
-public record StaffInviteRequest(string Name, string Email, string Role);
-public record AcceptInviteRequest(string InviteToken, string Password);
+public record StaffInviteRequest(
+    [Required(ErrorMessage = "Staff Name is required"), StringLength(100, MinimumLength = 2, ErrorMessage = "Staff Name must be between 2 and 100 characters")]
+    string Name,
+
+    [Required(ErrorMessage = "Email is required"), EmailAddress(ErrorMessage = "Valid email address required"), StringLength(254)]
+    string Email,
+
+    [Required(ErrorMessage = "Role is required")]
+    string Role);
+
+public record AcceptInviteRequest(
+    [Required(ErrorMessage = "InviteToken is required")]
+    string InviteToken,
+
+    [Required(ErrorMessage = "Password is required"), MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+    string Password);

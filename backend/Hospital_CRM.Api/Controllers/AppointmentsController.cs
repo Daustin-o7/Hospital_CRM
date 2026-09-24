@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
@@ -358,7 +359,30 @@ public class AppointmentsController : ControllerBase
     }
 }
 
-public record BookAppointmentRequest(Guid PatientId, Guid DoctorId, string Date, string TimeSlot, string Type);
-public record UpdateAppointmentRequest(string Status);
-public record UpdatePriorityRequest(string Priority, string? Reason = null);
+public record BookAppointmentRequest(
+    [Required(ErrorMessage = "Patient ID is required")]
+    Guid PatientId,
+
+    [Required(ErrorMessage = "Doctor ID is required")]
+    Guid DoctorId,
+
+    [Required(ErrorMessage = "Appointment Date is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Date must be YYYY-MM-DD")]
+    string Date,
+
+    [Required(ErrorMessage = "TimeSlot is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "TimeSlot must be HH:mm format")]
+    string TimeSlot,
+
+    [Required(ErrorMessage = "Appointment Type is required")]
+    string Type);
+
+public record UpdateAppointmentRequest(
+    [Required(ErrorMessage = "Status is required")]
+    string Status);
+
+public record UpdatePriorityRequest(
+    [Required(ErrorMessage = "Priority is required"), RegularExpression("(?i)^(normal|emergency|urgent)$", ErrorMessage = "Priority must be normal, urgent, or emergency")]
+    string Priority,
+
+    [StringLength(300, ErrorMessage = "Reason cannot exceed 300 characters")]
+    string? Reason = null);
 

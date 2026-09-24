@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
@@ -300,26 +301,55 @@ public class PatientsController : ControllerBase
 }
 
 public record PatientRegisterRequest(
+    [Required(ErrorMessage = "Patient Name is required"), StringLength(100, MinimumLength = 2, ErrorMessage = "Patient Name must be between 2 and 100 characters")]
     string Name,
+
+    [Required(ErrorMessage = "Phone number is required"), RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Phone number must be a valid 10-digit mobile number")]
     string Phone,
+
     DateOnly? Dob,
+
+    [Range(0, 130, ErrorMessage = "Approximate Age must be between 0 and 130")]
     int? ApproxAge,
+
     string? Gender,
+
+    [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
     string? Address,
+
+    [Required(ErrorMessage = "Patient consent is mandatory for registration")]
     ConsentRequest? Consent,
+
+    [RegularExpression(@"^IDEMP-PAT-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-PAT-{UUID}")]
     string? IdempotencyKey);
 
-public record ConsentRequest(bool Accepted, string Purpose);
+public record ConsentRequest(
+    [Required, Range(typeof(bool), "true", "true", ErrorMessage = "Patient consent must be accepted")]
+    bool Accepted,
+
+    [StringLength(200, ErrorMessage = "Consent purpose cannot exceed 200 characters")]
+    string Purpose);
 
 public record PatientPatchRequest(
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "Patient Name must be between 2 and 100 characters")]
     string? Name,
+
+    [RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Phone number must be a valid 10-digit mobile number")]
     string? Phone,
+
     DateOnly? Dob,
+
     string? Gender,
+
+    [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
     string? Address);
 
 public record CheckDuplicateRequest(
+    [Required(ErrorMessage = "Name is required"), StringLength(100, MinimumLength = 2)]
     string Name,
+
+    [RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Phone number must be a valid 10-digit mobile number")]
     string? Phone,
+
     DateOnly? Dob);
 

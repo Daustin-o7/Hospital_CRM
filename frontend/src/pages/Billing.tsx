@@ -81,7 +81,7 @@ export default function Billing() {
       const [invRes, expRes, sumRes] = await Promise.allSettled([
         api.get('/invoices'),
         api.get('/ledger/expenses'),
-        api.get('/ledger/summary')
+        api.get('/ledger/daily')
       ])
 
       if (invRes.status === 'fulfilled') {
@@ -91,9 +91,16 @@ export default function Billing() {
         setExpenses(expRes.value.data || [])
       }
       if (sumRes.status === 'fulfilled') {
-        setSummary(sumRes.value.data || { income: 0, expenses: { total: 0, byCategory: [] }, net: 0 })
+        const data = sumRes.value.data
+        // daily endpoint returns { date, income, expenses, net }
+        // map to summary shape for compatibility
+        setSummary({
+          income: data.income?.total ?? 0,
+          expenses: { total: data.expenses?.total ?? 0, byCategory: data.expenses?.byCategory ?? [] },
+          net: data.net ?? 0
+        })
       }
-    } catch (err) {
+    } catch (err: any) {
       showToast('Failed to load billing data', 'err')
     } finally {
       setLoading(false)
@@ -185,7 +192,7 @@ export default function Billing() {
       {/* ── Page Header ── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Billing & Finance Ledger</h1>
+          <h1 className="page-title">Billing &amp; Finance Ledger</h1>
           <p className="page-description">Manage patient invoices, tax collection, and clinic operational expenditure.</p>
         </div>
 
@@ -214,20 +221,20 @@ export default function Billing() {
       )}
 
       {/* ── Finance Ledger Summary Card ── */}
-      <div className="card" style={{ padding: 20 }}>
+      <div className="card p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                Daily Revenue & Cash Ledger
+              <h2 className="text-base font-bold text-[var(--color-text)] tracking-tight font-heading">
+                Daily Revenue &amp; Cash Ledger
               </h2>
-              <span className="badge badge-primary">
+              <span className="badge badge-brand">
                 GSTIN: 27AABCS1429B1ZB
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time collections, invoice aging, and clinic expenditure reconciliation.</p>
+            <p className="text-xs text-[var(--color-text-muted)] font-medium mt-0.5">Real-time collections, invoice aging, and clinic expenditure reconciliation.</p>
           </div>
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <div className="flex items-center gap-1.5 p-1 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl">
             <button
               onClick={() => setActiveTab('invoices')}
               className={`btn btn-sm ${activeTab === 'invoices' ? 'btn-primary' : 'btn-ghost'}`}
@@ -249,10 +256,10 @@ export default function Billing() {
               <span className="stat-label">Total Revenue</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             </div>
-            <div className="stat-value text-emerald-900">
+            <div className="stat-value text-emerald-600 dark:text-emerald-400 font-mono mt-1">
               ₹{Number(summary.income || 0).toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
+            <div className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">
               Includes ₹{Math.round((summary.income || 0) * 0.18 / 1.18).toLocaleString('en-IN')} GST Collected
             </div>
           </div>
@@ -262,10 +269,10 @@ export default function Billing() {
               <span className="stat-label">Total Expenses</span>
               <span className="w-2 h-2 rounded-full bg-rose-500"></span>
             </div>
-            <div className="stat-value text-rose-900">
+            <div className="stat-value text-rose-600 dark:text-rose-400 font-mono mt-1">
               ₹{Number(summary.expenses?.total || 0).toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-rose-700 font-medium mt-0.5">
+            <div className="text-[11px] text-rose-600/80 dark:text-rose-400/80 font-medium mt-0.5">
               {expenses.length} ledger voucher entries
             </div>
           </div>
@@ -275,10 +282,10 @@ export default function Billing() {
               <span className="stat-label">Net Operating Margin</span>
               <span className="w-2 h-2 rounded-full bg-teal-500"></span>
             </div>
-            <div className="stat-value text-teal-900">
+            <div className="stat-value text-teal-600 dark:text-teal-400 font-mono mt-1">
               ₹{Number(summary.net || 0).toLocaleString('en-IN')}
             </div>
-            <div className="text-[11px] text-teal-700 font-medium mt-0.5">
+            <div className="text-[11px] text-teal-600/80 dark:text-teal-400/80 font-medium mt-0.5">
               Operational surplus this period
             </div>
           </div>
@@ -287,23 +294,23 @@ export default function Billing() {
 
       {/* ── Table Content ── */}
       {loading ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-          <span className="spinner spinner-lg" style={{ margin: '0 auto 12px' }} />
-          <div className="text-slate-500 text-sm">Loading billing records…</div>
+        <div className="card p-8 text-center">
+          <span className="spinner spinner-lg mx-auto mb-3" />
+          <div className="text-[var(--color-text-muted)] text-sm">Loading billing records…</div>
         </div>
       ) : activeTab === 'invoices' ? (
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
               Issued Tax Invoices
             </h3>
-            <span className="text-xs text-slate-400 font-medium">Standard HSN / SAC billing rules</span>
+            <span className="text-xs text-[var(--color-text-muted)] font-medium">Standard HSN / SAC billing rules</span>
           </div>
 
           {invoices.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-title">No Invoices Found</div>
-              <p className="empty-state-desc">Generate your first tax invoice for consultations or pharmacy items.</p>
+              <p className="empty-state-description">Generate your first tax invoice for consultations or pharmacy items.</p>
               <button onClick={() => setModalOpen(true)} className="btn btn-primary btn-sm mt-3">
                 + Create Invoice
               </button>
@@ -324,12 +331,12 @@ export default function Billing() {
                 <tbody>
                   {invoices.map((inv) => (
                     <tr key={inv.invoiceId}>
-                      <td className="font-mono font-bold text-slate-800">
-                        <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">{inv.invoiceNumber}</span>
+                      <td className="font-mono font-bold text-[var(--color-text)]">
+                        <span className="px-2 py-0.5 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded text-[var(--color-text-secondary)]">{inv.invoiceNumber}</span>
                       </td>
-                      <td className="font-bold text-slate-900">{inv.patientName}</td>
-                      <td className="text-slate-500 text-xs">{new Date(inv.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                      <td className="font-mono font-bold text-slate-900">₹{inv.total}</td>
+                      <td className="font-bold text-[var(--color-text)]">{inv.patientName}</td>
+                      <td className="text-[var(--color-text-muted)] text-xs">{new Date(inv.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="font-mono font-bold text-[var(--color-text)]">₹{inv.total}</td>
                       <td>
                         {inv.status === 'paid' ? (
                           <span className="badge badge-success">Paid</span>
@@ -356,18 +363,18 @@ export default function Billing() {
           )}
         </div>
       ) : (
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+            <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
               Clinic Expense Voucher Log
             </h3>
-            <span className="text-xs text-slate-400 font-medium">Categorized petty cash & operational consumables</span>
+            <span className="text-xs text-[var(--color-text-muted)] font-medium">Categorized petty cash &amp; operational consumables</span>
           </div>
 
           {expenses.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-title">No Expenses Logged</div>
-              <p className="empty-state-desc">Record medical supplies, utilities, or maintenance expenses to track ledger balances.</p>
+              <p className="empty-state-description">Record medical supplies, utilities, or maintenance expenses to track ledger balances.</p>
               <button onClick={() => setExpenseModalOpen(true)} className="btn btn-secondary btn-sm mt-3">
                 + Add Expense
               </button>
@@ -386,12 +393,12 @@ export default function Billing() {
                 <tbody>
                   {expenses.map((exp) => (
                     <tr key={exp.id}>
-                      <td className="text-slate-500 font-mono text-xs">{exp.expenseDate}</td>
-                      <td className="font-bold text-slate-800">
-                        <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700 capitalize">{exp.category}</span>
+                      <td className="text-[var(--color-text-muted)] font-mono text-xs">{exp.expenseDate}</td>
+                      <td className="font-bold text-[var(--color-text)]">
+                        <span className="px-2 py-0.5 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded text-[var(--color-text-secondary)] capitalize">{exp.category}</span>
                       </td>
-                      <td className="text-slate-600 text-xs">{exp.note || '—'}</td>
-                      <td className="text-right font-mono font-bold text-rose-600">₹{exp.amount}</td>
+                      <td className="text-[var(--color-text-secondary)] text-xs">{exp.note || '—'}</td>
+                      <td className="text-right font-mono font-bold text-rose-600 dark:text-rose-400">₹{exp.amount}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -403,16 +410,16 @@ export default function Billing() {
 
       {/* ── Create Invoice Modal ── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="card max-w-lg w-full p-6 shadow-2xl animate-fadein" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="flex items-center justify-between mb-4">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-lg p-6 space-y-4 animate-fadein">
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+                <h3 className="text-base font-bold text-[var(--color-text)] font-heading">
                   Issue Patient Tax Invoice
                 </h3>
-                <p className="text-xs text-slate-500">Includes automatic 18% GST calculation</p>
+                <p className="text-xs text-[var(--color-text-muted)]">Includes automatic 18% GST calculation</p>
               </div>
-              <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">✕</button>
+              <button onClick={() => setModalOpen(false)} className="btn btn-ghost p-1">✕</button>
             </div>
 
             <form onSubmit={handleSubmit(handleCreateInvoice)} className="space-y-4">
@@ -424,12 +431,12 @@ export default function Billing() {
                   placeholder="e.g. Ramesh Verma"
                   className="form-input"
                 />
-                {errors.patientName && <p className="text-[11px] text-rose-600 mt-1">{errors.patientName.message}</p>}
+                {errors.patientName && <p className="form-error">{errors.patientName.message}</p>}
               </div>
 
               {/* Quick Preset Services */}
               <div>
-                <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Quick Add Services:</span>
+                <span className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1 font-mono">Quick Add Services:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     { desc: 'OPD Consultation Fee', amt: 800 },
@@ -456,7 +463,7 @@ export default function Billing() {
                   <button
                     type="button"
                     onClick={() => append({ description: '', amount: 500 })}
-                    className="text-xs font-semibold text-teal-600 hover:text-teal-700"
+                    className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
                   >
                     + Add Custom Line
                   </button>
@@ -480,7 +487,7 @@ export default function Billing() {
                       <button
                         type="button"
                         onClick={() => remove(idx)}
-                        className="text-slate-400 hover:text-rose-500 p-1"
+                        className="text-[var(--color-text-muted)] hover:text-rose-500 p-1"
                       >
                         ✕
                       </button>
@@ -489,7 +496,7 @@ export default function Billing() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -512,13 +519,13 @@ export default function Billing() {
 
       {/* ── Add Expense Modal ── */}
       {expenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="card max-w-md w-full p-6 shadow-2xl animate-fadein">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-heading)' }}>
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md p-6 space-y-4 animate-fadein">
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+              <h3 className="text-base font-bold text-[var(--color-text)] font-heading">
                 Record Clinic Expense
               </h3>
-              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">✕</button>
+              <button onClick={() => setExpenseModalOpen(false)} className="btn btn-ghost p-1">✕</button>
             </div>
 
             <form onSubmit={handleAddExpense} className="space-y-4">
@@ -530,7 +537,7 @@ export default function Billing() {
                   className="form-select"
                 >
                   <option value="MedicalSupplies">Medical Supplies</option>
-                  <option value="Utilities">Utilities & Sanitation</option>
+                  <option value="Utilities">Utilities &amp; Sanitation</option>
                   <option value="EquipmentMaintenance">Equipment Maintenance</option>
                   <option value="StaffRefreshments">Staff Refreshments</option>
                   <option value="Other">Other Operational</option>
@@ -544,7 +551,7 @@ export default function Billing() {
                   value={expAmount}
                   onChange={(e) => setExpAmount(e.target.value)}
                   placeholder="₹ Amount"
-                  className="form-input"
+                  className="form-input font-mono"
                   required
                 />
               </div>
@@ -555,12 +562,12 @@ export default function Billing() {
                   type="text"
                   value={expNote}
                   onChange={(e) => setExpNote(e.target.value)}
-                  placeholder="e.g. Syringes & sterile gloves batch"
+                  placeholder="e.g. Syringes &amp; sterile gloves batch"
                   className="form-input"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
                 <button
                   type="button"
                   onClick={() => setExpenseModalOpen(false)}

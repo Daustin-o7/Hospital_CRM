@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
@@ -329,8 +330,50 @@ public class ClinicController : ControllerBase
     }
 }
 
-public record ClinicProfileRequest(string Name);
-public record WorkingHoursRequest(string Day, int ShiftIndex, string Open, string Close);
-public record UpdateHoursRequest(List<WorkingHoursRequest>? WorkingHours);
-public record HolidayRequest(string? Name, string StartDate, string EndDate, bool RecurringAnnually, string? InternalNote);
-public record SpecialHourRequest(string Date, string Open, string Close, string? Reason);
+public record ClinicProfileRequest(
+    [Required(ErrorMessage = "Clinic Name is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Clinic Name must be between 2 and 150 characters")]
+    string Name);
+
+public record WorkingHoursRequest(
+    [Required(ErrorMessage = "Day is required")]
+    string Day,
+
+    [Range(0, 10)]
+    int ShiftIndex,
+
+    [Required(ErrorMessage = "Open time is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "Open time must be in HH:mm format")]
+    string Open,
+
+    [Required(ErrorMessage = "Close time is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "Close time must be in HH:mm format")]
+    string Close);
+
+public record UpdateHoursRequest(
+    List<WorkingHoursRequest>? WorkingHours);
+
+public record HolidayRequest(
+    [StringLength(100, ErrorMessage = "Holiday name cannot exceed 100 characters")]
+    string? Name,
+
+    [Required(ErrorMessage = "StartDate is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "StartDate must be YYYY-MM-DD")]
+    string StartDate,
+
+    [Required(ErrorMessage = "EndDate is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "EndDate must be YYYY-MM-DD")]
+    string EndDate,
+
+    bool RecurringAnnually,
+
+    [StringLength(300, ErrorMessage = "Internal note cannot exceed 300 characters")]
+    string? InternalNote);
+
+public record SpecialHourRequest(
+    [Required(ErrorMessage = "Date is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Date must be YYYY-MM-DD")]
+    string Date,
+
+    [Required(ErrorMessage = "Open time is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "Open time must be in HH:mm format")]
+    string Open,
+
+    [Required(ErrorMessage = "Close time is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "Close time must be in HH:mm format")]
+    string Close,
+
+    [StringLength(200, ErrorMessage = "Reason cannot exceed 200 characters")]
+    string? Reason);

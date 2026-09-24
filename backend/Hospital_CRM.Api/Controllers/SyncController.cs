@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services.Typesense;
@@ -23,13 +24,19 @@ public record SyncPushRequest(
     List<SyncPushItem> Items
 );
 
+public record PatientConsentSyncPayload(
+    bool Accepted,
+    string? Purpose
+);
+
 public record PatientSyncPayload(
     string Name,
     string Phone,
     DateOnly? Dob,
     int? ApproxAge,
     string? Gender,
-    string? Address
+    string? Address,
+    PatientConsentSyncPayload? Consent
 );
 
 public record InvoiceSyncPayload(
@@ -39,7 +46,8 @@ public record InvoiceSyncPayload(
     decimal Total,
     string? PaymentMethod,
     string? WalkInCustomerName,
-    string? WalkInCustomerPhone
+    string? WalkInCustomerPhone,
+    string? Status
 );
 
 public record SyncItemResultDto(
@@ -66,6 +74,9 @@ public class SyncController : ControllerBase
     private readonly ILogger<SyncController> _logger;
 
     private const int MaxPayloadLength = 65536; // 64 KB
+    private const int MaxBatchItems = 500;
+    private static readonly Regex PatientIdempRegex = new(@"^IDEMP-PAT-[a-zA-Z0-9\-]+$", RegexOptions.Compiled);
+    private static readonly Regex InvoiceIdempRegex = new(@"^IDEMP-INV-[a-zA-Z0-9\-]+$", RegexOptions.Compiled);
 
     public SyncController(HospitalCrmDbContext db, IPatientSearchService search, ILogger<SyncController> logger)
     {
@@ -86,9 +97,18 @@ public class SyncController : ControllerBase
             return Ok(new SyncPushResponse(0, 0, new List<SyncItemResultDto>()));
         }
 
+        if (request.Items.Count > MaxBatchItems)
+        {
+            return BadRequest(new { error = "batch_too_large", maxItems = MaxBatchItems });
+        }
+
         var results = new List<SyncItemResultDto>();
         var synced = 0;
         var skipped = 0;
+
+        // Typesense indexing is deferred until after commit so a rolled-back batch
+        // never leaves phantom documents in the search index.
+        var createdPatients = new List<Patient>();
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
         try
@@ -112,6 +132,13 @@ public class SyncController : ControllerBase
                 switch (item.Type)
                 {
                     case 1: // Patient Registration
+                        if (!PatientIdempRegex.IsMatch(item.IdempotencyKey) && !Guid.TryParse(item.IdempotencyKey, out _))
+                        {
+                            results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_key_format", "patient", "IdempotencyKey must follow format IDEMP-PAT-{UUID} or valid GUID"));
+                            skipped++;
+                            continue;
+                        }
+
                         var existingPatient = await _db.Patients
                             .FirstOrDefaultAsync(p => p.IdempotencyKey == item.IdempotencyKey, ct);
 
@@ -129,44 +156,56 @@ public class SyncController : ControllerBase
                                 continue;
                             }
 
+                            if (payload == null || string.IsNullOrWhiteSpace(payload.Name) || string.IsNullOrWhiteSpace(payload.Phone))
+                            {
+                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "patient", "Patient Name and Phone are required"));
+                                skipped++;
+                                continue;
+                            }
+
                             // Check for duplicate phone number before creating patient
-                            if (payload != null && !string.IsNullOrWhiteSpace(payload.Phone) && await _db.Patients.AnyAsync(p => p.Phone == payload.Phone.Trim(), ct))
+                            if (await _db.Patients.AnyAsync(p => p.Phone == payload.Phone.Trim(), ct))
                             {
                                 results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "phone_conflict", "patient", "A patient with this phone already exists"));
                                 skipped++;
                                 continue;
                             }
 
-                            if (payload != null && !string.IsNullOrWhiteSpace(payload.Name) && !string.IsNullOrWhiteSpace(payload.Phone))
+                            var patient = new Patient
                             {
-                                var patient = new Patient
+                                Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
+                                TenantId = Guid.Empty,
+                                Name = payload.Name.Trim(),
+                                Phone = payload.Phone.Trim(),
+                                DobHasValue = payload.Dob.HasValue,
+                                Dob = payload.Dob,
+                                ApproxAge = payload.ApproxAge,
+                                Gender = ParseGender(payload.Gender),
+                                Address = payload.Address?.Trim(),
+                                CreatedBy = userId.Value,
+                                CreatedAt = item.CreatedAt != default ? item.CreatedAt : DateTimeOffset.UtcNow,
+                                IdempotencyKey = item.IdempotencyKey
+                            };
+
+                            _db.Patients.Add(patient);
+
+                            if (payload.Consent != null && payload.Consent.Accepted)
+                            {
+                                _db.PatientConsents.Add(new PatientConsent
                                 {
-                                    Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
-                                    TenantId = Guid.Empty,
-                                    Name = payload.Name.Trim(),
-                                    Phone = payload.Phone.Trim(),
-                                    DobHasValue = payload.Dob.HasValue,
-                                    Dob = payload.Dob,
-                                    ApproxAge = payload.ApproxAge,
-                                    Gender = ParseGender(payload.Gender),
-                                    Address = payload.Address?.Trim(),
-                                    CreatedBy = userId.Value,
-                                    CreatedAt = item.CreatedAt != default ? item.CreatedAt : DateTimeOffset.UtcNow,
-                                    IdempotencyKey = item.IdempotencyKey
-                                };
-
-                                _db.Patients.Add(patient);
-                                await _db.SaveChangesAsync(ct);
-                                _ = _search.IndexAsync(patient, CancellationToken.None);
-
-                                results.Add(new SyncItemResultDto(patient.Id, item.IdempotencyKey, "created", "patient"));
-                                synced++;
+                                    Id = Guid.NewGuid(),
+                                    PatientId = patient.Id,
+                                    Purpose = payload.Consent.Purpose ?? "General Consultation and Treatment",
+                                    CapturedBy = userId.Value,
+                                    CapturedAt = DateTimeOffset.UtcNow
+                                });
                             }
-                            else
-                            {
-                                results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_payload", "patient", "Patient Name and Phone are required"));
-                                skipped++;
-                            }
+
+                            await _db.SaveChangesAsync(ct);
+                            createdPatients.Add(patient);
+
+                            results.Add(new SyncItemResultDto(patient.Id, item.IdempotencyKey, "created", "patient"));
+                            synced++;
                         }
                         else
                         {
@@ -177,6 +216,13 @@ public class SyncController : ControllerBase
                         break;
 
                     case 2: // Invoice / Billing
+                        if (!InvoiceIdempRegex.IsMatch(item.IdempotencyKey) && !Guid.TryParse(item.IdempotencyKey, out _))
+                        {
+                            results.Add(new SyncItemResultDto(item.Id, item.IdempotencyKey, "invalid_key_format", "invoice", "IdempotencyKey must follow format IDEMP-INV-{UUID} or valid GUID"));
+                            skipped++;
+                            continue;
+                        }
+
                         var existingInvoice = await _db.Invoices
                             .FirstOrDefaultAsync(i => i.IdempotencyKey == item.IdempotencyKey || i.Id == item.Id, ct);
 
@@ -194,8 +240,11 @@ public class SyncController : ControllerBase
                                 continue;
                             }
 
-                            var hasValidCustomer = (payload?.PatientId.HasValue == true && payload.PatientId.Value != Guid.Empty)
-                                                || !string.IsNullOrWhiteSpace(payload?.WalkInCustomerName);
+                            var hasRegisteredPatient = payload?.PatientId.HasValue == true && payload.PatientId.Value != Guid.Empty;
+                            var hasWalkInCustomer = !string.IsNullOrWhiteSpace(payload?.WalkInCustomerName);
+
+                            // Mutual exclusivity: either registered patient or walk-in customer (not both missing, and preferably XOR)
+                            var hasValidCustomer = hasRegisteredPatient || hasWalkInCustomer;
 
                             if (payload != null
                                 && hasValidCustomer
@@ -204,22 +253,59 @@ public class SyncController : ControllerBase
                                 && payload.Total > 0
                                 && payload.Total == payload.Subtotal + payload.GstAmount)
                             {
+                                var invoiceStatus = InvoiceStatus.Paid;
+                                if (!string.IsNullOrWhiteSpace(payload.Status) && Enum.TryParse<InvoiceStatus>(payload.Status, true, out var parsedStatus))
+                                {
+                                    invoiceStatus = parsedStatus;
+                                }
+
+                                // Offline invoices never pass through InvoicesController, which is where
+                                // InvoiceNumber is normally allocated — allocate it here too or every
+                                // synced invoice would render as INV-000000.
+                                var maxInvoiceNumber = await _db.Invoices.MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
+
                                 var invoice = new Invoice
                                 {
                                     Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
                                     TenantId = Guid.Empty,
-                                    PatientId = payload.PatientId.HasValue && payload.PatientId.Value != Guid.Empty ? payload.PatientId.Value : null,
-                                    WalkInCustomerName = payload.WalkInCustomerName?.Trim(),
-                                    WalkInCustomerPhone = payload.WalkInCustomerPhone?.Trim(),
+                                    InvoiceNumber = maxInvoiceNumber + 1,
+                                    PatientId = hasRegisteredPatient ? payload.PatientId : null,
+                                    WalkInCustomerName = hasRegisteredPatient ? null : payload.WalkInCustomerName?.Trim(),
+                                    WalkInCustomerPhone = hasRegisteredPatient ? null : payload.WalkInCustomerPhone?.Trim(),
                                     Subtotal = payload.Subtotal,
                                     GstAmount = payload.GstAmount,
                                     Total = payload.Total,
-                                    Status = InvoiceStatus.Paid,
+                                    Status = invoiceStatus,
                                     IdempotencyKey = item.IdempotencyKey,
                                     CreatedAt = item.CreatedAt != default ? item.CreatedAt : DateTimeOffset.UtcNow
                                 };
 
                                 _db.Invoices.Add(invoice);
+
+                                // Ledger income sums Payments (Completed + PaidAt), not Invoices, so a
+                                // Paid invoice without a Payment row is invisible revenue.
+                                if (invoiceStatus == InvoiceStatus.Paid)
+                                {
+                                    var method = PaymentMethod.Cash;
+                                    if (!string.IsNullOrWhiteSpace(payload.PaymentMethod)
+                                        && Enum.TryParse<PaymentMethod>(payload.PaymentMethod, true, out var parsedMethod))
+                                    {
+                                        method = parsedMethod;
+                                    }
+
+                                    _db.Payments.Add(new Payment
+                                    {
+                                        Id = Guid.NewGuid(),
+                                        InvoiceId = invoice.Id,
+                                        Method = method,
+                                        Amount = invoice.Total,
+                                        Status = PaymentStatus.Completed,
+                                        IdempotencyKey = $"{item.IdempotencyKey}-PAY",
+                                        CreatedAt = invoice.CreatedAt,
+                                        PaidAt = invoice.CreatedAt
+                                    });
+                                }
+
                                 await _db.SaveChangesAsync(ct);
 
                                 results.Add(new SyncItemResultDto(invoice.Id, item.IdempotencyKey, "created", "invoice"));
@@ -252,6 +338,11 @@ public class SyncController : ControllerBase
             await tx.RollbackAsync(ct);
             _logger.LogError(ex, "Error processing sync push batch");
             return StatusCode(500, new { error = "sync_batch_failed", message = ex.Message });
+        }
+
+        foreach (var created in createdPatients)
+        {
+            _ = _search.IndexAsync(created, CancellationToken.None);
         }
 
         return Ok(new SyncPushResponse(synced, skipped, results));
