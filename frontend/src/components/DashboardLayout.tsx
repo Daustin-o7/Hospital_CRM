@@ -10,7 +10,7 @@ const NAV_ITEMS = [
     name: 'Dashboard',
     href: '/dashboard',
     end: true,
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
+    roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
     icon: HomeIcon,
   },
   {
@@ -78,6 +78,12 @@ const NAV_ITEMS = [
     href: '/dashboard/messages',
     roles: ['clinicadmin', 'doctor', 'receptionist'],
     icon: MailIcon,
+  },
+  {
+    name: 'Staff & Team',
+    href: '/dashboard/staff',
+    roles: ['clinicadmin'],
+    icon: UsersIcon,
   },
   {
     name: 'Settings',

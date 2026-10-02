@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import api from '../services/api'
+import { Modal } from '../components/ui/Modal'
 
 interface QueuePatient {
   id: string
@@ -313,25 +314,15 @@ export default function Queue() {
       </div>
 
       {/* ── Mark Emergency Modal ── */}
-      {modalOpen && selectedPatient && (
-        <div className="modal-overlay">
-          <div className="modal-panel max-w-md p-6 space-y-4 animate-fadein">
-            <div className="modal-header p-0 border-b border-[var(--color-border)] pb-3">
-              <h3 className="text-base font-bold text-[var(--color-text)] font-heading">
-                {selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Mark Patient as Emergency'}
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="btn btn-ghost p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Patient: <span className="font-bold text-[var(--color-text)]">{selectedPatient.patientName}</span> ({selectedPatient.tokenNumber})
-            </p>
-
+      {selectedPatient && (
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title={selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Mark Patient as Emergency'}
+          description={`Patient: ${selectedPatient.patientName} (${selectedPatient.tokenNumber})`}
+          size="sm"
+        >
+          <div className="space-y-4">
             {selectedPatient.priority !== 'emergency' && (
               <div>
                 <label className="form-label">
@@ -348,20 +339,22 @@ export default function Queue() {
                   className="form-textarea"
                 />
                 {reasonError && (
-                  <p className="form-error font-semibold">{reasonError}</p>
+                  <p className="form-error font-semibold mt-1">{reasonError}</p>
                 )}
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
               <button
+                type="button"
                 onClick={() => setModalOpen(false)}
-                className="btn btn-ghost cursor-pointer"
+                className="btn btn-secondary cursor-pointer"
               >
                 Cancel
               </button>
               {selectedPatient.priority === 'emergency' ? (
                 <button
+                  type="button"
                   onClick={() => submitPriorityChange('normal')}
                   className="btn btn-secondary cursor-pointer"
                 >
@@ -369,6 +362,7 @@ export default function Queue() {
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => submitPriorityChange('emergency')}
                   className="btn btn-danger cursor-pointer"
                 >
@@ -377,7 +371,7 @@ export default function Queue() {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

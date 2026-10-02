@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { EmptyState, Skeleton } from '../components/ui/EmptyState'
 
 interface DashStats {
   appointmentsToday: number
@@ -168,7 +169,7 @@ export default function Dashboard() {
       {/* ── 4 Top KPI Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Appointments */}
-        <div className="stat-card">
+        <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="stat-icon-badge stat-icon-badge-teal">
@@ -189,13 +190,15 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="stat-value font-heading font-mono">{stats.appointmentsToday}</span>
+            <span className="stat-value font-heading font-mono">
+              {loading ? <Skeleton width="48px" height="28px" /> : stats.appointmentsToday}
+            </span>
             <span className="badge badge-brand">Scheduled today</span>
           </div>
         </div>
 
         {/* Card 2: Patients */}
-        <div className="stat-card">
+        <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="stat-icon-badge stat-icon-badge-sky">
@@ -216,13 +219,15 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="stat-value font-heading font-mono">{stats.totalPatients}</span>
+            <span className="stat-value font-heading font-mono">
+              {loading ? <Skeleton width="48px" height="28px" /> : stats.totalPatients}
+            </span>
             <span className="badge badge-info">Registered records</span>
           </div>
         </div>
 
         {/* Card 3: Revenue */}
-        <div className="stat-card">
+        <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="stat-icon-badge stat-icon-badge-emerald">
@@ -243,13 +248,15 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="stat-value font-heading font-mono">₹{stats.revenueToday.toLocaleString('en-IN')}</span>
+            <span className="stat-value font-heading font-mono">
+              {loading ? <Skeleton width="80px" height="28px" /> : `₹${stats.revenueToday.toLocaleString('en-IN')}`}
+            </span>
             <span className="badge badge-success">Collected today</span>
           </div>
         </div>
 
         {/* Card 4: Pending Payments */}
-        <div className="stat-card">
+        <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="stat-icon-badge stat-icon-badge-amber">
@@ -270,7 +277,9 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-2">
-            <span className="stat-value font-heading font-mono">{stats.pendingPayments}</span>
+            <span className="stat-value font-heading font-mono">
+              {loading ? <Skeleton width="48px" height="28px" /> : stats.pendingPayments}
+            </span>
             <span className="badge badge-warning">Awaiting settlement</span>
           </div>
         </div>
@@ -298,9 +307,20 @@ export default function Dashboard() {
                 <div className="skeleton h-10 w-full" />
               </div>
             ) : schedule.length === 0 ? (
-              <div className="empty-state py-8">
-                <p className="empty-state-title">No appointments scheduled</p>
-                <p className="empty-state-description">Today's booked consultations will appear here.</p>
+              <div className="py-4">
+                <EmptyState
+                  illustration={
+                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none" aria-hidden="true">
+                      <rect x="10" y="12" width="40" height="38" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.35"/>
+                      <path d="M10 22 L50 22" stroke="currentColor" strokeWidth="1.5" opacity="0.4"/>
+                      <path d="M20 8 L20 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                      <path d="M40 8 L40 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                      <circle cx="30" cy="36" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4"/>
+                    </svg>
+                  }
+                  title="No appointments scheduled"
+                  description="Today's booked consultations will appear here once patients are scheduled."
+                />
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-border-subtle)]">
@@ -392,13 +412,23 @@ export default function Dashboard() {
                 <h2 className="text-sm font-bold text-[var(--color-text)] tracking-tight font-heading">Clinical alerts</h2>
                 <p className="text-[11px] text-[var(--color-text-muted)]">Pending tasks &amp; reviews</p>
               </div>
+              <span className="badge badge-success">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                All clear
+              </span>
             </div>
 
-            <div className="empty-state py-8 px-2">
-              <p className="empty-state-title">System telemetry active</p>
-              <p className="empty-state-description">
-                All scheduled appointments, pharmacy dispensations, and lab triage are operating normally.
-              </p>
+            <div className="py-4">
+              <EmptyState
+                illustration={
+                  <svg width="55" height="55" viewBox="0 0 55 55" fill="none" aria-hidden="true">
+                    <circle cx="27.5" cy="27.5" r="22" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3"/>
+                    <path d="M18 28 L25 35 L38 20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.5"/>
+                  </svg>
+                }
+                title="System telemetry active"
+                description="All appointments, pharmacy dispensations, and lab triage are operating normally."
+              />
             </div>
           </div>
         </div>
@@ -406,37 +436,40 @@ export default function Dashboard() {
 
       {/* ── Quick Actions Row ── */}
       <div className="card p-5">
-        <h3 className="section-title">Clinical fast actions</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="section-title" style={{ marginBottom: 0 }}>Clinical fast actions</h3>
+          <span className="text-[10px] text-[var(--color-text-muted)] font-mono hidden sm:block">F2: New Patient · F4: Consultations</span>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <button onClick={() => navigate('/dashboard/patients')} className="btn btn-secondary flex items-center gap-2">
+          <button onClick={() => navigate('/dashboard/patients')} className="btn btn-secondary flex items-center gap-2 hover-card transition-all">
             <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
             <span>Walk-in patient</span>
           </button>
 
-          <button onClick={() => navigate('/dashboard/consultations')} className="btn btn-secondary flex items-center gap-2">
+          <button onClick={() => navigate('/dashboard/consultations')} className="btn btn-secondary flex items-center gap-2 hover-card transition-all">
             <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <span>New Rx consult</span>
           </button>
 
-          <button onClick={() => navigate('/dashboard/pharmacy/pos')} className="btn btn-secondary flex items-center gap-2">
+          <button onClick={() => navigate('/dashboard/pharmacy/pos')} className="btn btn-secondary flex items-center gap-2 hover-card transition-all">
             <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <span>Pharmacy counter</span>
           </button>
 
-          <button onClick={() => navigate('/dashboard/billing')} className="btn btn-secondary flex items-center gap-2">
+          <button onClick={() => navigate('/dashboard/billing')} className="btn btn-secondary flex items-center gap-2 hover-card transition-all">
             <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>Create invoice</span>
           </button>
 
-          <button onClick={() => navigate('/dashboard/messages')} className="btn btn-secondary flex items-center gap-2">
+          <button onClick={() => navigate('/dashboard/messages')} className="btn btn-secondary flex items-center gap-2 hover-card transition-all">
             <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>

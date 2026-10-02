@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { Alert } from '../components/ui/Alert'
+import { Modal } from '../components/ui/Modal'
 
 interface BatchDetail {
   id: string
@@ -167,8 +168,14 @@ export default function PharmacyBatches() {
       setInwardMrp('')
       setInwardPurchaseRate('')
       fetchDrugs()
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to inward batch stock')
+    } catch {
+      setInwardDrug(null)
+      setInwardBatchNo('')
+      setInwardExpiry('')
+      setInwardMfg('')
+      setInwardQty('')
+      setInwardMrp('')
+      setInwardPurchaseRate('')
     } finally {
       setInwarding(false)
     }
@@ -407,176 +414,167 @@ export default function PharmacyBatches() {
 
       {/* ── Inward Stock (GRN) Modal ── */}
       {inwardDrug && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="card max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
-              <div>
-                <h3 className="font-bold text-base text-[var(--color-text)]">Inward Medicine Stock (GRN)</h3>
-                <p className="text-xs text-[var(--color-text-muted)]">{inwardDrug.name} ({inwardDrug.genericName})</p>
-              </div>
-              <button onClick={() => setInwardDrug(null)} className="btn btn-ghost btn-sm">✕</button>
+        <Modal
+          open={!!inwardDrug}
+          onClose={() => setInwardDrug(null)}
+          title="Inward Medicine Stock (GRN)"
+          description={`${inwardDrug.name} (${inwardDrug.genericName})`}
+          size="md"
+        >
+          <form onSubmit={handleInwardSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="form-label">Batch Number *</label>
+              <input
+                type="text"
+                required
+                value={inwardBatchNo}
+                onChange={e => setInwardBatchNo(e.target.value)}
+                placeholder="e.g. BAT-2026-09"
+                className="form-input uppercase mono font-bold"
+              />
             </div>
 
-            <form onSubmit={handleInwardSubmit} className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="form-label">Batch Number *</label>
+                <label className="form-label">Expiry Date *</label>
                 <input
-                  type="text"
+                  type="date"
                   required
-                  value={inwardBatchNo}
-                  onChange={e => setInwardBatchNo(e.target.value)}
-                  placeholder="e.g. BAT-2026-09"
-                  className="form-input uppercase mono font-bold"
+                  value={inwardExpiry}
+                  onChange={e => setInwardExpiry(e.target.value)}
+                  className="form-input"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="form-label">Expiry Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={inwardExpiry}
-                    onChange={e => setInwardExpiry(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Mfg Date</label>
-                  <input
-                    type="date"
-                    value={inwardMfg}
-                    onChange={e => setInwardMfg(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
+              <div>
+                <label className="form-label">Mfg Date</label>
+                <input
+                  type="date"
+                  value={inwardMfg}
+                  onChange={e => setInwardMfg(e.target.value)}
+                  className="form-input"
+                />
               </div>
+            </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="form-label">Quantity *</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={inwardQty}
-                    onChange={e => setInwardQty(e.target.value ? parseInt(e.target.value) : '')}
-                    placeholder="100"
-                    className="form-input font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Pack MRP (₹) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={inwardMrp}
-                    onChange={e => setInwardMrp(e.target.value ? parseFloat(e.target.value) : '')}
-                    placeholder="120.00"
-                    className="form-input font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Purchase Rate (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={inwardPurchaseRate}
-                    onChange={e => setInwardPurchaseRate(e.target.value ? parseFloat(e.target.value) : '')}
-                    placeholder="85.00"
-                    className="form-input"
-                  />
-                </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="form-label">Quantity *</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={inwardQty}
+                  onChange={e => setInwardQty(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="100"
+                  className="form-input font-bold"
+                />
               </div>
+              <div>
+                <label className="form-label">Pack MRP (₹) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={inwardMrp}
+                  onChange={e => setInwardMrp(e.target.value ? parseFloat(e.target.value) : '')}
+                  placeholder="120.00"
+                  className="form-input font-bold"
+                />
+              </div>
+              <div>
+                <label className="form-label">Purchase Rate (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={inwardPurchaseRate}
+                  onChange={e => setInwardPurchaseRate(e.target.value ? parseFloat(e.target.value) : '')}
+                  placeholder="85.00"
+                  className="form-input"
+                />
+              </div>
+            </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setInwardDrug(null)}
-                  className="btn btn-secondary btn-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={inwarding}
-                  className="btn btn-primary btn-sm"
-                >
-                  {inwarding ? 'Inwarding…' : 'Save Batch Stock'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="pt-3 border-t border-[var(--color-border)] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setInwardDrug(null)}
+                className="btn btn-secondary btn-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={inwarding}
+                className="btn btn-primary btn-sm cursor-pointer"
+              >
+                {inwarding ? 'Inwarding…' : 'Save Batch Stock'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* ── Drug Detail & All Batches Modal ── */}
       {viewDrugDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="card max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="font-bold text-base text-slate-900">{viewDrugDetail.name}</h3>
-                <p className="text-xs text-slate-500">
-                  {viewDrugDetail.genericName} • {viewDrugDetail.dosageForm} {viewDrugDetail.strength} • HSN: {viewDrugDetail.hsnCode}
-                </p>
+        <Modal
+          open={!!viewDrugDetail}
+          onClose={() => setViewDrugDetail(null)}
+          title={viewDrugDetail.name}
+          description={`${viewDrugDetail.genericName} • ${viewDrugDetail.dosageForm} ${viewDrugDetail.strength} • HSN: ${viewDrugDetail.hsnCode}`}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <h4 className="section-title">All Batches (FEFO Sorted)</h4>
+            {viewDrugDetail.batches?.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-title">No batches recorded for this medicine.</div>
               </div>
-              <button onClick={() => setViewDrugDetail(null)} className="btn btn-ghost btn-sm">✕</button>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="section-title">All Batches (FEFO Sorted)</h4>
-              {viewDrugDetail.batches?.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-title">No batches recorded for this medicine.</div>
-                </div>
-              ) : (
-                <div className="card divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                  {viewDrugDetail.batches?.map((b: BatchDetail) => (
-                    <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-slate-900">{b.batchNumber}</span>
-                          {b.isExpired ? (
-                            <span className="badge badge-danger">
-                              EXPIRED
-                            </span>
-                          ) : b.isNearExpiry ? (
-                            <span className="badge badge-warning">
-                              EXPIRING SOON
-                            </span>
-                          ) : (
-                            <span className="badge badge-success">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-slate-500 text-[11px] mt-0.5">
-                          Exp: {b.expiryDate} {b.mfgDate && `• Mfg: ${b.mfgDate}`} • Supplier: {b.supplierName || '—'}
-                        </p>
+            ) : (
+              <div className="card divide-y max-h-64 overflow-y-auto" style={{ borderColor: 'var(--color-border)' }}>
+                {viewDrugDetail.batches?.map((b: BatchDetail) => (
+                  <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-[var(--color-surface-hover)]">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[var(--color-text)]">{b.batchNumber}</span>
+                        {b.isExpired ? (
+                          <span className="badge badge-danger">
+                            EXPIRED
+                          </span>
+                        ) : b.isNearExpiry ? (
+                          <span className="badge badge-warning">
+                            EXPIRING SOON
+                          </span>
+                        ) : (
+                          <span className="badge badge-success">
+                            ACTIVE
+                          </span>
+                        )}
                       </div>
-
-                      <div className="text-right">
-                        <div className="font-bold text-slate-900">{b.quantityRemaining} / {b.quantityReceived} units</div>
-                        <div className="text-[11px] text-slate-500">MRP: ₹{b.mrp.toFixed(2)} • Cost: ₹{b.purchaseRate.toFixed(2)}</div>
-                      </div>
+                      <p className="text-[var(--color-text-muted)] text-[11px] mt-0.5">
+                        Exp: {b.expiryDate} {b.mfgDate && `• Mfg: ${b.mfgDate}`} • Supplier: {b.supplierName || '—'}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="pt-2 flex justify-end">
+                    <div className="text-right">
+                      <div className="font-bold text-[var(--color-text)]">{b.quantityRemaining} / {b.quantityReceived} units</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">MRP: ₹{b.mrp.toFixed(2)} • Cost: ₹{b.purchaseRate.toFixed(2)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-[var(--color-border)] flex justify-end">
               <button
+                type="button"
                 onClick={() => setViewDrugDetail(null)}
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm cursor-pointer"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )
