@@ -55,7 +55,11 @@ public class ReportsController : ControllerBase
         var payments = await paymentsQuery.ToListAsync(ct);
 
         var grossIncome = payments.Sum(p => p.Amount);
-        var gstLiability = payments.Sum(p => p.Invoice?.GstAmount ?? 0);
+        // GST is per-invoice — group by invoice so partially-paid invoices aren't double-counted
+        var gstLiability = payments
+            .Where(p => p.Invoice != null)
+            .GroupBy(p => new { p.InvoiceId, p.Invoice.GstAmount })
+            .Sum(g => g.Key.GstAmount);
 
         // Expenses
         var expensesQuery = _db.LedgerExpenses
