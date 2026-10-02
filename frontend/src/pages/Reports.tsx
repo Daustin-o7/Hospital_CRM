@@ -3,14 +3,24 @@ import api from '../services/api'
 import { friendlyError } from '../components/ui/Alert'
 import { EmptyState } from '../components/ui/EmptyState'
 
+const MONTH_OPTIONS = Array.from({ length: 3 }, (_, i) => {
+  const d = new Date()
+  d.setDate(1)
+  d.setMonth(d.getMonth() - i)
+  const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const label = d.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+  return { value, label: i === 0 ? `${label} (Current)` : label }
+})
+
 export default function Reports() {
-  const [selectedMonth, setSelectedMonth] = useState('August 2026')
+  const [selectedMonth, setSelectedMonth] = useState(MONTH_OPTIONS[0].value)
   const [toast, setToast] = useState<string | null>(null)
   const [financialData, setFinancialData] = useState<any>(null)
   const [presumptiveData, setPresumptiveData] = useState<any>(null)
   const [paymentDistribution, setPaymentDistribution] = useState<any>(null)
   const [platformHealth, setPlatformHealth] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
@@ -18,8 +28,26 @@ export default function Reports() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  const exportReport = (format: 'ITR-4 CSV' | 'GSTR-1 JSON' | 'Audit PDF') => {
-    showToast(`Generating and exporting ${format} for ${selectedMonth}…`)
+  const exportReport = async (format: 'ITR-4 CSV' | 'GSTR-1 JSON') => {
+    try {
+      setExporting(format)
+      const res = await api.post('/reports/export', { format, month: selectedMonth }, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = String(res.headers?.['content-disposition'] ?? '')
+      a.download = disposition.match(/filename="?([^";]+)"?/)?.[1]
+        ?? `${format.startsWith('ITR') ? 'ITR4' : 'GSTR1'}-${selectedMonth}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      showToast(`${format} for ${MONTH_OPTIONS.find(m => m.value === selectedMonth)?.label} downloaded.`)
+    } catch {
+      showToast('Export failed. Please try again.')
+    } finally {
+      setExporting(null)
+    }
   }
 
   const fetchData = async () => {
@@ -30,7 +58,7 @@ export default function Reports() {
       // Fetch all reports data in parallel
       const [financialRes, presumptiveRes, paymentRes, healthRes] = await Promise.all([
         api.get(`/reports/financial?month=${selectedMonth}`),
-        api.get(`/reports/itr4?month=${selectedMonth}`),
+        api.get(`/reports/tax/itr4?month=${selectedMonth}`),
         api.get(`/reports/payment-distribution?month=${selectedMonth}`),
         api.get(`/reports/platform-health?month=${selectedMonth}`)
       ])
@@ -107,17 +135,16 @@ export default function Reports() {
             disabled={loading}
             className="form-select text-xs py-1.5"
           >
-            <option value="August 2026">August 2026 (Current)</option>
-            <option value="July 2026">July 2026</option>
-            <option value="June 2026">June 2026</option>
-            <option value="FY 2026-27">FY 2026-27 YTD</option>
+            {MONTH_OPTIONS.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
           </select>
           <button
             onClick={() => exportReport('ITR-4 CSV')}
-            disabled={loading}
+            disabled={loading || exporting !== null}
             className="btn btn-primary btn-sm cursor-pointer"
           >
-            {loading ? 'Generating…' : 'Export ITR-4 CSV'}
+            {exporting ? 'Generating…' : 'Export ITR-4 CSV'}
             <svg className="ml-2 w-3.5 h-3.5 fill-none stroke-currentColor viewBox-[0_0_24_24]">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -169,7 +196,7 @@ export default function Reports() {
             description="No financial data found for the selected period. This could be because there are no recorded transactions or the reporting period has no activity."
             action={{
               label: 'Try Different Period',
-              onClick: () => setSelectedMonth('July 2026'),
+              onClick: () => setSelectedMonth(MONTH_OPTIONS[1]?.value ?? MONTH_OPTIONS[0].value),
               variant: 'secondary'
             }}
           />
@@ -203,7 +230,7 @@ export default function Reports() {
               </span>
             </div>
             <div className="stat-value mt-2 font-mono font-heading">
-              ₹{safeGet(financialData, 'totalExpenses', 0).toLocaleString('en-IN')}
+              ₹{safeGet(financialData, 'expenses', 0).toLocaleString('en-IN')}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
               Consumables, utility & staff
@@ -266,7 +293,7 @@ export default function Reports() {
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-[var(--color-text-secondary)]">Total Gross Professional Receipts:</span>
                 <span className="mono font-bold text-[var(--color-text)]">
-                  ₹{safeGet(presumptiveData, 'grossProfessionalReceipts', 0).toLocaleString('en-IN')}
+                  ₹{safeGet(presumptiveData, 'grossReceipts', 0).toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -276,7 +303,7 @@ export default function Reports() {
               <div className="flex items-center justify-between text-sm pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <span className="font-bold text-[var(--color-text)]">Deemed Taxable Professional Profit:</span>
                 <span className="mono font-black text-base text-[var(--brand-secondary)]">
-                  ₹{safeGet(presumptiveData, 'deemedTaxableProfit', 0).toLocaleString('en-IN')}
+                  ₹{safeGet(presumptiveData, 'deemedProfit', 0).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
@@ -288,15 +315,17 @@ export default function Reports() {
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => exportReport('ITR-4 CSV')}
+                disabled={exporting !== null}
                 className="btn btn-secondary btn-sm cursor-pointer"
               >
-                Export ITR-4 Computation CSV
+                {exporting === 'ITR-4 CSV' ? 'Generating…' : 'Export ITR-4 Computation CSV'}
               </button>
               <button
                 onClick={() => exportReport('GSTR-1 JSON')}
+                disabled={exporting !== null}
                 className="btn btn-secondary btn-sm cursor-pointer"
               >
-                GSTR-1 Portal JSON
+                {exporting === 'GSTR-1 JSON' ? 'Generating…' : 'GSTR-1 Portal JSON'}
               </button>
             </div>
           </div>
