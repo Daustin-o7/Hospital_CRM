@@ -29,19 +29,30 @@ public class InventoryController : ControllerBase
 
         var items = await query
             .OrderBy(i => i.Name)
-            .Select(i => new
-            {
-                id = i.Id,
-                name = i.Name,
-                tier = i.Tier.ToString().ToLower(),
-                unit = i.Unit,
-                active = i.Active,
-                lowStockThreshold = i.LowStockThreshold,
-                createdAt = i.CreatedAt
-            })
             .ToListAsync(ct);
 
-        return Ok(items);
+        // Aggregate every movement in SQL (one row per item) — a Contains/ANY
+        // filter crashes Npgsql's SqlNullabilityProcessor (PgAnyExpression).
+        var balances = await _db.StockMovements
+            .GroupBy(m => m.ItemId)
+            .Select(g => new
+            {
+                ItemId = g.Key,
+                Total = g.Sum(m => m.Direction == MovementDirection.In ? m.Quantity : -m.Quantity)
+            })
+            .ToDictionaryAsync(x => x.ItemId, x => x.Total, ct);
+
+        return Ok(items.Select(i => new
+        {
+            id = i.Id,
+            name = i.Name,
+            tier = i.Tier.ToString().ToLower(),
+            unit = i.Unit,
+            active = i.Active,
+            lowStockThreshold = i.LowStockThreshold,
+            balance = balances.GetValueOrDefault(i.Id, 0),
+            createdAt = i.CreatedAt
+        }));
     }
 
     [HttpPost("items")]

@@ -46,16 +46,8 @@ function formatRelativeDate(dateStr: string): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [doctors, setDoctors]   = useState<Doctor[]>([
-    { id: 'doc-1', name: 'Dr. Sarah Smith (Cardiology)' },
-    { id: 'doc-2', name: 'Dr. John Doe (General Medicine)' },
-    { id: 'doc-3', name: 'Dr. Priya Nair (Pediatrics)' },
-  ])
-  const [patients, setPatients] = useState<Patient[]>([
-    { id: 'pat-1', name: 'Aarav Sharma', phone: '+91 98765 43210' },
-    { id: 'pat-2', name: 'Sunita Patel', phone: '+91 98111 22233' },
-    { id: 'pat-3', name: 'Rohan Gupta', phone: '+91 99887 76655' },
-  ])
+  const [doctors, setDoctors]   = useState<Doctor[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading]   = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -86,10 +78,10 @@ export default function Appointments() {
       api.get('/users?role=doctor'),
       api.get('/patients/search?q='),
     ])
-    if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data) && docRes.value.data.length > 0) {
+    if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
       setDoctors(docRes.value.data)
     }
-    if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data) && patRes.value.data.length > 0) {
+    if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
       setPatients(patRes.value.data)
     }
   }, [])

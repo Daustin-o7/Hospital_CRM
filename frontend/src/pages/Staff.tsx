@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
 import { Modal } from '../components/ui/Modal'
-import { Alert } from '../components/ui/Alert'
+import { Alert, friendlyError } from '../components/ui/Alert'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
@@ -45,13 +45,8 @@ function getInitials(name: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Staff() {
-  const [staff, setStaff]             = useState<StaffMember[]>([
-    { id: 'st-1', name: 'Dr. Arjun Mehta', email: 'dr.mehta@samstack.health', role: 'Doctor', status: 'Active', joinedAt: '2026-01-15T09:00:00Z' },
-    { id: 'st-2', name: 'Priya Nair', email: 'priya.reception@samstack.health', role: 'Receptionist', status: 'Active', joinedAt: '2026-02-01T08:30:00Z' },
-    { id: 'st-3', name: 'Suresh Menon', email: 'suresh.pharmacy@samstack.health', role: 'Pharmacist', status: 'Active', joinedAt: '2026-03-10T10:00:00Z' },
-    { id: 'st-4', name: 'Dr. Ananya Sharma', email: 'dr.sharma@samstack.health', role: 'Doctor', status: 'Invited', joinedAt: '2026-08-25T14:20:00Z' },
-  ])
-  const [loading, setLoading]         = useState(false)
+  const [staff, setStaff]             = useState<StaffMember[]>([])
+  const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState<'all' | 'Active' | 'Invited'>('all')
   const [showModal, setShowModal]     = useState(false)
   const [showMatrix, setShowMatrix]   = useState(false)
@@ -72,11 +67,10 @@ export default function Staff() {
     setLoading(true)
     try {
       const res = await api.get('/staff')
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setStaff(res.data)
-      }
+      setStaff(Array.isArray(res.data) ? res.data : [])
     } catch {
-      // Retain baseline staff
+      setToast('Could not load staff list. Please retry.')
+      setTimeout(() => setToast(null), 3500)
     } finally {
       setLoading(false)
     }
@@ -93,14 +87,8 @@ export default function Staff() {
       reset({ name: '', email: '', role: 'Doctor' })
       showToast(`Invitation sent to ${data.email}`)
       setShowModal(false)
-    } catch {
-      setStaff(prev => [{
-        id: `st-${Date.now()}`, name: data.name, email: data.email,
-        role: data.role, status: 'Invited', joinedAt: new Date().toISOString(),
-      }, ...prev])
-      reset({ name: '', email: '', role: 'Doctor' })
-      showToast(`Invitation created for ${data.email}`)
-      setShowModal(false)
+    } catch (err) {
+      setSubmitError(friendlyError(err))
     }
   }, [reset])
 
