@@ -488,5 +488,13 @@ public class HospitalCrmDbContext : DbContext
             e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
         });
+
+        modelBuilder.Entity<WishlistItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.Property(x => x.Text).HasMaxLength(1000).IsRequired();
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
+        });
     }
 }

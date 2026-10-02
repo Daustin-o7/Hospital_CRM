@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshToken(refreshToken)
     setUser(userData)
     scheduleProactiveRefresh(expiresIn || 900)
-    navigate('/dashboard')
+    navigate(String(userData?.role || '').toLowerCase() === 'platformadmin' ? '/dashboard/platform-admin' : '/dashboard')
   }, [navigate, scheduleProactiveRefresh])
 
   useEffect(() => {

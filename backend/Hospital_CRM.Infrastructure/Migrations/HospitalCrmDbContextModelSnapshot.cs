@@ -1865,6 +1865,44 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.WishlistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("WishlistItems");
+                });
+
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Appointment", b =>
                 {
                     b.HasOne("Hospital_CRM.Domain.Entities.Clinic", "Clinic")
@@ -2357,6 +2395,17 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasForeignKey("ClinicId");
 
                     b.Navigation("Clinic");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.WishlistItem", b =>
+                {
+                    b.HasOne("Hospital_CRM.Domain.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Appointment", b =>
