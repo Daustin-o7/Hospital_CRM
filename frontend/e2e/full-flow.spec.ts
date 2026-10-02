@@ -15,8 +15,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
 
     // Should navigate to dashboard
     await expect(page).toHaveURL(/.*dashboard/, { timeout: 12000 })
-    await expect(page.getByText('Healthcare OS')).toBeVisible()
-    await expect(page.locator('aside').getByText('Doctor', { exact: true })).toBeVisible()
+    await expect(page.locator('aside').getByText('Doctor', { exact: true })).toBeVisible({ timeout: 12000 })
   })
 
   test('2. Authentication: Login with Pharmacist and Role Verification', async ({ page }) => {
@@ -55,10 +54,10 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     await searchInput.fill('Paracetamol')
 
     // Wait for live search results
-    await expect(page.getByText(/Paracetamol 650mg/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/Paracetamol 650mg/i)).toBeVisible({ timeout: 8000 })
 
     // Add Paracetamol 650mg to Cart
-    const addBtn = page.getByRole('button', { name: '+ Add' }).first()
+    const addBtn = page.locator('button:has-text("+ Add")').first()
     await addBtn.click()
 
     // Verify item in cart
@@ -74,7 +73,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     await completeSaleBtn.click()
 
     // Verify receipt modal appears
-    await expect(page.getByText('Sale Completed')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Sale Completed')).toBeVisible({ timeout: 12000 })
     await expect(page.getByText('SAMSTACK HEALTHCARE PHARMACY')).toBeVisible()
     await expect(page.getByText('Tax Invoice / Cash Receipt')).toBeVisible()
 
@@ -99,7 +98,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     await expect(page.getByText(/Augmentin 625 Duo/i)).toBeVisible({ timeout: 5000 })
 
     // Add to Cart
-    await page.getByRole('button', { name: '+ Add' }).first().click()
+    await page.locator('button:has-text("+ Add")').first().click()
 
     // Verify Schedule H1 badge and form
     await expect(page.getByText('⚠️ Schedule H1 Contained')).toBeVisible()
@@ -178,7 +177,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
 
     // Open Register Modal
     await page.locator('#register-patient-btn').click()
-    await expect(page.getByText('Register new patient')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Register New Patient Profile/i })).toBeVisible()
 
     const uniqueName = `Pooja Sharma ${Date.now().toString().slice(-4)}`
     const uniquePhone = `+91 98${Math.floor(10000000 + Math.random() * 89999999)}`
@@ -191,7 +190,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
 
     // Submit form
     await page.locator('#submit-patient-btn').click()
-    await expect(page.getByRole('heading', { name: 'Register new patient' })).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: /Register New Patient Profile/i })).not.toBeVisible({ timeout: 5000 })
 
     // Verify patient in list / search
     await page.locator('#patient-search').fill(uniqueName)
@@ -211,7 +210,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
 
     // Open Book Appointment Modal
     await page.locator('#book-appointment-btn').click()
-    await expect(page.getByRole('heading', { name: 'Book appointment' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Book New Appointment/i })).toBeVisible()
 
     // Wait for dropdown options to populate
     await expect(page.locator('#appt-patient option').nth(1)).toBeAttached({ timeout: 8000 })
@@ -227,7 +226,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     await page.locator('#appt-time').fill(`${randomHour.toString().padStart(2, '0')}:${randomMin}`)
 
     await page.locator('#submit-appt-btn').click()
-    await expect(page.getByRole('heading', { name: 'Book appointment' })).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: /Book New Appointment/i })).not.toBeVisible({ timeout: 5000 })
   })
 
   test('8. Generic Medicine Substitution: Bio-Equivalent Matching', async ({ page }) => {

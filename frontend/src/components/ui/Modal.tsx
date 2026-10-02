@@ -24,10 +24,18 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     const prev = document.activeElement as HTMLElement
     const panel = panelRef.current
     if (panel) {
-      const focusable = panel.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      // Prioritize focusing the first interactive element in modal body, else first focusable
+      const bodyFocusable = panel.querySelector('.modal-body')?.querySelectorAll<HTMLElement>(
+        'input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
       )
-      focusable[0]?.focus()
+      if (bodyFocusable && bodyFocusable.length > 0) {
+        bodyFocusable[0].focus()
+      } else {
+        const focusable = panel.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        focusable[0]?.focus()
+      }
     }
 
     const onKey = (e: KeyboardEvent) => {

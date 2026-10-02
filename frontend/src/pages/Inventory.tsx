@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Modal } from '../components/ui/Modal'
 
 interface StockItem {
   id: string
@@ -292,145 +293,135 @@ export default function Inventory() {
       </div>
 
       {/* ── Inward Stock Modal ── */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="card max-w-lg w-full p-6 space-y-4 animate-fadein">
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
-              <h3 className="text-base font-bold text-[var(--color-text)] font-heading">
-                Inward Medical Supply Item
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="btn btn-ghost btn-sm cursor-pointer"
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Inward Medical Supply Item"
+        description="Record consumable or equipment shipment to inventory"
+        size="md"
+      >
+        <form onSubmit={handleAddStock} className="space-y-4">
+          <div>
+            <label className="form-label">
+              Item Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="e.g. Surgical Gauze 10x10cm"
+              className="form-input"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="form-label">
+                Category
+              </label>
+              <select
+                value={newItemCategory}
+                onChange={(e) => setNewItemCategory(e.target.value)}
+                className="form-select"
               >
-                ✕
-              </button>
+                <option value="Consumables">Consumables</option>
+                <option value="Pharmacy">Pharmacy</option>
+                <option value="Equipment">Equipment</option>
+                <option value="Lab Supplies">Lab Supplies</option>
+              </select>
             </div>
 
-            <form onSubmit={handleAddStock} className="space-y-3">
-              <div>
-                <label className="form-label">
-                  Item Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  placeholder="e.g. Surgical Gauze 10x10cm"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="form-label">
-                    Category
-                  </label>
-                  <select
-                    value={newItemCategory}
-                    onChange={(e) => setNewItemCategory(e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="Consumables">Consumables</option>
-                    <option value="Pharmacy">Pharmacy</option>
-                    <option value="Equipment">Equipment</option>
-                    <option value="Lab Supplies">Lab Supplies</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Stock Tier
-                  </label>
-                  <select
-                    value={newItemTier}
-                    onChange={(e) => setNewItemTier(e.target.value as any)}
-                    className="form-select"
-                  >
-                    <option value="consumable">Consumable</option>
-                    <option value="usable">Usable Asset</option>
-                    <option value="dead">Dead / Quarantined</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="form-label">
-                    Inward Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="100"
-                    className="form-input mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Unit
-                  </label>
-                  <input
-                    type="text"
-                    value={newItemUnit}
-                    onChange={(e) => setNewItemUnit(e.target.value)}
-                    placeholder="pcs / pairs / vials"
-                    className="form-input"
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Min Threshold
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={newItemMin}
-                    onChange={(e) => setNewItemMin(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="20"
-                    className="form-input mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label">
-                  Supplier / Vendor Name
-                </label>
-                <input
-                  type="text"
-                  value={newItemSupplier}
-                  onChange={(e) => setNewItemSupplier(e.target.value)}
-                  placeholder="e.g. MedPlus Surgicals Corp"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="btn btn-secondary cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary cursor-pointer"
-                >
-                  Confirm Inward Entry
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="form-label">
+                Stock Tier
+              </label>
+              <select
+                value={newItemTier}
+                onChange={(e) => setNewItemTier(e.target.value as any)}
+                className="form-select"
+              >
+                <option value="consumable">Consumable</option>
+                <option value="usable">Usable Asset</option>
+                <option value="dead">Dead / Quarantined</option>
+              </select>
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="form-label">
+                Inward Quantity *
+              </label>
+              <input
+                type="number"
+                required
+                min={1}
+                value={newItemQty}
+                onChange={(e) => setNewItemQty(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="100"
+                className="form-input mono"
+              />
+            </div>
+
+            <div>
+              <label className="form-label">
+                Unit
+              </label>
+              <input
+                type="text"
+                value={newItemUnit}
+                onChange={(e) => setNewItemUnit(e.target.value)}
+                placeholder="pcs / pairs / vials"
+                className="form-input"
+              />
+            </div>
+
+            <div>
+              <label className="form-label">
+                Min Threshold
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={newItemMin}
+                onChange={(e) => setNewItemMin(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="20"
+                className="form-input mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">
+              Supplier / Vendor Name
+            </label>
+            <input
+              type="text"
+              value={newItemSupplier}
+              onChange={(e) => setNewItemSupplier(e.target.value)}
+              placeholder="e.g. MedPlus Surgicals Corp"
+              className="form-input"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="btn btn-secondary cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary cursor-pointer"
+            >
+              Confirm Inward Entry
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

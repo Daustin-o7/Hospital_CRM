@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useTheme, type ThemeMode } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 interface WorkingHour {
   day: string
@@ -74,7 +75,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null)
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const { user } = useAuth()
   const userRole = String(user?.role || 'doctor').toLowerCase()
   const isAdmin = userRole === 'clinicadmin'
 

@@ -16,9 +16,17 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!email.trim()) {
+      setError('Please enter your email address.')
+      return
+    }
+    if (!password) {
+      setError('Please enter your password.')
+      return
+    }
     setLoading(true)
     try {
-      await login(email, password)
+      await login(email.trim(), password)
     } catch (err: any) {
       setError(friendlyError(err))
     } finally {
