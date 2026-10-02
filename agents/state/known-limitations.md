@@ -59,8 +59,8 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=44-53) — Out of Scope Section (§5.2)
-- [`docs/samstack-ai-module-registry-v1.2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-module-registry-v1.2.md) — Master Module Registry
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Out of Scope Section (§5.2)
+- [`docs/samstack-ai-module-registry-v1.2.md`](../../docs/research/samstack-ai-module-registry-v1.2.md) — Master Module Registry
 
 ---
 
@@ -96,5 +96,5 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=44-53) — Out of Scope Section (§5.2)
-- [`docs/samstack-ai-module-registry-v1.2.md`](file://docs/samstack-ai-module-registry-v1.2.md) — Master Module Registry
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Out of Scope Section (§5.2)
+- [`docs/samstack-ai-module-registry-v1.2.md`](../../docs/research/samstack-ai-module-registry-v1.2.md) — Master Module Registry

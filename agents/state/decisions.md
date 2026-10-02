@@ -98,8 +98,8 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=100-115) — Resolved Contradictions (§9)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Cross-Cutting Patterns
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Resolved Contradictions (§9)
+- `samstack-implementation-reference.md` — Cross-Cutting Patterns
 
 ---
 
@@ -137,6 +137,6 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=100-115) — Resolved Contradictions (§9)
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD
-- [`samstack-implementation-reference.md`](file://samstack-implementation-reference.md) — Cross-Cutting Patterns
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Resolved Contradictions (§9)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Phase 2 FRD
+- `samstack-implementation-reference.md` — Cross-Cutting Patterns
