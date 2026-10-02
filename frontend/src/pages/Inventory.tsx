@@ -1,98 +1,134 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../components/ui/Modal'
+import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
+import { friendlyError } from '../components/ui/Alert'
+import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 
 interface StockItem {
   id: string
   name: string
-  category: string
   tier: 'usable' | 'consumable' | 'dead'
-  currentStock: number
   unit: string
-  minThreshold: number
-  reorderPack: number
-  supplier: string
-  status: 'healthy' | 'low' | 'critical'
+  active: boolean
+  lowStockThreshold: number
+  balance: number
 }
 
+type ItemStatus = 'healthy' | 'low' | 'critical'
+
+function statusOf(item: StockItem): ItemStatus {
+  if (item.balance <= 0) return 'critical'
+  if (item.lowStockThreshold <= 0) return 'healthy'
+  if (item.balance <= Math.max(1, Math.floor(item.lowStockThreshold * 0.3))) return 'critical'
+  if (item.balance <= item.lowStockThreshold) return 'low'
+  return 'healthy'
+}
+
+// ponytail: fixed 50-unit inward pack until supplier/pack-size data exists
+const RESTOCK_QTY = 50
+
 export default function Inventory() {
-  const [items, setItems] = useState<StockItem[]>([
-    { id: '1', name: 'Latex Examination Gloves (M)', category: 'Consumables', tier: 'consumable', currentStock: 12, unit: 'pairs', minThreshold: 50, reorderPack: 100, supplier: 'MedPlus Surgicals', status: 'critical' },
-    { id: '2', name: 'Disposable Syringes 5ml (Luer Lock)', category: 'Consumables', tier: 'consumable', currentStock: 18, unit: 'pcs', minThreshold: 60, reorderPack: 100, supplier: 'Hindustan Syringes', status: 'critical' },
-    { id: '3', name: 'Paracetamol 500mg Tablets (Calpol)', category: 'Pharmacy', tier: 'usable', currentStock: 24, unit: 'strips', minThreshold: 40, reorderPack: 50, supplier: 'GSK Pharma Dist', status: 'low' },
-    { id: '4', name: 'Amoxicillin 500mg Capsules', category: 'Pharmacy', tier: 'usable', currentStock: 120, unit: 'strips', minThreshold: 30, reorderPack: 50, supplier: 'Cipla Supply', status: 'healthy' },
-    { id: '5', name: 'Digital Blood Pressure Monitor (Omron)', category: 'Equipment', tier: 'usable', currentStock: 4, unit: 'units', minThreshold: 2, reorderPack: 5, supplier: 'Omron Healthcare', status: 'healthy' },
-    { id: '6', name: 'Expired Bio-Test Reagent Vials', category: 'Lab Supplies', tier: 'dead', currentStock: 8, unit: 'vials', minThreshold: 0, reorderPack: 0, supplier: 'BioRad India', status: 'critical' },
-  ])
+  const { hasRole } = useAuth()
+  const canEdit = hasRole(['ClinicAdmin', 'Receptionist'])
+
+  const [items, setItems] = useState<StockItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [activeTier, setActiveTier] = useState<'all' | 'consumable' | 'usable' | 'dead'>('all')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [restockingId, setRestockingId] = useState<string | null>(null)
 
-  // Inward Item state
+  // Inward Item form
   const [newItemName, setNewItemName] = useState('')
-  const [newItemCategory, setNewItemCategory] = useState('Consumables')
   const [newItemTier, setNewItemTier] = useState<'consumable' | 'usable' | 'dead'>('consumable')
   const [newItemQty, setNewItemQty] = useState<number | ''>('')
   const [newItemUnit, setNewItemUnit] = useState('pcs')
   const [newItemMin, setNewItemMin] = useState<number | ''>(20)
-  const [newItemSupplier, setNewItemSupplier] = useState('')
 
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3500)
   }
 
-  const handleAddStock = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newItemName.trim() || !newItemQty) return
-
-    const qty = Number(newItemQty)
-    const min = Number(newItemMin) || 10
-    const status: StockItem['status'] = qty <= min * 0.3 ? 'critical' : qty <= min ? 'low' : 'healthy'
-
-    const newItem: StockItem = {
-      id: String(Date.now()),
-      name: newItemName.trim(),
-      category: newItemCategory,
-      tier: newItemTier,
-      currentStock: qty,
-      unit: newItemUnit,
-      minThreshold: min,
-      reorderPack: 50,
-      supplier: newItemSupplier.trim() || 'Direct Vendor',
-      status
+  const fetchItems = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await api.get('/inventory/items')
+      setItems(res.data)
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setLoading(false)
     }
-
-    setItems(prev => [newItem, ...prev])
-    showToast(`Added ${newItem.name} (${qty} ${newItem.unit}) to inventory.`)
-    setModalOpen(false)
-    setNewItemName('')
-    setNewItemQty('')
-    setNewItemSupplier('')
   }
 
-  const handleRestock = (item: StockItem) => {
-    setItems(prev => prev.map(i => {
-      if (i.id === item.id) {
-        const added = i.reorderPack || 50
-        const updated = i.currentStock + added
-        return {
-          ...i,
-          currentStock: updated,
-          status: updated > i.minThreshold ? 'healthy' : 'low'
-        }
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newItemName.trim() || !newItemQty || saving) return
+    setSaving(true)
+    try {
+      const qty = Number(newItemQty)
+      const created = await api.post('/inventory/items', {
+        name: newItemName.trim(),
+        tier: newItemTier,
+        unit: newItemUnit.trim() || 'pcs',
+        lowStockThreshold: Number(newItemMin) || 0,
+      })
+      if (qty > 0) {
+        await api.post(`/inventory/items/${created.data.id}/movements`, {
+          quantity: qty,
+          direction: 'in',
+          note: 'Initial inward',
+        })
       }
-      return i
-    }))
-    showToast(`Inwarded restock shipment of ${item.reorderPack} ${item.unit} for ${item.name}.`)
+      showToast(`Added ${newItemName.trim()} (${qty} ${newItemUnit}) to inventory.`)
+      setModalOpen(false)
+      setNewItemName('')
+      setNewItemQty('')
+      setNewItemUnit('pcs')
+      setNewItemMin(20)
+      await fetchItems()
+    } catch (err) {
+      showToast(friendlyError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRestock = async (item: StockItem) => {
+    if (restockingId) return
+    setRestockingId(item.id)
+    try {
+      const res = await api.post(`/inventory/items/${item.id}/movements`, {
+        quantity: RESTOCK_QTY,
+        direction: 'in',
+        note: 'Restock inward',
+      })
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, balance: res.data.balanceAfter } : i))
+      showToast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name}.`)
+    } catch (err) {
+      showToast(friendlyError(err))
+    } finally {
+      setRestockingId(null)
+    }
   }
 
   const filteredItems = items
     .filter(item => activeTier === 'all' || item.tier === activeTier)
-    .filter(item => item.name.toLowerCase().includes(search.toLowerCase()) || item.category.toLowerCase().includes(search.toLowerCase()))
+    .filter(item => item.name.toLowerCase().includes(search.toLowerCase()))
 
-  const lowStockCount = items.filter(i => i.status === 'low' || i.status === 'critical').length
+  const alerts = items.filter(i => statusOf(i) !== 'healthy')
+  const lowStockCount = alerts.length
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
@@ -114,17 +150,19 @@ export default function Inventory() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setModalOpen(true)}
-            className="btn btn-primary cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>+ Inward Stock Item</span>
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="btn btn-primary cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>+ Inward Stock Item</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {toast && (
@@ -136,42 +174,56 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ── Low Stock Critical Alerts Banner ── */}
-      <div className="card p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-            <h2 className="section-title mb-0">
-              Critical Reorder Alerts ({lowStockCount} items below threshold)
-            </h2>
-          </div>
-          <span className="badge badge-danger">
-            Immediate Restock Mandated
-          </span>
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button onClick={fetchItems} className="btn btn-ghost btn-sm ml-2">Retry</button>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {items.filter(i => i.status !== 'healthy').map(item => (
-            <div
-              key={item.id}
-              className={`alert justify-between items-center ${item.status === 'critical' ? 'alert-error' : 'alert-warning'}`}
-            >
-              <div>
-                <div className="text-xs font-bold">{item.name}</div>
-                <div className="text-[11px] mt-0.5">
-                  Min threshold: {item.minThreshold} {item.unit} • Supplier: {item.supplier}
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono font-bold">{item.currentStock} {item.unit}</span>
-                <div className="text-[10px] font-bold mt-0.5">
-                  {item.minThreshold > 0 ? `${Math.round((item.currentStock / item.minThreshold) * 100)}% remaining` : '—'}
-                </div>
-              </div>
+      {/* ── Low Stock Critical Alerts Banner ── */}
+      {!loading && !error && alerts.length > 0 && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+              <h2 className="section-title mb-0">
+                Critical Reorder Alerts ({lowStockCount} items below threshold)
+              </h2>
             </div>
-          ))}
+            <span className="badge badge-danger">
+              Immediate Restock Mandated
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {alerts.map(item => {
+              const status = statusOf(item)
+              return (
+                <div
+                  key={item.id}
+                  className={`alert justify-between items-center ${status === 'critical' ? 'alert-error' : 'alert-warning'}`}
+                >
+                  <div>
+                    <div className="text-xs font-bold">{item.name}</div>
+                    <div className="text-[11px] mt-0.5">
+                      Min threshold: {item.lowStockThreshold} {item.unit}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono font-bold">{item.balance} {item.unit}</span>
+                    <div className="text-[10px] font-bold mt-0.5">
+                      {item.lowStockThreshold > 0
+                        ? `${Math.max(0, Math.round((item.balance / item.lowStockThreshold) * 100))}% remaining`
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Filter Tabs & Inventory Table ── */}
       <div className="card p-5 space-y-4">
@@ -214,8 +266,7 @@ export default function Inventory() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Item Name & Supplier</th>
-                <th>Category</th>
+                <th>Item Name</th>
                 <th>Tier</th>
                 <th>Stock Level & Threshold</th>
                 <th>Status</th>
@@ -223,15 +274,44 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map(item => {
-                const pct = Math.min(100, Math.round((item.currentStock / (item.minThreshold * 1.5 || 10)) * 100))
+              {loading && (
+                <>
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                </>
+              )}
+
+              {!loading && !error && filteredItems.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-0">
+                    <EmptyState
+                      title={items.length === 0 ? 'No Inventory Items Yet' : 'No Matching Items'}
+                      description={items.length === 0
+                        ? 'Catalog your first consumable or equipment so staff can log stock movements against it.'
+                        : 'No items match your current filter or search.'}
+                      action={items.length === 0 && canEdit ? {
+                        label: '+ Inward First Item',
+                        onClick: () => setModalOpen(true),
+                        variant: 'primary'
+                      } : undefined}
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && filteredItems.map(item => {
+                const status = statusOf(item)
+                const pct = item.lowStockThreshold > 0
+                  ? Math.min(100, Math.round((item.balance / (item.lowStockThreshold * 1.5 || 10)) * 100))
+                  : Math.min(100, Math.max(0, item.balance * 2))
                 return (
                   <tr key={item.id}>
                     <td>
                       <div className="font-bold text-[var(--color-text)]">{item.name}</div>
-                      <div className="text-[11px] text-[var(--color-text-muted)]">Supplier: {item.supplier}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">{item.unit}</div>
                     </td>
-                    <td className="text-[var(--color-text-secondary)]">{item.category}</td>
                     <td className="capitalize">
                       <span className="badge badge-neutral">
                         {item.tier}
@@ -241,17 +321,17 @@ export default function Inventory() {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <span className="mono font-bold text-[var(--color-text)]">
-                            {item.currentStock} {item.unit}
+                            {item.balance} {item.unit}
                           </span>
-                          <span className="text-[10px] text-[var(--color-text-muted)]">Min: {item.minThreshold}</span>
+                          <span className="text-[10px] text-[var(--color-text-muted)]">Min: {item.lowStockThreshold}</span>
                         </div>
                         <div className="w-36 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
                           <div
                             style={{ width: `${pct}%` }}
                             className={`h-full rounded-full transition-all ${
-                              item.status === 'critical'
+                              status === 'critical'
                                 ? 'bg-[var(--color-danger)]'
-                                : item.status === 'low'
+                                : status === 'low'
                                 ? 'bg-[var(--color-warning)]'
                                 : 'bg-[var(--brand-primary)]'
                             }`}
@@ -260,29 +340,34 @@ export default function Inventory() {
                       </div>
                     </td>
                     <td>
-                      {item.status === 'healthy' && (
+                      {status === 'healthy' && (
                         <span className="badge badge-success">
                           Sufficient Stock
                         </span>
                       )}
-                      {item.status === 'low' && (
+                      {status === 'low' && (
                         <span className="badge badge-warning">
                           Low Stock
                         </span>
                       )}
-                      {item.status === 'critical' && (
+                      {status === 'critical' && (
                         <span className="badge badge-danger">
                           Restock Now
                         </span>
                       )}
                     </td>
                     <td className="text-right">
-                      <button
-                        onClick={() => handleRestock(item)}
-                        className="btn btn-secondary btn-sm cursor-pointer"
-                      >
-                        + Inward (+{item.reorderPack || 50})
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleRestock(item)}
+                          disabled={restockingId !== null}
+                          className="btn btn-secondary btn-sm cursor-pointer"
+                        >
+                          {restockingId === item.id
+                            ? 'Inwarding…'
+                            : `+ Inward (+${RESTOCK_QTY})`}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -315,37 +400,19 @@ export default function Inventory() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">
-                Category
-              </label>
-              <select
-                value={newItemCategory}
-                onChange={(e) => setNewItemCategory(e.target.value)}
-                className="form-select"
-              >
-                <option value="Consumables">Consumables</option>
-                <option value="Pharmacy">Pharmacy</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Lab Supplies">Lab Supplies</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">
-                Stock Tier
-              </label>
-              <select
-                value={newItemTier}
-                onChange={(e) => setNewItemTier(e.target.value as any)}
-                className="form-select"
-              >
-                <option value="consumable">Consumable</option>
-                <option value="usable">Usable Asset</option>
-                <option value="dead">Dead / Quarantined</option>
-              </select>
-            </div>
+          <div>
+            <label className="form-label">
+              Stock Tier
+            </label>
+            <select
+              value={newItemTier}
+              onChange={(e) => setNewItemTier(e.target.value as any)}
+              className="form-select"
+            >
+              <option value="consumable">Consumable</option>
+              <option value="usable">Usable Asset</option>
+              <option value="dead">Dead / Quarantined</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -383,26 +450,13 @@ export default function Inventory() {
               </label>
               <input
                 type="number"
-                min={1}
+                min={0}
                 value={newItemMin}
                 onChange={(e) => setNewItemMin(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="20"
                 className="form-input mono"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="form-label">
-              Supplier / Vendor Name
-            </label>
-            <input
-              type="text"
-              value={newItemSupplier}
-              onChange={(e) => setNewItemSupplier(e.target.value)}
-              placeholder="e.g. MedPlus Surgicals Corp"
-              className="form-input"
-            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
@@ -415,9 +469,17 @@ export default function Inventory() {
             </button>
             <button
               type="submit"
+              disabled={saving}
               className="btn btn-primary cursor-pointer"
             >
-              Confirm Inward Entry
+              {saving ? (
+                <>
+                  <span className="spinner spinner-sm" />
+                  Saving…
+                </>
+              ) : (
+                'Confirm Inward Entry'
+              )}
             </button>
           </div>
         </form>

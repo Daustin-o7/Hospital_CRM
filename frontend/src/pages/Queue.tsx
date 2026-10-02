@@ -1,17 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { Modal } from '../components/ui/Modal'
+import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
+import { friendlyError } from '../components/ui/Alert'
 
-interface QueuePatient {
+interface QueueAppointment {
   id: string
   tokenNumber: string
   patientName: string
   doctorName: string
-  room: string
-  status: 'waiting' | 'in_consultation' | 'completed'
+  time: string
+  status: 'expected' | 'waiting' | 'completed'
   priority: 'normal' | 'emergency'
-  arrivalTime: string
-  waitMinutes: number
 }
 
 interface PriorityLogEntry {
@@ -21,33 +21,65 @@ interface PriorityLogEntry {
   reason?: string
 }
 
-export default function Queue() {
-  const [selectedDesk, setSelectedDesk] = useState('all')
-  const [queue, setQueue] = useState<QueuePatient[]>([
-    { id: '1', tokenNumber: 'A-12', patientName: 'Meera R.', doctorName: 'Dr. Mehta', room: 'OPD Room 1', status: 'waiting', priority: 'emergency', arrivalTime: '10:05 AM', waitMinutes: 12 },
-    { id: '2', tokenNumber: 'A-13', patientName: 'Priya Singh', doctorName: 'Dr. Mehta', room: 'OPD Room 1', status: 'in_consultation', priority: 'normal', arrivalTime: '09:45 AM', waitMinutes: 18 },
-    { id: '3', tokenNumber: 'A-14', patientName: 'Ravi Kumar', doctorName: 'Dr. Sharma', room: 'OPD Room 2', status: 'waiting', priority: 'normal', arrivalTime: '10:10 AM', waitMinutes: 8 },
-    { id: '4', tokenNumber: 'A-15', patientName: 'Anil Verma', doctorName: 'Dr. Mehta', room: 'OPD Room 1', status: 'waiting', priority: 'normal', arrivalTime: '10:15 AM', waitMinutes: 3 },
-    { id: '5', tokenNumber: 'A-16', patientName: 'Deepa Patel', doctorName: 'Dr. Nair', room: 'Dental Suite', status: 'waiting', priority: 'normal', arrivalTime: '10:20 AM', waitMinutes: 2 },
-  ])
+const todayParam = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
-  const [logs, setLogs] = useState<PriorityLogEntry[]>([
-    { time: '10:15', user: 'Meera R.', change: 'Normal → Emergency', reason: 'Acute severe abdominal pain' },
-    { time: '09:30', user: 'System', change: 'Enqueued', reason: 'Initial token allocation' },
-  ])
+const mapStatus = (status: string): QueueAppointment['status'] =>
+  status === 'checked_in' ? 'waiting'
+  : status === 'completed' ? 'completed'
+  : 'expected'
+
+export default function Queue() {
+  const [selectedDoctor, setSelectedDoctor] = useState('all')
+  const [appointments, setAppointments] = useState<QueueAppointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<PriorityLogEntry[]>([])
+  const [toast, setToast] = useState<string | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<QueuePatient | null>(null)
+  const [selectedPatient, setSelectedPatient] = useState<QueueAppointment | null>(null)
   const [emergencyReason, setEmergencyReason] = useState('')
   const [reasonError, setReasonError] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3500)
   }
 
-  const openEmergencyModal = (patient: QueuePatient) => {
+  const fetchQueue = useCallback(async (quiet = false) => {
+    try {
+      if (!quiet) setLoading(true)
+      setError(null)
+      const res = await api.get(`/appointments?date=${todayParam()}`)
+      setAppointments(res.data.map((a: any) => ({
+        id: a.appointmentId,
+        tokenNumber: a.queueToken != null ? `A-${a.queueToken}` : a.time,
+        patientName: a.patientName,
+        doctorName: a.doctorName,
+        time: a.time,
+        status: mapStatus(a.status),
+        priority: a.priority === 'emergency' ? 'emergency' : 'normal',
+      })))
+    } catch (err) {
+      if (!quiet) setError(friendlyError(err))
+    } finally {
+      if (!quiet) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchQueue()
+    const timer = setInterval(() => fetchQueue(true), 30000)
+    return () => clearInterval(timer)
+  }, [fetchQueue])
+
+  const doctors = [...new Set(appointments.map(a => a.doctorName))]
+
+  const openEmergencyModal = (patient: QueueAppointment) => {
     setSelectedPatient(patient)
     setEmergencyReason('')
     setReasonError('')
@@ -55,60 +87,47 @@ export default function Queue() {
   }
 
   const submitPriorityChange = async (newPriority: 'emergency' | 'normal') => {
-    if (!selectedPatient) return
+    if (!selectedPatient || saving) return
 
     if (newPriority === 'emergency' && emergencyReason.trim().length < 10) {
       setReasonError('Please provide a specific clinical reason (minimum 10 characters).')
       return
     }
 
+    setSaving(true)
     try {
-      await api.patch(`/appointments/${selectedPatient.id}/priority`, {
+      const res = await api.patch(`/appointments/${selectedPatient.id}/priority`, {
         priority: newPriority,
-        reason: emergencyReason.trim()
+        reason: emergencyReason.trim() || null,
       })
-    } catch {
-      // Continue locally on fallback
+      if (!res.data.unchanged) {
+        setAppointments(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
+        setLogs(prev => [
+          {
+            time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            user: selectedPatient.patientName,
+            change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'}`,
+            reason: emergencyReason.trim() || 'Status updated by staff',
+          },
+          ...prev,
+        ])
+        showToast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
+      } else {
+        showToast(`Priority for ${selectedPatient.patientName} was already ${newPriority.toUpperCase()}.`)
+      }
+      setModalOpen(false)
+    } catch (err) {
+      showToast(friendlyError(err))
+    } finally {
+      setSaving(false)
     }
-
-    setQueue(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
-    
-    setLogs(prev => [
-      {
-        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-        user: selectedPatient.patientName,
-        change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'}`,
-        reason: emergencyReason.trim() || 'Status updated by staff'
-      },
-      ...prev
-    ])
-
-    showToast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
-    setModalOpen(false)
   }
 
-  const callNextPatient = (patient: QueuePatient) => {
-    setQueue(prev => prev.map(p => {
-      if (p.id === patient.id) return { ...p, status: 'in_consultation' }
-      if (p.doctorName === patient.doctorName && p.status === 'in_consultation') return { ...p, status: 'completed' }
-      return p
-    }))
-    showToast(`Calling Token ${patient.tokenNumber} (${patient.patientName}) to ${patient.room}`)
-  }
-
-  const filteredQueue = queue.filter(q => {
-    if (selectedDesk === 'all') return true
-    if (selectedDesk === 'mehta') return q.doctorName === 'Dr. Mehta'
-    if (selectedDesk === 'sharma') return q.doctorName === 'Dr. Sharma'
-    if (selectedDesk === 'nair') return q.doctorName === 'Dr. Nair'
-    return true
-  })
+  const filteredQueue = appointments.filter(q => selectedDoctor === 'all' || q.doctorName === selectedDoctor)
 
   const waitingCount = filteredQueue.filter(q => q.status === 'waiting').length
-  const inConsultCount = filteredQueue.filter(q => q.status === 'in_consultation').length
-  const avgWait = waitingCount > 0
-    ? Math.round(filteredQueue.filter(q => q.status === 'waiting').reduce((sum, q) => sum + q.waitMinutes, 0) / waitingCount)
-    : null
+  const completedCount = filteredQueue.filter(q => q.status === 'completed').length
+  const emergencyCount = filteredQueue.filter(q => q.priority === 'emergency').length
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
@@ -120,38 +139,37 @@ export default function Queue() {
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse"></span>
               Live Queue Synchronization Active
             </span>
-            <span className="text-xs text-[var(--color-text-muted)] font-mono">OPD Desk 1 &amp; 2</span>
+            <span className="text-xs text-[var(--color-text-muted)] font-mono">OPD Desks</span>
           </div>
           <h1 className="page-title font-heading mt-1 flex items-center gap-2">
             <span>Live OPD Queue &amp; Triage Desk</span>
           </h1>
           <p className="page-description">
-            Real-time patient sequencing, audio token announcements, and statutory emergency escalation.
+            Real-time patient sequencing and statutory emergency escalation (MOD-24). Auto-refreshes every 30 seconds.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="card flex items-center gap-1.5 p-1 bg-[var(--color-surface-raised)]">
-            <button
-              onClick={() => setSelectedDesk('all')}
-              className={`btn btn-sm ${selectedDesk === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-            >
-              All Desks
-            </button>
-            <button
-              onClick={() => setSelectedDesk('mehta')}
-              className={`btn btn-sm ${selectedDesk === 'mehta' ? 'btn-primary' : 'btn-ghost'}`}
-            >
-              Dr. Mehta (Room 1)
-            </button>
-            <button
-              onClick={() => setSelectedDesk('sharma')}
-              className={`btn btn-sm ${selectedDesk === 'sharma' ? 'btn-primary' : 'btn-ghost'}`}
-            >
-              Dr. Sharma (Room 2)
-            </button>
+        {doctors.length > 0 && (
+          <div className="flex items-center gap-2.5">
+            <div className="card flex items-center gap-1.5 p-1 bg-[var(--color-surface-raised)] overflow-x-auto">
+              <button
+                onClick={() => setSelectedDoctor('all')}
+                className={`btn btn-sm ${selectedDoctor === 'all' ? 'btn-primary' : 'btn-ghost'} shrink-0`}
+              >
+                All Desks
+              </button>
+              {doctors.map(d => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDoctor(d)}
+                  className={`btn btn-sm ${selectedDoctor === d ? 'btn-primary' : 'btn-ghost'} shrink-0`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {toast && (
@@ -160,6 +178,13 @@ export default function Queue() {
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
           <span>{toast}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button onClick={() => fetchQueue()} className="btn btn-ghost btn-sm ml-2">Retry</button>
         </div>
       )}
 
@@ -172,19 +197,19 @@ export default function Queue() {
               Live Queue
             </span>
           </div>
-          <div className="stat-value mt-2 font-heading font-mono">{waitingCount}</div>
-          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Average wait: {avgWait !== null ? `${avgWait} mins` : '—'}</p>
+          <div className="stat-value mt-2 font-heading font-mono">{loading ? '—' : waitingCount}</div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Checked in, awaiting consultation</p>
         </div>
 
         <div className="stat-card">
           <div className="flex items-center justify-between">
-            <span className="stat-label">Currently In Consultation</span>
+            <span className="stat-label">Completed Today</span>
             <span className="badge badge-brand">
-              Occupied
+              Seen
             </span>
           </div>
-          <div className="stat-value mt-2 font-heading font-mono">{inConsultCount}</div>
-          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Across active consultation rooms</p>
+          <div className="stat-value mt-2 font-heading font-mono">{loading ? '—' : completedCount}</div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Consultations closed today</p>
         </div>
 
         <div className="stat-card">
@@ -195,7 +220,7 @@ export default function Queue() {
             </span>
           </div>
           <div className="stat-value mt-2 font-heading font-mono text-rose-600 dark:text-rose-400">
-            {filteredQueue.filter(q => q.priority === 'emergency').length}
+            {loading ? '—' : emergencyCount}
           </div>
           <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Fast-tracked for doctor review</p>
         </div>
@@ -208,7 +233,7 @@ export default function Queue() {
           <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
             <div>
               <h2 className="text-sm font-bold text-[var(--color-text)] tracking-tight font-heading">Sequential Patient Tokens</h2>
-              <p className="text-[11px] text-[var(--color-text-muted)]">Order by triage score &amp; arrival time</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Emergency first, then by scheduled slot</p>
             </div>
             <div className="text-xs text-[var(--color-text-secondary)] font-semibold">
               Showing <span className="text-teal-600 dark:text-teal-400 font-bold">{filteredQueue.length}</span> patients
@@ -221,14 +246,34 @@ export default function Queue() {
                 <tr>
                   <th>Token</th>
                   <th>Patient</th>
-                  <th>Doctor &amp; Room</th>
-                  <th>Wait Time</th>
+                  <th>Doctor &amp; Slot</th>
                   <th>Status / Priority</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="font-medium">
-                {filteredQueue.map((patient) => (
+                {loading && (
+                  <>
+                    <SkeletonTableRow columns={5} />
+                    <SkeletonTableRow columns={5} />
+                    <SkeletonTableRow columns={5} />
+                  </>
+                )}
+
+                {!loading && !error && filteredQueue.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-0">
+                      <EmptyState
+                        title="Queue Is Empty"
+                        description={appointments.length === 0
+                          ? 'No appointments scheduled for today yet.'
+                          : 'No patients match the selected desk.'}
+                      />
+                    </td>
+                  </tr>
+                )}
+
+                {!loading && filteredQueue.map((patient) => (
                   <tr key={patient.id} className="transition-colors">
                     <td>
                       <span className="queue-token">
@@ -237,42 +282,31 @@ export default function Queue() {
                     </td>
                     <td>
                       <div className="font-bold text-[var(--color-text)]">{patient.patientName}</div>
-                      <div className="text-[11px] text-[var(--color-text-muted)]">Arrival: {patient.arrivalTime}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">Slot: {patient.time}</div>
                     </td>
                     <td>
                       <div className="font-semibold text-[var(--color-text-secondary)]">{patient.doctorName}</div>
-                      <div className="text-[10px] text-[var(--color-text-muted)]">{patient.room}</div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-[var(--color-text-secondary)] font-semibold">{patient.waitMinutes} mins</span>
                     </td>
                     <td>
                       <div className="flex flex-col gap-1">
-                        {patient.status === 'in_consultation' ? (
-                          <span className="badge badge-brand">
-                            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse"></span> Inside Room
-                          </span>
-                        ) : patient.priority === 'emergency' ? (
+                        {patient.priority === 'emergency' ? (
                           <span className="badge badge-danger animate-pulse">
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Emergency
                           </span>
-                        ) : (
-                          <span className="badge badge-neutral">
-                            In Lobby
+                        ) : null}
+                        {patient.status === 'waiting' ? (
+                          <span className="badge badge-warning">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Lobby
                           </span>
+                        ) : patient.status === 'completed' ? (
+                          <span className="badge badge-success">Completed</span>
+                        ) : (
+                          <span className="badge badge-neutral">Expected</span>
                         )}
                       </div>
                     </td>
                     <td className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {patient.status === 'waiting' && (
-                          <button
-                            onClick={() => callNextPatient(patient)}
-                            className="btn btn-primary btn-sm cursor-pointer"
-                          >
-                            <span>🔔 Call</span>
-                          </button>
-                        )}
+                      {patient.status === 'waiting' && (
                         <button
                           onClick={() => openEmergencyModal(patient)}
                           className={`btn btn-sm cursor-pointer ${
@@ -281,7 +315,7 @@ export default function Queue() {
                         >
                           {patient.priority === 'emergency' ? 'Set Normal' : 'Triage Emergency'}
                         </button>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -294,22 +328,29 @@ export default function Queue() {
         <div className="card lg:col-span-4 p-5 space-y-4">
           <div className="border-b border-[var(--color-border)] pb-3">
             <h2 className="text-sm font-bold text-[var(--color-text)] tracking-tight font-heading">Triage Audit Trail</h2>
-            <p className="text-[11px] text-[var(--color-text-muted)]">Statutory override history</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">Changes made this session — the full server-side log persists in the priority audit table</p>
           </div>
-          <div className="space-y-2.5">
-            {logs.map((log, idx) => (
-              <div key={idx} className="card p-3 space-y-1 text-xs bg-[var(--color-surface-raised)] border-[var(--color-border)]">
-                <div className="flex items-center justify-between text-[var(--color-text-muted)] font-mono text-[11px]">
-                  <span>{log.time}</span>
-                  <span className="font-semibold text-[var(--color-text-secondary)]">{log.user}</span>
+          {logs.length === 0 ? (
+            <EmptyState
+              title="No Triage Changes Yet"
+              description="Priority escalations and reverts you make in this session will appear here."
+            />
+          ) : (
+            <div className="space-y-2.5">
+              {logs.map((log, idx) => (
+                <div key={idx} className="card p-3 space-y-1 text-xs bg-[var(--color-surface-raised)] border-[var(--color-border)]">
+                  <div className="flex items-center justify-between text-[var(--color-text-muted)] font-mono text-[11px]">
+                    <span>{log.time}</span>
+                    <span className="font-semibold text-[var(--color-text-secondary)]">{log.user}</span>
+                  </div>
+                  <div className="font-bold text-[var(--color-text)]">{log.change}</div>
+                  {log.reason && (
+                    <p className="text-[11px] text-[var(--color-text-muted)] italic mt-0.5">"{log.reason}"</p>
+                  )}
                 </div>
-                <div className="font-bold text-[var(--color-text)]">{log.change}</div>
-                {log.reason && (
-                  <p className="text-[11px] text-[var(--color-text-muted)] italic mt-0.5">"{log.reason}"</p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -356,17 +397,19 @@ export default function Queue() {
                 <button
                   type="button"
                   onClick={() => submitPriorityChange('normal')}
+                  disabled={saving}
                   className="btn btn-secondary cursor-pointer"
                 >
-                  Confirm Revert
+                  {saving ? 'Saving…' : 'Confirm Revert'}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => submitPriorityChange('emergency')}
+                  disabled={saving}
                   className="btn btn-danger cursor-pointer"
                 >
-                  Escalate to Emergency
+                  {saving ? 'Saving…' : 'Escalate to Emergency'}
                 </button>
               )}
             </div>
