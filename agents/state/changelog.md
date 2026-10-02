@@ -67,8 +67,8 @@ Covers all document revisions from initial strategic drafts (v0.1) up to current
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=20-26) — Revision History (§2)
-- [`docs/samstack-ai-survey-analysis-v2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-survey-analysis-v2.md) — Survey V2 Analysis
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Revision History (§2)
+- [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md) — Survey V2 Analysis
 
 ---
 
@@ -104,6 +104,6 @@ Covers all document revisions from initial strategic drafts (v0.1) up to current
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=20-26) — Revision History (§2)
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Revision History (§2)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Phase 2 FRD
 - `memory.md` — Session working memory

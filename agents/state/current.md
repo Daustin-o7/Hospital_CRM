@@ -25,13 +25,13 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
   - ✅ **Phase 2: CSS Design System Consolidation**: Aligned outlier views to standard design tokens (`.card`, `.btn`, `.form-*`, `.data-table`, `.stat-card`, `.badge`), fixed Settings typo (`/cllinic/` -> `/clinic/`), hooked up global `Ctrl+K` patient search & notification bell in topbar, updated `.gitignore` with secrets exclusions, and sanitized unsupported compliance claims.
   - ✅ **Phase 3: Core Workflow Wiring**: Fully wired `Billing.tsx` (invoices, payments, expense ledger) and `Consultations.tsx` (clinical queues, v1 notes, immutable amendments, live drug search & e-prescriptions).
 - **Pending Works Catalog** (Deferred for explicit separate phases):
+  - ✅ Full backend wiring for Messages / Notification Rules UI — shipped (`1a12cc5`).
+  - ✅ Full backend wiring for Inventory inwarding / stock batch sync — shipped (`1a12cc5`).
+  - ✅ Backend endpoint for Reports / Tax analytics (`ReportsController`) — shipped (`20e86b7`), tests `ba973be`.
+  - ✅ Dedicated Lab Orders UI & Wishlist UI pages — shipped (`b3e45f9`).
+  - ✅ Dedicated Platform Admin Multi-Tenant Portal UI — shipped (`b3e45f9`, FR-14-01 list only).
+  - ✅ End-to-End Playwright test suite wiring (`test:e2e` script) — shipped (`ba973be`).
   - ⏳ Mobile App: React Native Android project scaffolding & Maestro testing (Dual-path preserved with PWA; held).
-  - ⏳ Full backend wiring for Messages / Notification Rules UI.
-  - ⏳ Full backend wiring for Inventory inwarding / stock batch sync.
-  - ⏳ Backend endpoint for Reports / Tax analytics (`ReportsController`).
-  - ⏳ Dedicated Lab Orders UI & Wishlist UI pages.
-  - ⏳ Dedicated Platform Admin Multi-Tenant Portal UI.
-  - ⏳ End-to-End Playwright test suite for PWA & Doctor workflows.
 
 ---
 
@@ -48,10 +48,10 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
 
 ## Important Files
 
-- [`docs/product/WORKFLOW.md`](file://docs/product/WORKFLOW.md) — **Complete Phase 1 + Phase 2 workflow** (every FR, ASCII diagrams, patient journey, endpoint map)
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD (all 9 modules)
-- [`TRD-Phase2-V1.md`](file://TRD-Phase2-V1.md) — Phase 2 TRD (Hangfire, blob storage)
-- [`PRD-Phase2-V1.md`](file://PRD-Phase2-V1.md) — Phase 2 PRD with journey stories
+- [`docs/product/WORKFLOW.md`](../../docs/product/WORKFLOW.md) — **Complete Phase 1 + Phase 2 workflow** (every FR, ASCII diagrams, patient journey, endpoint map)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Phase 2 FRD (all 9 modules)
+- [`TRD-Phase2-V1.md`](../../docs/technical/TRD-Phase2-V1.md) — Phase 2 TRD (Hangfire, blob storage)
+- [`PRD-Phase2-V1.md`](../../docs/product/PRD-Phase2-V1.md) — Phase 2 PRD with journey stories
 - `memory.md` — Session working memory
 - `backend/Hospital_CRM.Api/Controllers/ConsultTemplatesController.cs` — MOD-12
 - `backend/Hospital_CRM.Api/Controllers/MessageTemplatesController.cs` — MOD-13
@@ -109,6 +109,6 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
 
 ## Verification Source
 
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md)
-- [`TRD-Phase2-V1.md`](file://TRD-Phase2-V1.md)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md)
+- [`TRD-Phase2-V1.md`](../../docs/technical/TRD-Phase2-V1.md)
 - Server log verification of all 6 shipped modules

@@ -76,8 +76,8 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=100-115) — Contradictions Section (§9)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=680-681) — Provisional Retention Note
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Contradictions Section (§9)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Provisional Retention Note
 
 ---
 
@@ -113,6 +113,6 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=100-115) — Contradictions Section (§9)
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md#line=680-681) — Provisional Retention Note
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Contradictions Section (§9)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Provisional Retention Note
 - `memory.md` — Session working memory

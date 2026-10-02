@@ -147,9 +147,9 @@ All 22 functional requirements implemented and verified end-to-end with seed dat
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Master FRD
-- [`docs/samstack-ai-survey-analysis-v2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-survey-analysis-v2.md) — Discovery survey
-- [`agents/README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/README.md) — AI Context System
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Master FRD
+- [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md) — Discovery survey
+- [`agents/README.md`](../README.md) — AI Context System
 
 ---
 
@@ -185,6 +185,6 @@ All 22 functional requirements implemented and verified end-to-end with seed dat
 
 ## Verification Source
 
-- [`README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/README.md)
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md)
+- [`README.md`](../../README.md)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md)
 - Server log verification of all 6 Phase 2 modules shipped

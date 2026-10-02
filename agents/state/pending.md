@@ -50,7 +50,7 @@ These are not in `state/pending.md` as a feature backlog because they're real-ve
 
 ## Implementation Details
 
-Implementation MUST follow the standard 7-step sequence defined in [`.claude/skills/new-fr/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/new-fr/SKILL.md) for every item above.
+Implementation MUST follow the standard 7-step sequence defined in [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md) for every item above.
 
 For MOD-08 file uploads, also consult `TRD-Phase2-V1.md §3` for blob storage choice.
 
@@ -58,9 +58,9 @@ For MOD-08 file uploads, also consult `TRD-Phase2-V1.md §3` for blob storage ch
 
 ## Important Files
 
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Detailed Requirements
-- [`TRD-Phase2-V1.md`](file://TRD-Phase2-V1.md) — Technical Reference (Hangfire, blob storage)
-- [`.claude/skills/new-fr/SKILL.md`](file://.claude/skills/new-fr/SKILL.md) — Implementation Sequence
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Detailed Requirements
+- [`TRD-Phase2-V1.md`](../../docs/technical/TRD-Phase2-V1.md) — Technical Reference (Hangfire, blob storage)
+- [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md) — Implementation Sequence
 
 ---
 
@@ -100,5 +100,5 @@ For MOD-08 file uploads, also consult `TRD-Phase2-V1.md §3` for blob storage ch
 
 ## Verification Source
 
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md)
-- [`TRD-Phase2-V1.md`](file://TRD-Phase2-V1.md)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md)
+- [`TRD-Phase2-V1.md`](../../docs/technical/TRD-Phase2-V1.md)

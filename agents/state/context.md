@@ -53,11 +53,11 @@ Hospital_CRM/
 
 ## Important Files
 
-- [`docs/product/WORKFLOW.md`](file://docs/product/WORKFLOW.md) — **Complete Phase 1 + Phase 2 workflow** with ASCII diagrams, patient journey, endpoint map
-- [`samstack-ai-frd-phase1-FINAL.md`](file://samstack-ai-frd-phase1-FINAL.md) — Phase 1 Master FRD
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md) — Phase 2 FRD
-- [`AGENTS.md`](file://AGENTS.md) — Project Brief & Rules
-- [`samstack-implementation-reference.md`](file://samstack-implementation-reference.md) — Implementation Reference
+- [`docs/product/WORKFLOW.md`](../../docs/product/WORKFLOW.md) — **Complete Phase 1 + Phase 2 workflow** with ASCII diagrams, patient journey, endpoint map
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Phase 1 Master FRD
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Phase 2 FRD
+- [`AGENTS.md`](../../AGENTS.md) — Project Brief & Rules
+- `samstack-implementation-reference.md` — Implementation Reference
 
 ---
 
@@ -99,5 +99,5 @@ Hospital_CRM/
 
 ## Verification Source
 
-- [`README.md`](file://README.md)
-- [`FRD-Phase-2-FINAL.md`](file://FRD-Phase-2-FINAL.md)
+- [`README.md`](../../README.md)
+- [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md)
