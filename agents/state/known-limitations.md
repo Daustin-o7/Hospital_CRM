@@ -22,11 +22,11 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 
 1. **No In-Patient Department (IPD)**: OPD out-patient care only. Bed management, ward transfers, nursing charting, and admission/discharge workflows are deferred to Track 4 (MOD-20 through MOD-26).
 2. **No Regulated AI Features**: No clinical decision support, diagnostic AI, OCR, or NLU chatbots (deferred to Track 3 MOD-18/19).
-3. **No Pharmacy Dispensing & Inventory**: Drug SKU management, Schedule H/H1 registers, and distributor purchase orders are deferred to Track 2 (MOD-15/16/17).
-4. **Free-Text Prescriptions Only**: Prescriptions (FR-15) use free-text medicine names, dosages, and durations — no drug autocomplete database in V1.
+3. ~~**No Pharmacy Dispensing & Inventory**: Drug SKU management, Schedule H/H1 registers, and distributor purchase orders are deferred to Track 2 (MOD-15/16/17).~~ **PARTIALLY RESOLVED 2026-10-02** - pharmacy core shipped (POS, FEFO batches, GRN inward, compliance registers, substitutes, suppliers - commits `9277db2`/`9161326`/`bc09287`); remaining Track 2 items stay out of scope per FRD §5.2.
+4. ~~**Free-Text Prescriptions Only**: Prescriptions (FR-15) use free-text medicine names, dosages, and durations — no drug autocomplete database in V1.~~ **PARTIALLY RESOLVED** — live drug search (Typesense + `GET /api/v1/medicines/search`) is wired into consultations; dosage/duration remain free-text.
 5. ~~**Single WhatsApp Flow Only**: Notifications (FR-20/21) support a single template pair (booking confirmation + reminder) — no configurable rules engine (deferred to MOD-13).~~ **RESOLVED 2026-08-30** — MOD-13 shipped; FR-20/21 are now MOD-13 default rules.
 6. ~~**No Speciality EMR Templates**: Consultation notes (FR-14) use generic free-text fields (Chief Complaint, Observations, Diagnosis) — no specialty templates in V1 (deferred to MOD-12).~~ **RESOLVED 2026-08-30** — MOD-12 shipped; 3 built-in templates (Dental/General/Ayurveda) seeded.
-7. **Single-Tenant Instance Execution**: Shared SaaS Tier 1 execution only — no dedicated databases or multi-tenant platform administration portals in Phase 1 (MOD-14 still pending).
+7. ~~**Single-Tenant Instance Execution**: Shared SaaS Tier 1 execution only — no dedicated databases or multi-tenant platform administration portals in Phase 1 (MOD-14 still pending).~~ **RESOLVED 2026-08-30** — MOD-14 shipped (tenant list API + Platform Admin UI); dedicated DB/instance tenancy still Tier-2+.
 8. **India Region Only**: Payment (Razorpay) and tax (GST) adapters configured for India only — UAE international adapters deferred.
 
 ### Phase 2 Pending (Out of Pilot Scope, Deferrable)

@@ -51,10 +51,10 @@ Covers **Phase 1: Track 1 (CRM + Billing)** for OPD clinics in India operating u
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Main Functional Requirements Document
-- [`docs/samstack-ai-strategy-v0.5.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-strategy-v0.5.md) — Strategic vision and architecture roadmap
-- [`docs/samstack-ai-v2-sharpened-plan.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-v2-sharpened-plan.md) — True V1 scope definition and pilot scorecard
-- [`docs/samstack-ai-survey-analysis-v2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-survey-analysis-v2.md) — Discovery survey analysis (n=24)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Main Functional Requirements Document
+- [`docs/samstack-ai-strategy-v0.5.md`](../../docs/research/samstack-ai-strategy-v0.5.md) — Strategic vision and architecture roadmap
+- [`docs/samstack-ai-v2-sharpened-plan.md`](../../docs/research/samstack-ai-v2-sharpened-plan.md) — True V1 scope definition and pilot scorecard
+- [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md) — Discovery survey analysis (n=24)
 
 ---
 
@@ -96,5 +96,5 @@ Covers **Phase 1: Track 1 (CRM + Billing)** for OPD clinics in India operating u
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=39-66)
-- [`docs/samstack-ai-v2-sharpened-plan.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-v2-sharpened-plan.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`docs/samstack-ai-v2-sharpened-plan.md`](../../docs/research/samstack-ai-v2-sharpened-plan.md)

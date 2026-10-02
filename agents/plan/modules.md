@@ -72,8 +72,8 @@ Covers active Phase 1 modules (MOD-01 through MOD-07 + Cross-Cutting capabilitie
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=74-85) — Core capabilities table
-- [`docs/samstack-ai-module-registry-v1.2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-module-registry-v1.2.md) — Master Module Registry
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Core capabilities table
+- [`docs/samstack-ai-module-registry-v1.2.md`](../../docs/research/samstack-ai-module-registry-v1.2.md) — Master Module Registry
 
 ---
 
@@ -113,5 +113,5 @@ Covers active Phase 1 modules (MOD-01 through MOD-07 + Cross-Cutting capabilitie
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=74-85)
-- [`docs/samstack-ai-module-registry-v1.2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-module-registry-v1.2.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`docs/samstack-ai-module-registry-v1.2.md`](../../docs/research/samstack-ai-module-registry-v1.2.md)

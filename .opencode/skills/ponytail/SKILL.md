@@ -13,7 +13,7 @@ Reference repository: [github.com/DietrichGebert/ponytail](https://github.com/Di
 ## The Ponytail Decision Ladder
 
 1. **Rung 1: Does this need to exist?**
-   - Check `samstack-ai-frd-phase1-FINAL.md` and `AGENTS.md`. If it's not in Phase 1 scope (FR-01 through FR-22), DO NOT build it.
+   - Check `docs/product/FRD_FINAL.md` and `AGENTS.md`. If it's not in Phase 1 scope (FR-01 through FR-22), DO NOT build it.
 2. **Rung 2: Is it already in this codebase?**
    - Check existing services, utilities, and components before writing new helper functions.
 3. **Rung 3: Can the native platform or standard library handle it?**

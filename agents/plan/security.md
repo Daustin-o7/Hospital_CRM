@@ -70,8 +70,8 @@ Covers user identity (Azure Entra External ID), JWT RS256 token verification, se
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=123-198) — Auth & RBAC functional specs
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=5-10) — JWT RS256 & Audit Role specs
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Auth & RBAC functional specs
+- `samstack-implementation-reference.md` — JWT RS256 & Audit Role specs
 
 ---
 
@@ -112,5 +112,5 @@ Covers user identity (Azure Entra External ID), JWT RS256 token verification, se
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=123-198)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=5-10)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`

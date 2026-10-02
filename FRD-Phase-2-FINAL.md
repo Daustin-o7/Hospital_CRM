@@ -10,7 +10,7 @@
 | Title | SAMSTACK AI — FRD, Phase 2 |
 | Version | 1.0 |
 | Date | 27 August 2026 |
-| Continuation of | samstack-ai-frd-phase1-FINAL.md — same conventions, same numbering discipline extended, nothing in Phase 1 rewritten |
+| Continuation of | `docs/product/FRD_FINAL.md` (formerly `samstack-ai-frd-phase1-FINAL.md`) — same conventions, same numbering discipline extended, nothing in Phase 1 rewritten |
 | FR numbering | `FR-{MOD}-{seq}` (e.g., `FR-08-01`) — module-prefixed specifically to avoid collision with Phase 1's sequential FR-01–22 |
 
 ## 2. Revision History

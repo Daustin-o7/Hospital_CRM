@@ -173,8 +173,8 @@ Covers all public and internal REST endpoints specified in `samstack-ai-frd-phas
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=147-575) — API Shapes for FR-01 through FR-19
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Webhook signature verification notes
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — API Shapes for FR-01 through FR-19
+- `samstack-implementation-reference.md` — Webhook signature verification notes
 
 ---
 
@@ -215,5 +215,5 @@ Covers all public and internal REST endpoints specified in `samstack-ai-frd-phas
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=147-575)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`

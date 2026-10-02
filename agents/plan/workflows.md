@@ -94,8 +94,8 @@ Covers authentication, staff onboarding, clinic setup, patient registration, DPD
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=123-640) — Detailed Functional Requirements (FR-01 to FR-22)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Integration patterns reference
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Detailed Functional Requirements (FR-01 to FR-22)
+- `samstack-implementation-reference.md` — Integration patterns reference
 
 ---
 
@@ -138,5 +138,5 @@ Covers authentication, staff onboarding, clinic setup, patient registration, DPD
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=123-640)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`

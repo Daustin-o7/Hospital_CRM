@@ -149,7 +149,7 @@ All 22 functional requirements implemented and verified end-to-end with seed dat
 
 - [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Master FRD
 - [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md) — Discovery survey
-- [`agents/README.md`](../README.md) — AI Context System
+- [`agents/README.md`](../../README.md) — AI Context System
 
 ---
 

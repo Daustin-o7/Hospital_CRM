@@ -18,7 +18,7 @@ Applies to all AI assistants (ChatGPT, Codex, Claude Code, Antigravity, Cline, R
 
 ## Verified Information
 
-- **Ground Rule 1**: The FRD (`samstack-ai-frd-phase1-FINAL.md`) is authoritative for Phase 1 (FR-01 through FR-22). Build what is in it; do not build what isn't.
+- **Ground Rule 1**: The FRD (`docs/product/FRD_FINAL.md`) is authoritative for Phase 1 (FR-01 through FR-22). Build what is in it; do not build what isn't.
 - **Ground Rule 2**: Apply the "Ponytail" decision ladder before writing code: *Does this need to exist? -> Already in codebase? -> Native platform / stdlib? -> Installed dependency? -> One line? -> Only then write something new.*
 - **Ground Rule 3**: `tenant_id` must be present on every tenant-scoped DB table, but multi-tenancy logic remains dormant during single-tenant Phase 1.
 - **Ground Rule 4**: Audit logs are append-only, enforced at the database role level (`REVOKE UPDATE, DELETE`).
@@ -49,10 +49,10 @@ Applies to all AI assistants (ChatGPT, Codex, Claude Code, Antigravity, Cline, R
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Authoritative functional specification
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md) — Ground rules & scope boundaries
-- [`CLAUDE.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/CLAUDE.md) — Ponytail review requirements
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Ponytail decision ladder
+- [`docs/product/FRD_FINAL.md`](../docs/product/FRD_FINAL.md) — Authoritative functional specification
+- [`AGENTS.md`](../AGENTS.md) — Ground rules & scope boundaries
+- [`CLAUDE.md`](../CLAUDE.md) — Ponytail review requirements
+- [`TOOLING-SETUP.md`](../docs/technical/TOOLING-SETUP.md) — Ponytail decision ladder
 
 ---
 
@@ -92,5 +92,5 @@ Applies to all AI assistants (ChatGPT, Codex, Claude Code, Antigravity, Cline, R
 
 ## Verification Source
 
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=1-200)
+- [`AGENTS.md`](../AGENTS.md)
+- [`docs/product/FRD_FINAL.md`](../docs/product/FRD_FINAL.md)

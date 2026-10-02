@@ -68,11 +68,11 @@ Applies to all code contributions, architecture designs, component structures, p
 
 ## Important Files
 
-- [`.agents/skills/ponytail/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.agents/skills/ponytail/SKILL.md) — Antigravity skill
-- [`.claude/skills/ponytail/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/ponytail/SKILL.md) — Claude Code skill
-- [`.opencode/skills/ponytail/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.opencode/skills/ponytail/SKILL.md) — OpenCode skill
-- [`opencode.json`](file:///e:/Company/Hospital%20Management/Hospital_CRM/opencode.json) — OpenCode plugin config
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Tooling setup instructions
+- [`.agents/skills/ponytail/SKILL.md`](../../.agents/skills/ponytail/SKILL.md) — Antigravity skill
+- [`.claude/skills/ponytail/SKILL.md`](../../.claude/skills/ponytail/SKILL.md) — Claude Code skill
+- [`.opencode/skills/ponytail/SKILL.md`](../../.opencode/skills/ponytail/SKILL.md) — OpenCode skill
+- [`opencode.json`](../../opencode.json) — OpenCode plugin config
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md) — Tooling setup instructions
 
 ---
 
@@ -111,4 +111,4 @@ Applies to all code contributions, architecture designs, component structures, p
 ## Verification Source
 
 - [`https://github.com/dietrichgebert/ponytail`](https://github.com/dietrichgebert/ponytail)
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md)
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md)

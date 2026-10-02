@@ -49,8 +49,8 @@ Applies to all database queries, API endpoint execution times, React component r
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=668-672) — NFR Performance Table
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Scale and polling patterns
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — NFR Performance Table
+- `samstack-implementation-reference.md` — Scale and polling patterns
 
 ---
 
@@ -89,4 +89,4 @@ Applies to all database queries, API endpoint execution times, React component r
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=668-672)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)

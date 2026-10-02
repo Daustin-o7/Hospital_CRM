@@ -73,8 +73,8 @@ Avoid generic browser colors (plain red, plain blue). Use curated, harmonious he
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=60-66) — Onboarding design principle
-- [`docs/samstack-ai-survey-analysis-v2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-survey-analysis-v2.md) — Survey evidence on training fear
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Onboarding design principle
+- [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md) — Survey evidence on training fear
 
 ---
 
@@ -112,5 +112,5 @@ Avoid generic browser colors (plain red, plain blue). Use curated, harmonious he
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=60-66)
-- [`docs/samstack-ai-survey-analysis-v2.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-survey-analysis-v2.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`docs/samstack-ai-survey-analysis-v2.md`](../../docs/research/samstack-ai-survey-analysis-v2.md)

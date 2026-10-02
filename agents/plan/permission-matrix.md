@@ -59,8 +59,8 @@ Covers all 22 functional requirements (FR-01 through FR-22) and Phase 1 roles: *
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=86-98) — User Roles & Access Responsibilities
-- [`docs/samstack-ai-auth-and-ia-v0.1.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-auth-and-ia-v0.1.md) — Auth and IA design baseline
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — User Roles & Access Responsibilities
+- [`docs/samstack-ai-auth-and-ia-v0.1.md`](../../docs/research/samstack-ai-auth-and-ia-v0.1.md) — Auth and IA design baseline
 
 ---
 
@@ -98,5 +98,5 @@ Covers all 22 functional requirements (FR-01 through FR-22) and Phase 1 roles: *
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=86-98)
-- [`docs/samstack-ai-auth-and-ia-v0.1.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/samstack-ai-auth-and-ia-v0.1.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`docs/samstack-ai-auth-and-ia-v0.1.md`](../../docs/research/samstack-ai-auth-and-ia-v0.1.md)

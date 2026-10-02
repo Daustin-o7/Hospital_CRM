@@ -66,9 +66,9 @@ Covers all 22 functional requirements (FR-01 to FR-22), clinical record policies
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Authoritative spec
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md) — Project constraints
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Implementation rules
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Authoritative spec
+- [`AGENTS.md`](../../AGENTS.md) — Project constraints
+- `samstack-implementation-reference.md` — Implementation rules
 
 ---
 
@@ -107,5 +107,5 @@ Covers all 22 functional requirements (FR-01 to FR-22), clinical record policies
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`AGENTS.md`](../../AGENTS.md)
