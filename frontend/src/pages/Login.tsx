@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
@@ -274,7 +275,12 @@ export default function Login() {
 
               {/* Password */}
               <div style={{ marginBottom: 24 }}>
-                <label htmlFor="login-password" className="form-label">Password</label>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <label htmlFor="login-password" className="form-label">Password</label>
+                  <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--color-accent)', fontWeight: 600 }}>
+                    Forgot password?
+                  </Link>
+                </div>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="login-password"

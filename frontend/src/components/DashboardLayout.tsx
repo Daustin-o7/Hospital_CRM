@@ -38,6 +38,12 @@ const NAV_ITEMS = [
     icon: FileTextIcon,
   },
   {
+    name: 'Lab Orders',
+    href: '/dashboard/lab-orders',
+    roles: ['doctor', 'clinicadmin'],
+    icon: FlaskIcon,
+  },
+  {
     name: 'Billing',
     href: '/dashboard/billing',
     roles: ['clinicadmin', 'doctor', 'receptionist'],
@@ -68,6 +74,12 @@ const NAV_ITEMS = [
     icon: BoxIcon,
   },
   {
+    name: 'Wishlist',
+    href: '/dashboard/wishlist',
+    roles: ['clinicadmin', 'doctor'],
+    icon: StarIcon,
+  },
+  {
     name: 'Reports',
     href: '/dashboard/reports',
     roles: ['clinicadmin', 'doctor', 'pharmacist'],
@@ -90,6 +102,12 @@ const NAV_ITEMS = [
     href: '/dashboard/settings',
     roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
     icon: SettingsIcon,
+  },
+  {
+    name: 'Platform Admin',
+    href: '/dashboard/platform-admin',
+    roles: ['platformadmin'],
+    icon: GlobeIcon,
   },
 ]
 
@@ -566,6 +584,30 @@ function SettingsIcon(props: { className?: string }) {
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function FlaskIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v6.5L4.7 16.6A2.5 2.5 0 006.9 20.5h10.2a2.5 2.5 0 002.2-3.9L15 9.5V3M8 3h8M7.8 14h8.4" />
+    </svg>
+  )
+}
+
+function StarIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.48 3.5a.56.56 0 011.04 0l2.13 5.11a.56.56 0 00.47.35l5.52.44c.5.04.7.66.32.99l-4.2 3.6a.56.56 0 00-.18.56l1.28 5.38a.56.56 0 01-.84.61l-4.73-2.88a.56.56 0 00-.58 0l-4.73 2.88a.56.56 0 01-.84-.61l1.29-5.38a.56.56 0 00-.18-.56l-4.2-3.6a.56.56 0 01.32-.99l5.52-.44a.56.56 0 00.47-.35l2.13-5.11z" />
+    </svg>
+  )
+}
+
+function GlobeIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 000 18M12 3a15 15 0 010 18" />
     </svg>
   )
 }

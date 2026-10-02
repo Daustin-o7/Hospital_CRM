@@ -3,6 +3,7 @@ using System;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hospital_CRM.Infrastructure.Migrations
 {
     [DbContext(typeof(HospitalCrmDbContext))]
-    partial class HospitalCrmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002071839_CheckPendingDrift")]
+    partial class CheckPendingDrift
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1880,6 +1883,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("CreatorId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -1888,17 +1894,14 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedBy");
-
-                    b.HasIndex("TenantId", "Status");
+                    b.HasIndex("CreatorId");
 
                     b.ToTable("WishlistItems");
                 });
@@ -2401,7 +2404,7 @@ namespace Hospital_CRM.Infrastructure.Migrations
                 {
                     b.HasOne("Hospital_CRM.Domain.Entities.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatedBy")
+                        .HasForeignKey("CreatorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
