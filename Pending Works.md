@@ -34,13 +34,10 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 
 ## 4. Documentation follow-ups
 
-- [ ] **`AGENTS.md` stale paths flagged, not edited** (needs owner review):
-  - `samstack-ai-frd-phase1-FINAL.md` → file does not exist; Phase 1 FRD lives at `docs/product/FRD_FINAL.md`.
-  - `TOOLING-SETUP.md` (root) → actual: `docs/technical/TOOLING-SETUP.md`.
-  - `samstack-implementation-reference.md` → never created (AGENTS.md itself notes this).
-  - `docs/product/FRD_FINAL.md` reference is correct; `docs/product/WORKFLOW.md` correct.
-- [ ] `agents/state/known-limitations.md` #3 says "No Pharmacy Dispensing & Inventory" — pharmacy (POS/FEFO/batches/compliance) shipped in commits `9277db2`/`9161326`/`bc09287`. Statement is stale; needs a status edit when that file is next touched.
-- [ ] `agents/state/context.md` header still says "6 of 11 modules shipped / 5 remaining" — stale (9 of 9 shipped); links already fixed.
+- [x] **`AGENTS.md` stale paths** — fixed 2026-10-02: Phase 1 FRD → `docs/product/FRD_FINAL.md`, `TOOLING-SETUP.md` → `docs/technical/TOOLING-SETUP.md`, `samstack-implementation-reference.md` marked never-created with in-code pattern pointers; "Pharmacy out of scope" claim corrected (core shipped).
+- [x] `agents/state/known-limitations.md` — #3 pharmacy, #4 free-text Rx, #7 MOD-14 pending: all corrected to reflect shipped reality.
+- [x] `agents/state/context.md` — "6 of 11 modules" header + wrong artifact-map paths fixed; last-verified 2026-10-02.
+- [x] `CLAUDE.md` / `README.md` / `FRD-Phase-2-FINAL.md` — same stale paths corrected.
 
 ## 5. Out of scope (do not build without FRD change)
 

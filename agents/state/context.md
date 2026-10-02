@@ -12,15 +12,15 @@ To provide a high-level snapshot of the project's macro state, phase milestone, 
 
 ## Scope
 
-Covers the overall SAMSTACK AI codebase state as of 26 August 2026.
+Covers the overall SAMSTACK AI codebase state as of 2 October 2026.
 
 ---
 
 ## Verified Information
 
 - **Project Name**: SAMSTACK AI (Doctor/Clinic CRM) - `Hospital_CRM`
-- **Active Phase**: Phase 2 Track 1 Fast-Follow (6 of 11 modules shipped).
-- **Repository Readiness**: Phase 1 (FR-01–22) complete with seed data. Phase 2 partially shipped (MOD-23, 24, 25, 12, 13 + Phase 1 FR-20/21 migration to MOD-13). 5 modules remaining (MOD-08, 09, 10, 11, 14).
+- **Active Phase**: Post-Phase-2 hardening (issues-fixing sweep complete — see [`progress.md`](../../progress.md)).
+- **Repository Readiness**: Phase 1 (FR-01–22) complete. Phase 2 **9 of 9 modules shipped** (MOD-08, 09, 10, 11, 12, 13, 14, 23, 24, 25). Pharmacy core (POS/FEFO/inward/compliance) shipped. No modules remaining in Phase 1+2 scope; Voice Agent (MOD-27) is Phase 3.
 - **Target Pilot Milestone**: Land 3–5 paying pilot clinics on Phase 1 within ~10 weeks of build start.
 
 ---
@@ -33,20 +33,20 @@ Covers the overall SAMSTACK AI codebase state as of 26 August 2026.
 Hospital_CRM/
 ├── docs/product/
 │   ├── FRD_FINAL.md                 # Phase 1 master FRD (FR-01 to FR-22)
-│   ├── FRD-Phase-2-FINAL.md         # Phase 2 FRD (9 modules)
+│   ├── PRD-Phase2-V1.md             # Phase 2 PRD with journey stories
 │   ├── WORKFLOW.md                  # ★ Complete Phase 1+2 workflow (every FR, diagrams, endpoint map)
 │   └── ...
-├── FRD-Phase-2-FINAL.md              # Phase 2 FRD (all 9 modules)
-├── TRD-Phase2-V1.md                  # Phase 2 TRD (Hangfire, blob storage)
-├── PRD-Phase2-V1.md                  # Phase 2 PRD with journey stories
-├── AGENTS.md                         # Agent Ground Rules & Stack Constraints
-├── CLAUDE.md                         # Host Notes & Ponytail Review Setup
-├── TOOLING-SETUP.md                  # Tooling Setup & Decision Ladder
-├── samstack-implementation-reference.md  # Razorpay / WhatsApp / JWT / Sync Reference
-├── memory.md                         # Session working memory
-├── agents/                           # Single Source of Truth AI Context System
-├── backend/                          # .NET 10 implementation (Phase 1 + Phase 2)
-└── frontend/                         # React 19 PWA
+├── docs/technical/
+│   ├── TRD-Phase2-V1.md             # Phase 2 TRD (Hangfire, blob storage)
+│   └── TOOLING-SETUP.md             # Tooling Setup & Decision Ladder
+├── FRD-Phase-2-FINAL.md             # Phase 2 FRD (9 modules)
+├── AGENTS.md                        # Agent Ground Rules & Stack Constraints
+├── CLAUDE.md                        # Host Notes & Ponytail Review Setup
+├── Memory.md                        # Session working memory
+├── progress.md / Pending Works.md / Project Report.md   # Sweep log, backlog, report
+├── agents/                          # Single Source of Truth AI Context System
+├── backend/                         # .NET 10 implementation (Phase 1 + Phase 2)
+└── frontend/                        # React 19 PWA
 ```
 
 ---
@@ -54,10 +54,10 @@ Hospital_CRM/
 ## Important Files
 
 - [`docs/product/WORKFLOW.md`](../../docs/product/WORKFLOW.md) — **Complete Phase 1 + Phase 2 workflow** with ASCII diagrams, patient journey, endpoint map
-- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Phase 1 Master FRD
+- [`docs/product/FRD_FINAL.md`](../../docs/product/FRD_FINAL.md) — Phase 1 Master FRD (formerly `samstack-ai-frd-phase1-FINAL.md`)
 - [`FRD-Phase-2-FINAL.md`](../../FRD-Phase-2-FINAL.md) — Phase 2 FRD
 - [`AGENTS.md`](../../AGENTS.md) — Project Brief & Rules
-- `samstack-implementation-reference.md` — Implementation Reference
+- `samstack-implementation-reference.md` — never created; Razorpay/JWT patterns live in `InvoicesController.cs` / `PemFileKeyService.cs`
 
 ---
 
@@ -93,7 +93,7 @@ Hospital_CRM/
 
 ## Last Verified Date
 
-2026-08-30
+2026-10-02
 
 ---
 

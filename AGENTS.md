@@ -4,7 +4,7 @@
 Hospital_CRM is a doctor/clinic CRM by Samstack. **Phase 1 (FR-01–22) and Phase 2 (9 modules: MOD-08/09/10/11/12/13/14/23/24/25) are SHIPPED.** Voice Agent (MOD-27) is formally Phase 3 per FRD-Phase2 §9.
 
 **Source of truth:**
-- Phase 1: `samstack-ai-frd-phase1-FINAL.md` (FR-01 to FR-22)
+- Phase 1: `docs/product/FRD_FINAL.md` (FR-01 to FR-22)
 - Phase 2: `FRD-Phase-2-FINAL.md` (9 modules)
 - **Complete end-to-end workflow**: `docs/product/WORKFLOW.md` (every FR, ASCII diagrams, patient journey, endpoint map)
 
@@ -20,7 +20,7 @@ Build what's in them; don't build what isn't. If a task seems to need something 
 
 ## Ground Rules
 1. **FRD is authoritative.** Every FR-XX has acceptance criteria — implement to those exactly, not more, not less.
-2. **Ladder before code** (ponytail discipline — see `TOOLING-SETUP.md`): does this need to exist → already in codebase → stdlib → native platform feature → installed dependency → one line → only then write new code. Never skip validation, error handling, security, or accessibility.
+2. **Ladder before code** (ponytail discipline — see `docs/technical/TOOLING-SETUP.md`): does this need to exist → already in codebase → stdlib → native platform feature → installed dependency → one line → only then write new code. Never skip validation, error handling, security, or accessibility.
 3. **`tenant_id` is present but dormant.** Every table that will eventually be tenant-scoped gets the column now (per FR DB schema notes), even though Phase 1 runs single-tenant. Don't build multi-tenant logic — just don't create migration debt.
 4. **Audit logs are append-only.** Enforce at DB role level (`REVOKE UPDATE, DELETE`), not only in app code — see FR-08.
 5. **Offline-tolerance (FR-22) applies only to registration and billing**, not the whole app. Client-side idempotency keys, not a general offline cache of patient data.
@@ -30,14 +30,14 @@ Build what's in them; don't build what isn't. If a task seems to need something 
 ## Reference Material
 - `FRD-Phase-2-FINAL.md` — Phase 2 FRD (9 modules, all shipped)
 - **`docs/product/WORKFLOW.md`** — complete Phase 1+2 workflow with ASCII diagrams and endpoint map
-- `samstack-ai-frd-phase1-FINAL.md` — Phase 1 master spec (FR-01–22)
-- `samstack-implementation-reference.md` — Razorpay webhook verification, WhatsApp channel abstraction, JWT/RS256 setup, offline-sync pattern. Read before FR-18, FR-20/21, FR-01, FR-22.
+- `docs/product/FRD_FINAL.md` — Phase 1 master spec (FR-01–22)
+- ~~`samstack-implementation-reference.md`~~ — never created; Phase 1 shipped without it. Razorpay HMAC pattern: `InvoicesController.cs`; JWT RS256: `IPersistentKeyService`/`PemFileKeyService`.
 - `.opencode/skills/new-fr/SKILL.md` — repeatable build sequence for every FR-XX (migration → endpoint → role check → audit hook → UI → test)
-- `TOOLING-SETUP.md` — ponytail install; `/ponytail-review` before marking any FR done
+- `docs/technical/TOOLING-SETUP.md` — ponytail install; `/ponytail-review` before marking any FR done
 - **`.agents/skills/frontend-design/SKILL.md`** — ⚡ MUST READ before editing any `.tsx`, `.css`, or UI file. Synthesises taste-skill + Vercel guidelines + design-craft rules. Covers colour tokens, typography scale, interaction quality, anti-patterns checklist, and page-specific patterns for Hospital CRM.
 
 ## What NOT to Build Yet
-Pharmacy (Track 2), AI features (Track 3), IPD (Track 4), UAE adapter, Dedicated DB/Instance tenancy — all explicitly out of scope per FRD §5.2. Voice Agent (MOD-27) is Phase 3.
+Pharmacy core (POS, FEFO batches, inward, compliance — Track 2 partial) is **shipped**. Remaining Track 2, AI features (Track 3), IPD (Track 4), UAE adapter, Dedicated DB/Instance tenancy — out of scope per FRD §5.2. Voice Agent (MOD-27) is Phase 3.
 
 ---
 
@@ -162,11 +162,11 @@ docker compose build
 
 ## Common Gotchas
 - **Azure Entra External ID** — configure redirect URIs, token validation parameters, and role claims mapping in portal *before* coding FR-01
-- **Razorpay webhooks** — verify signature (`X-Razorpay-Signature` header) using `samstack-implementation-reference.md` pattern
+- **Razorpay webhooks** — verify signature (`X-Razorpay-Signature` header) with constant-time HMAC as implemented in `InvoicesController.cs` (BUG-032)
 - **WhatsApp** — build against channel interface from day 1 (SMS/email fallback later = config change)
 - **Offline sync** — idempotency keys on registration/billing mutations; conflict resolution = server wins on clinical data, last-write-wins on demographic
 - **Ponytail** — default mode `full`. `/ponytail-review` flags over-building; don't dismiss without reading why
-- **No `samstack-implementation-reference.md` exists yet** — create it when first needed (FR-01, FR-18, FR-20/21, FR-22) per the pattern in the skill
+- **No `samstack-implementation-reference.md` exists and none is needed** — Phase 1 shipped without it; use the in-repo patterns named above instead
 
 ---
 

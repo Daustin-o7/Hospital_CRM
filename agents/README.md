@@ -12,7 +12,7 @@ The purpose of this AI Context System is to provide complete architectural, doma
 
 ## Scope
 
-This directory covers **Phase 1 (Track 1: CRM + Billing, OPD, Shared SaaS Tier, India Region)** as specified in `samstack-ai-frd-phase1-FINAL.md`. It documents all 22 functional requirements (FR-01 through FR-22), module boundaries (MOD-01 through MOD-07 plus cross-cutting offline-sync), role-based permissions, database schemas, integration patterns, coding standards, and execution state.
+This directory covers **Phase 1 (Track 1: CRM + Billing, OPD, Shared SaaS Tier, India Region)** as specified in `docs/product/FRD_FINAL.md`. It documents all 22 functional requirements (FR-01 through FR-22), module boundaries (MOD-01 through MOD-07 plus cross-cutting offline-sync), role-based permissions, database schemas, integration patterns, coding standards, and execution state.
 
 ---
 
@@ -21,7 +21,7 @@ This directory covers **Phase 1 (Track 1: CRM + Billing, OPD, Shared SaaS Tier, 
 - **Project Name**: SAMSTACK AI (Doctor/Clinic CRM)
 - **Primary Domain**: OPD Clinic Management & Billing (India Region)
 - **Target Tech Stack**: .NET 10 (ASP.NET Core backend), React 19 (responsive PWA frontend), PostgreSQL (database), Azure Entra External ID (Identity), Razorpay (Payments), WhatsApp Business API (Notifications).
-- **Core Specification**: `samstack-ai-frd-phase1-FINAL.md` (Version 1.1, 25 Aug 2026).
+- **Core Specification**: `docs/product/FRD_FINAL.md` (Version 1.1, 25 Aug 2026).
 - **Single Source of Truth**: Every statement in this context system is directly traceable to the repository's specifications and reference documents.
 
 ---
@@ -74,13 +74,13 @@ agents/
 
 ### Reading Order for AI Assistants
 
-1. Read [`AI_RULES.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/AI_RULES.md) FIRST to establish operating boundaries.
-2. Read [`state/current.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/state/current.md) and [`state/context.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/state/context.md) to understand current progress.
-3. Consult [`plan/project.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/plan/project.md) and [`plan/architecture.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/plan/architecture.md) for macro design goals.
+1. Read [`AI_RULES.md`](AI_RULES.md) FIRST to establish operating boundaries.
+2. Read [`state/current.md`](state/current.md) and [`state/context.md`](state/context.md) to understand current progress.
+3. Consult [`plan/project.md`](plan/project.md) and [`plan/architecture.md`](plan/architecture.md) for macro design goals.
 4. When implementing a specific requirement (FR-XX), read:
-   - The corresponding section in [`plan/api.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/plan/api.md)
-   - The relevant schema in [`plan/database.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/plan/database.md)
-   - The role permissions in [`plan/permission-matrix.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/plan/permission-matrix.md)
+   - The corresponding section in [`plan/api.md`](plan/api.md)
+   - The relevant schema in [`plan/database.md`](plan/database.md)
+   - The role permissions in [`plan/permission-matrix.md`](plan/permission-matrix.md)
    - The engineering skills in `agents/skills/`
 
 ### Maintenance Rules for Humans & AI
@@ -93,11 +93,11 @@ agents/
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Single Source of Truth specification
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md) — Core agent brief and ground rules
-- [`CLAUDE.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/CLAUDE.md) — Host instructions and ponytail review integration
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Integration patterns reference
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Tooling setup & ponytail discipline
+- [`docs/product/FRD_FINAL.md`](../docs/product/FRD_FINAL.md) — Single Source of Truth specification
+- [`AGENTS.md`](../AGENTS.md) — Core agent brief and ground rules
+- [`CLAUDE.md`](../CLAUDE.md) — Host instructions and ponytail review integration
+- `samstack-implementation-reference.md` — Integration patterns reference
+- [`TOOLING-SETUP.md`](../docs/technical/TOOLING-SETUP.md) — Tooling setup & ponytail discipline
 
 ---
 
@@ -139,6 +139,6 @@ agents/
 
 ## Verification Source
 
-- [`README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/README.md)
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
+- [`README.md`](../README.md)
+- [`AGENTS.md`](../AGENTS.md)
+- [`docs/product/FRD_FINAL.md`](../docs/product/FRD_FINAL.md)

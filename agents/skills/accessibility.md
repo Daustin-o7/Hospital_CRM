@@ -66,7 +66,7 @@ button, input, select {
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=682) — WCAG 2.1 AA NFR
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — WCAG 2.1 AA NFR
 
 ---
 
@@ -104,4 +104,4 @@ button, input, select {
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=682)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)

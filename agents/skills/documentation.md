@@ -43,7 +43,7 @@ Every single `.md` file created or modified in `agents/` MUST include these exac
 
 ### 2. Relative & Absolute File Link Format
 - Use markdown links with `file://` scheme referencing exact workspace paths.
-- Example: `[`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)`
+- Example: `[`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)`
 - Include line anchors when referencing specific sections: `#line=123-145`.
 
 ### 3. State Tracking Rules
@@ -57,8 +57,8 @@ Every single `.md` file created or modified in `agents/` MUST include these exac
 
 ## Important Files
 
-- [`agents/README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/README.md) — System index
-- [`agents/AI_RULES.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/AI_RULES.md) — Operating rules
+- [`agents/README.md`](../../README.md) — System index
+- [`agents/AI_RULES.md`](../AI_RULES.md) — Operating rules
 
 ---
 
@@ -96,5 +96,5 @@ Every single `.md` file created or modified in `agents/` MUST include these exac
 
 ## Verification Source
 
-- [`agents/README.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/README.md)
-- [`agents/AI_RULES.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/agents/AI_RULES.md)
+- [`agents/README.md`](../../README.md)
+- [`agents/AI_RULES.md`](../AI_RULES.md)

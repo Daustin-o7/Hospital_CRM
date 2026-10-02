@@ -55,8 +55,8 @@ Term definitions in this glossary dictate variable naming, domain model class na
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=700-717) — Document Glossary
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Technical terms reference
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Document Glossary
+- `samstack-implementation-reference.md` — Technical terms reference
 
 ---
 
@@ -92,4 +92,4 @@ Term definitions in this glossary dictate variable naming, domain model class na
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=700-717)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)

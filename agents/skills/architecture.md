@@ -69,9 +69,9 @@ public interface INotificationChannel
 
 ## Important Files
 
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md#line=16-17) — Ponytail discipline ground rule
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Tooling and ponytail review setup
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=18-20) — Channel abstraction pattern
+- [`AGENTS.md`](../../AGENTS.md) — Ponytail discipline ground rule
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md) — Tooling and ponytail review setup
+- `samstack-implementation-reference.md` — Channel abstraction pattern
 
 ---
 
@@ -109,5 +109,5 @@ public interface INotificationChannel
 
 ## Verification Source
 
-- [`AGENTS.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/AGENTS.md)
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md)
+- [`AGENTS.md`](../../AGENTS.md)
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md)

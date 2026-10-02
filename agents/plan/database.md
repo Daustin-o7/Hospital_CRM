@@ -240,8 +240,8 @@ CREATE TABLE notification_log (
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=160-636) — Database Schema Notes for FR-01 through FR-22
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=30-32) — DB Role Append-Only enforcement rules
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Database Schema Notes for FR-01 through FR-22
+- `samstack-implementation-reference.md` — DB Role Append-Only enforcement rules
 
 ---
 
@@ -281,5 +281,5 @@ CREATE TABLE notification_log (
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=160-636)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`

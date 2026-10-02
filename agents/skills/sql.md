@@ -57,8 +57,8 @@ REVOKE UPDATE, DELETE ON TABLE patient_consent FROM samstack_app_user;
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=160-636) — DB Schema Notes
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=30-32) — Audit Trail & Role Enforcement
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — DB Schema Notes
+- `samstack-implementation-reference.md` — Audit Trail & Role Enforcement
 
 ---
 
@@ -97,5 +97,5 @@ REVOKE UPDATE, DELETE ON TABLE patient_consent FROM samstack_app_user;
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`

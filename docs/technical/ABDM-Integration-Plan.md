@@ -244,7 +244,7 @@ ABDM integration is not a siloed micro-service; it threads directly across every
 
 ## 4. Mobile & Native Hardware Bridges (Capacitor Integration)
 
-Connecting directly to the **[`Mobile-Application-Plan.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/docs/technical/Mobile-Application-Plan.md)** specification, SAMSTACK provides native Android and tablet hardware bridges for ABDM workflows:
+Connecting directly to the **[`Mobile-Application-Plan.md`](Mobile-Application-Plan.md)** specification, SAMSTACK provides native Android and tablet hardware bridges for ABDM workflows:
 
 ### 4.1 UIDAI RD Service Android Intent Bridge (Mantra/Morpho Biometrics)
 In rural or Tier 3 clinics, patients frequently lack mobile OTP access due to network issues or outdated mobile numbers linked to Aadhaar. The SAMSTACK Android App invokes native UIDAI Registered Device (RD) Service APKs via Android Intents (`in.gov.uidai.rdservice.fp.CAPTURE`):

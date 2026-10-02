@@ -48,8 +48,8 @@ If a database modification fails with permission errors:
 
 ## Important Files
 
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Webhook & Offline reference
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=537-561) — FR-18 Payment Webhooks
+- `samstack-implementation-reference.md` — Webhook & Offline reference
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — FR-18 Payment Webhooks
 
 ---
 
@@ -88,5 +88,5 @@ If a database modification fails with permission errors:
 
 ## Verification Source
 
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
+- `samstack-implementation-reference.md`
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)

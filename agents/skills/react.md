@@ -71,8 +71,8 @@ export async function enqueueOfflineAction(actionType, payload) {
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=621-640) — FR-22 Offline Sync specs
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md#line=24-28) — IndexedDB offline sync reference
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — FR-22 Offline Sync specs
+- `samstack-implementation-reference.md` — IndexedDB offline sync reference
 
 ---
 
@@ -112,5 +112,5 @@ export async function enqueueOfflineAction(actionType, payload) {
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=621-640)
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- `samstack-implementation-reference.md`
