@@ -3,6 +3,7 @@ using System.Text;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
@@ -27,8 +28,10 @@ public class PrecheckController : ControllerBase
 
     /// <summary>FR-23-02 — Patient submits pre-check form (unauthenticated, tokenized with DOB verification).</summary>
     [HttpPost("{token}")]
+    [EnableRateLimiting("precheck")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Submit(string token, [FromBody] PrecheckSubmissionRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(token))

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useTheme, type ThemeMode } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import { CLINICAL_SPECIALTIES } from './Appointments'
+import { SkeletonCard } from '../components/ui/Skeleton'
 
 interface WorkingHour {
   day: string
@@ -170,17 +172,10 @@ export default function Settings() {
 
   if (!profile) {
     return (
-      <div className="animate-fadein">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Settings</h1>
-            <p className="page-description">Clinic profile, operating hours, holidays, and configuration.</p>
-          </div>
-        </div>
-        <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 14 }}>
-          <span className="spinner spinner-lg" style={{ margin: '0 auto 16px' }} />
-          <div>Loading clinic settings…</div>
-        </div>
+      <div className="animate-fadein space-y-6 pb-12">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     )
   }
@@ -208,6 +203,9 @@ export default function Settings() {
           <span>{toast.msg}</span>
         </div>
       )}
+
+      {/* ── Doctor Specialization & Clinical Practice Preferences ── */}
+      <DoctorSpecialtySettingsEditor />
 
       {/* ── Appearance & Dark Mode Settings ── */}
       <AppearanceSettingsEditor />
@@ -882,6 +880,85 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function DoctorSpecialtySettingsEditor() {
+  const [specialty, setSpecialty] = useState<string>(() => {
+    return localStorage.getItem('hospital_crm_doctor_specialty') || 'general'
+  })
+  const [savedNotice, setSavedNotice] = useState(false)
+
+  const handleSelect = (id: string) => {
+    setSpecialty(id)
+    localStorage.setItem('hospital_crm_doctor_specialty', id)
+    setSavedNotice(true)
+    setTimeout(() => setSavedNotice(false), 2500)
+  }
+
+  return (
+    <div className="card p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[var(--color-border)] gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-[var(--color-text)] font-heading">
+              Doctor Clinical Specialization &amp; EMR Workspace
+            </h2>
+            <span className="badge badge-brand text-[10.5px]">Multi-Specialty EMR</span>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+            Configure your clinical discipline to automatically customize Consultation SOAP templates, specialized tools (Dental Odontogram, Physio ROM/VAS, etc.), and prescription formulary defaults.
+          </p>
+        </div>
+        {savedNotice && (
+          <span className="badge badge-success animate-fadein">
+            ✓ Preference Saved
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {CLINICAL_SPECIALTIES.filter(s => s.id !== 'all').map((spec) => {
+          const isSelected = specialty === spec.id
+          return (
+            <button
+              key={spec.id}
+              type="button"
+              onClick={() => handleSelect(spec.id)}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                isSelected
+                  ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 ring-2 ring-teal-500 shadow-sm'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-400 hover:bg-[var(--color-surface-hover)]'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">{spec.icon}</span>
+                {isSelected && (
+                  <span className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold">
+                    ✓
+                  </span>
+                )}
+              </div>
+              <div className="font-bold text-sm text-[var(--color-text)] mt-2">
+                {spec.name}
+              </div>
+              <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                {spec.id === 'dental' ? 'FDI Odontogram & Oral Procedures' :
+                 spec.id === 'physiotherapy' ? 'VAS Pain, ROM, MMT & Modalities' :
+                 spec.id === 'pediatrics' ? 'Growth, Milestones & Immunization' :
+                 spec.id === 'orthopedics' ? 'Joint Assessment & Fracture Log' :
+                 spec.id === 'cardiology' ? 'ECG Rhythm & Hemodynamic Review' :
+                 spec.id === 'dermatology' ? 'Skin Lesions & Fitzpatrick Types' :
+                 spec.id === 'ent' ? 'Otoscopy, Audiology & Airway Exam' :
+                 spec.id === 'ophthalmology' ? 'Visual Acuity, Slit-Lamp & IOP' :
+                 spec.id === 'ayurveda' ? 'Ashta Vidha, Nadi & Panchakarma' :
+                 'Comprehensive adult and family care'}
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

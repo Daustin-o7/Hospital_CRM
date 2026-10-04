@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { EmptyState, SkeletonList } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 
 interface NotificationRule {
@@ -39,6 +40,7 @@ const previewText = (content: string) =>
 
 export default function Messages() {
   const { hasRole } = useAuth()
+  const { toast } = useToast()
   const canManageRules = hasRole(['ClinicAdmin'])
 
   const [rules, setRules] = useState<NotificationRule[]>([])
@@ -47,13 +49,6 @@ export default function Messages() {
   const [error, setError] = useState<string | null>(null)
   const [rulesForbidden, setRulesForbidden] = useState(false)
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
-  const [testPhone, setTestPhone] = useState('+91 98765 43210')
-  const [toast, setToast] = useState<string | null>(null)
-
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -104,13 +99,8 @@ export default function Messages() {
       await api.patch(`/notification-rules/${rule.id}`, { active: !rule.active })
     } catch (err) {
       setRules(prev => prev.map(r => r.id === rule.id ? { ...r, active: rule.active } : r))
-      showToast(friendlyError(err))
+      toast(friendlyError(err), 'error')
     }
-  }
-
-  const handleSendTest = (e: React.FormEvent) => {
-    e.preventDefault()
-    showToast('Test send requires a connected WhatsApp provider — not yet enabled.')
   }
 
   return (
@@ -139,14 +129,6 @@ export default function Messages() {
         </div>
       </div>
 
-      {toast && (
-        <div className="alert alert-info">
-          <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>{toast}</span>
-        </div>
-      )}
 
       {error && (
         <div className="alert alert-error">
@@ -329,18 +311,11 @@ export default function Messages() {
                 </div>
 
                 {/* Test Send Dispatcher Box */}
-                <form onSubmit={handleSendTest} className="pt-2 space-y-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="pt-2 space-y-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
                   <label className="form-label">
                     Send Live Test Message
                   </label>
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={testPhone}
-                      onChange={(e) => setTestPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="form-input font-mono"
-                    />
                     <button
                       type="button"
                       disabled
@@ -353,7 +328,7 @@ export default function Messages() {
                   <p className="text-[11px] text-slate-400">
                     Disabled until a messaging provider is connected — no send endpoint is available yet.
                   </p>
-                </form>
+                </div>
               </>
             )}
 

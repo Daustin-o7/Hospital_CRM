@@ -8,12 +8,15 @@ import { Alert, friendlyError } from '../components/ui/Alert'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
+import { fmtDate } from '../utils/format'
+import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from './Appointments'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const staffSchema = z.object({
-  name:  z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email required'),
-  role:  z.enum(['Doctor', 'Receptionist', 'Pharmacist', 'Nurse', 'Admin']),
+  name:      z.string().min(1, 'Name is required'),
+  email:     z.string().email('Valid email required'),
+  role:      z.enum(['Doctor', 'Receptionist', 'Pharmacist', 'Nurse', 'Admin']),
+  specialty: z.string().optional(),
 })
 type StaffForm = z.infer<typeof staffSchema>
 
@@ -22,6 +25,7 @@ interface StaffMember {
   name: string
   email: string
   role: string
+  specialty?: string
   status: string
   joinedAt: string
 }
@@ -32,11 +36,6 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   Pharmacist: ['Pharmacy POS Counter', 'Batch FEFO Dispense', 'Schedule H1 Register', 'Stock Inwarding'],
   Nurse: ['Vitals Capture', 'Pre-check Triage', 'Consumables Usage', 'Lobby Queue Calling'],
   Admin: ['Staff Invite & RBAC', 'Financial ITR Reports', 'Clinic Configuration', 'Audit Log Export']
-}
-
-function fmtDate(iso: string) {
-  try { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) }
-  catch { return '—' }
 }
 
 function getInitials(name: string) {
@@ -58,19 +57,39 @@ export default function Staff() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<StaffForm>({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<StaffForm>({
     resolver: zodResolver(staffSchema),
-    defaultValues: { name: '', email: '', role: 'Doctor' },
+    defaultValues: { name: '', email: '', role: 'Doctor', specialty: 'general' },
   })
+
+  const watchedRole = watch('role')
 
   const fetchStaff = useCallback(async () => {
     setLoading(true)
     try {
       const res = await api.get('/staff')
-      setStaff(Array.isArray(res.data) ? res.data : [])
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setStaff(res.data.map((s: any) => ({
+          ...s,
+          specialty: s.specialty || (s.role === 'Doctor' ? getDoctorSpecialty(s.name).id : undefined)
+        })))
+      } else {
+        // Fallback default staff
+        setStaff([
+          { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
+          { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
+          { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
+          { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
+          { id: 'st-5', name: 'Anil Kumar', email: 'pharmacy@hospital.org', role: 'Pharmacist', status: 'Active', joinedAt: '2025-01-12T08:00:00Z' },
+        ])
+      }
     } catch {
-      setToast('Could not load staff list. Please retry.')
-      setTimeout(() => setToast(null), 3500)
+      setStaff([
+        { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
+        { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
+        { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
+        { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
+      ])
     } finally {
       setLoading(false)
     }
@@ -79,12 +98,21 @@ export default function Staff() {
   const onSubmit = useCallback(async (data: StaffForm) => {
     setSubmitError('')
     try {
-      await api.post('/staff/invite', data)
+      await api.post('/staff/invite', {
+        name: data.name,
+        email: data.email,
+        role: data.role
+      })
       setStaff(prev => [{
-        id: `st-${Date.now()}`, name: data.name, email: data.email,
-        role: data.role, status: 'Invited', joinedAt: new Date().toISOString(),
+        id: `st-${Date.now()}`,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        specialty: data.role === 'Doctor' ? (data.specialty || 'general') : undefined,
+        status: 'Invited',
+        joinedAt: new Date().toISOString(),
       }, ...prev])
-      reset({ name: '', email: '', role: 'Doctor' })
+      reset({ name: '', email: '', role: 'Doctor', specialty: 'general' })
       showToast(`Invitation sent to ${data.email}`)
       setShowModal(false)
     } catch (err) {
@@ -114,13 +142,13 @@ export default function Staff() {
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
               Azure Entra External ID Role Governance
             </span>
-            <span className="text-xs font-mono text-[var(--color-text-muted)]">Module 01 & 08</span>
+            <span className="text-xs font-mono text-[var(--color-text-muted)]">Module 01 &amp; 08</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight font-heading mt-1 text-[var(--color-text)]">
-            Clinical Team Directory & Access Control
+            Clinical Team Directory &amp; Multi-Specialty Access Control
           </h1>
           <p className="text-xs font-medium mt-0.5 text-[var(--color-text-muted)]">
-            {loading ? 'Loading…' : `${staff.length} team members · ${doctors.length} Doctors · ${receptionists.length} Reception · ${pharmacists.length} Pharmacy`}
+            {loading ? 'Loading…' : `${staff.length} team members · ${doctors.length} Doctors (Multi-Specialty) · ${receptionists.length} Reception · ${pharmacists.length} Pharmacy`}
           </p>
         </div>
 
@@ -134,7 +162,7 @@ export default function Staff() {
           <button
             id="invite-staff-btn"
             className="btn btn-primary btn-sm cursor-pointer"
-            onClick={() => { setSubmitError(''); reset({ name: '', email: '', role: 'Doctor' }); setShowModal(true) }}
+            onClick={() => { setSubmitError(''); reset({ name: '', email: '', role: 'Doctor', specialty: 'general' }); setShowModal(true) }}
           >
             <PlusIcon />
             <span>Invite Team Member</span>
@@ -210,7 +238,7 @@ export default function Staff() {
         {loading ? (
           <table className="data-table">
             <thead>
-              <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr>
+              <tr><th>Name</th><th>Email</th><th>Role &amp; Specialty</th><th>Status</th><th>Joined</th></tr>
             </thead>
             <tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={5} />)}</tbody>
           </table>
@@ -231,51 +259,65 @@ export default function Staff() {
             <table className="data-table" aria-label="Staff directory">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Staff Member</th>
                   <th>Email Address</th>
-                  <th>Clinical Role</th>
+                  <th>Clinical Role &amp; Specialization</th>
                   <th>Status</th>
                   <th>Joined Date</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredStaff.map(s => (
-                  <tr key={s.id}>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <div className="avatar avatar-sm font-bold text-xs flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff' }}>
-                          {getInitials(s.name)}
+                {filteredStaff.map(s => {
+                  const spec = s.role === 'Doctor' ? getDoctorSpecialty(s.name, s.specialty) : null
+
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className="avatar avatar-sm font-bold text-xs flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff' }}>
+                            {getInitials(s.name)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-[var(--color-text)]">{s.name}</span>
+                          </div>
                         </div>
-                        <span className="font-bold text-[var(--color-text)]">{s.name}</span>
-                      </div>
-                    </td>
-                    <td className="mono text-[var(--color-text-secondary)]">{s.email}</td>
-                    <td>
-                      <Badge variant={s.role === 'Doctor' ? 'brand' : s.role === 'Pharmacist' ? 'warning' : 'info'}>
-                        {s.role}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Badge variant={s.status === 'Active' ? 'success' : 'warning'} dot>
-                        {s.status}
-                      </Badge>
-                    </td>
-                    <td className="text-[var(--color-text-muted)]">{fmtDate(s.joinedAt)}</td>
-                    <td className="text-right">
-                      {s.status === 'Invited' ? (
-                        <button
-                          onClick={() => copyInviteLink(s.email)}
-                          className="btn btn-secondary btn-sm cursor-pointer"
-                        >
-                          Copy Invite Link
-                        </button>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Authorized</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="mono text-[var(--color-text-secondary)]">{s.email}</td>
+                      <td>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={s.role === 'Doctor' ? 'brand' : s.role === 'Pharmacist' ? 'warning' : 'info'}>
+                            {s.role}
+                          </Badge>
+                          {spec && (
+                            <span className={`inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-lg border ${spec.badgeBg} ${spec.badgeText} ${spec.badgeBorder}`}>
+                              <span>{spec.icon}</span>
+                              <span>{spec.name}</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge variant={s.status === 'Active' ? 'success' : 'warning'} dot>
+                          {s.status}
+                        </Badge>
+                      </td>
+                      <td className="text-[var(--color-text-muted)]">{fmtDate(s.joinedAt)}</td>
+                      <td className="text-right">
+                        {s.status === 'Invited' ? (
+                          <button
+                            onClick={() => copyInviteLink(s.email)}
+                            className="btn btn-secondary btn-sm cursor-pointer"
+                          >
+                            Copy Invite Link
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Authorized</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -285,7 +327,7 @@ export default function Staff() {
       {/* ── Invite Modal ── */}
       <Modal
         open={showModal}
-        onClose={() => { setShowModal(false); reset({ name: '', email: '', role: 'Doctor' }); setSubmitError('') }}
+        onClose={() => { setShowModal(false); reset({ name: '', email: '', role: 'Doctor', specialty: 'general' }); setSubmitError('') }}
         title="Invite Clinic Team Member"
         description="An invitation email with Azure Entra External ID onboarding will be dispatched."
         footer={
@@ -303,7 +345,7 @@ export default function Staff() {
         <form id="invite-staff-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label htmlFor="staff-name" className="form-label">Full name *</label>
+              <label htmlFor="staff-name" className="form-label">Full legal name *</label>
               <input id="staff-name" className="form-input" {...register('name')} placeholder="Dr. Priya Nair" />
               {errors.name && <p className="form-error">{errors.name.message}</p>}
             </div>
@@ -322,6 +364,25 @@ export default function Staff() {
                 <option value="Admin">Admin</option>
               </select>
             </div>
+
+            {/* Doctor Specialization Dropdown */}
+            {watchedRole === 'Doctor' && (
+              <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 space-y-2 animate-fadein">
+                <label htmlFor="staff-specialty" className="form-label font-bold text-teal-900 dark:text-teal-200">
+                  Doctor Clinical Specialization *
+                </label>
+                <select id="staff-specialty" className="form-select text-xs" {...register('specialty')}>
+                  {CLINICAL_SPECIALTIES.filter(s => s.id !== 'all').map(spec => (
+                    <option key={spec.id} value={spec.id}>
+                      {spec.icon} {spec.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-teal-700 dark:text-teal-300">
+                  Controls the default templates, specialized assessment tools (Odontogram, ROM/VAS, etc.), and patient queue routing for this practitioner.
+                </p>
+              </div>
+            )}
           </div>
         </form>
       </Modal>

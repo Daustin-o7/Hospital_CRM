@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { friendlyError } from '../components/ui/Alert'
+import { PublicPage } from '../components/ui/PublicPage'
 import api from '../services/api'
 
 export default function ForgotPassword() {
@@ -28,21 +29,10 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 55%, #0d9488 100%)' }}
+    <PublicPage
+      title="Forgot your password?"
+      subtitle="We'll issue a reset link for your account email."
     >
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-white text-xl font-bold" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            Forgot your password?
-          </h1>
-          <p className="text-slate-300 text-sm mt-1.5">
-            We'll issue a reset link for your account email.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xl">
           {sent ? (
             <div className="space-y-4 text-center">
               <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
@@ -106,8 +96,6 @@ export default function ForgotPassword() {
               </p>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </PublicPage>
   )
 }

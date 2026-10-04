@@ -121,27 +121,57 @@ public class PharmacyController : ControllerBase
         });
     }
 
-    [HttpGet("drugs/export")]
+[HttpGet("drugs/export")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
-    public async Task<IActionResult> ExportDrugsCsv(CancellationToken ct)
+    public async Task ExportDrugsCsv(CancellationToken ct)
     {
-        var drugs = await _db.Drugs.AsNoTracking()
-            .Include(d => d.Batches)
-            .OrderBy(d => d.Name)
-            .ToListAsync(ct);
-
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var sb = new StringBuilder();
-        sb.AppendLine("Id,DrugName,GenericComposition,TherapeuticCategory,DosageForm,Strength,ScheduleClass,HSN,GSTRate,NLEM,DPCO_Ceiling,PackSize,CurrentStock,IndicativeMRP,CommonBrands");
 
-        foreach (var d in drugs)
+        Response.ContentType = "text/csv";
+        Response.Headers.ContentDisposition = $"attachment; filename=\"samstack_drug_catalog_{DateTime.UtcNow:yyyyMMdd}.csv\"";
+
+        await using var writer = new StreamWriter(Response.Body, Encoding.UTF8, 8192, leaveOpen: true);
+
+        // Write header
+        await writer.WriteLineAsync("Id,DrugName,GenericComposition,TherapeuticCategory,DosageForm,Strength,ScheduleClass,HSN,GSTRate,NLEM,DPCO_Ceiling,PackSize,CurrentStock,IndicativeMRP,CommonBrands");
+        await writer.FlushAsync(ct);
+
+        // Stream drugs in batches to avoid OOM
+        const int batchSize = 500;
+        int skip = 0;
+        bool hasMore = true;
+
+        while (hasMore && !ct.IsCancellationRequested)
         {
-            var stock = d.Batches.Where(b => b.ExpiryDate >= today).Sum(b => b.QuantityRemaining);
-            sb.AppendLine($"\"{d.Id}\",\"{EscapeCsv(d.Name)}\",\"{EscapeCsv(d.GenericName)}\",\"{EscapeCsv(d.TherapeuticCategory)}\",\"{d.DosageForm}\",\"{d.Strength}\",\"{d.ScheduleClass}\",\"{d.HsnCode}\",{d.GstRate},\"{(d.NlemCovered ? "Yes" : "No")}\",{d.DpcoCeilingPrice?.ToString("F2") ?? ""},\"{d.StandardPackSize}\",{stock},{d.IndicativeMrp:F2},\"{EscapeCsv(d.CommonBrands ?? "")}\"");
-        }
+            var drugs = await _db.Drugs.AsNoTracking()
+                .Include(d => d.Batches)
+                .OrderBy(d => d.Name)
+                .Skip(skip)
+                .Take(batchSize)
+                .ToListAsync(ct);
 
-        var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-        return File(bytes, "text/csv", $"samstack_drug_catalog_{DateTime.UtcNow:yyyyMMdd}.csv");
+            if (drugs.Count == 0)
+            {
+                hasMore = false;
+                break;
+            }
+
+            foreach (var d in drugs)
+            {
+                var stock = d.Batches.Where(b => b.ExpiryDate >= today).Sum(b => b.QuantityRemaining);
+                var dpco = d.DpcoCeilingPrice?.ToString("F2") ?? string.Empty;
+                var brands = EscapeCsv(d.CommonBrands ?? string.Empty);
+                var nlem = d.NlemCovered ? "Yes" : "No";
+                var line = string.Format("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",{8},\"{9}\",{10},\"{11}\",{12},{13:F2},\"{14}\"",
+                    d.Id, EscapeCsv(d.Name), EscapeCsv(d.GenericName), EscapeCsv(d.TherapeuticCategory),
+                    d.DosageForm, d.Strength, d.ScheduleClass, d.HsnCode, d.GstRate, nlem, dpco,
+                    d.StandardPackSize, stock, d.IndicativeMrp, brands);
+                await writer.WriteLineAsync(line);
+            }
+
+            await writer.FlushAsync(ct);
+            skip += batchSize;
+        }
     }
 
     [HttpGet("drugs/{id:guid}")]
@@ -198,10 +228,13 @@ public class PharmacyController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.GenericName))
             return BadRequest(new { error = "name_and_generic_required" });
 
+        // SEC-007: Reject invalid ScheduleClass instead of silently defaulting to General.
+        // A typo like "ScheduleHI" would bypass all controlled substance checks.
         var schedule = ScheduleClass.General;
         if (!string.IsNullOrWhiteSpace(req.ScheduleClass))
         {
-            Enum.TryParse(req.ScheduleClass, true, out schedule);
+            if (!Enum.TryParse(req.ScheduleClass, true, out schedule))
+                return BadRequest(new { error = "invalid_schedule_class", message = $"'{req.ScheduleClass}' is not a valid ScheduleClass. Valid values: {string.Join(", ", Enum.GetNames<ScheduleClass>())}" });
         }
 
         var drug = new Drug
@@ -458,31 +491,11 @@ public class PharmacyController : ControllerBase
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
 
-        // --- Tenant feature flag check (FR-14-04) ---
-        // In single-tenant Phase 1, TenantId is Guid.Empty
-        var tenantId = Guid.Empty;
-        var pharmacyFlag = await _db.TenantFeatureFlags
-            .FirstOrDefaultAsync(f => f.TenantId == tenantId && f.FlagName == "pharmacy", ct);
-        if (pharmacyFlag == null)
-        {
-            // Seed default OFF flag for new tenants
-            pharmacyFlag = new TenantFeatureFlag
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                FlagName = "pharmacy",
-                Enabled = false,
-                UpdatedAt = DateTimeOffset.UtcNow,
-                UpdatedBy = Guid.Empty
-            };
-            _db.TenantFeatureFlags.Add(pharmacyFlag);
-            await _db.SaveChangesAsync(ct);
-        }
-        if (!pharmacyFlag.Enabled)
+        // SEC-009: Tenant feature flag check (FR-14-04)
+        if (!await IsPharmacyEnabledAsync(ct))
         {
             return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
         }
-        // -------------------------------------------
 
         // Idempotency check
         if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
@@ -564,6 +577,12 @@ public class PharmacyController : ControllerBase
                 }
 
                 var dispenseQty = 1; // Default quantity - could be parsed from DosageText/FrequencyText/DurationText
+
+                // SEC-006: Guard against driving batch stock negative
+                if (availableBatch.QuantityRemaining < dispenseQty)
+                {
+                    return BadRequest(new { error = $"insufficient_stock_for_drug: {matchedDrug.Name}", drugName = matchedDrug.Name, available = availableBatch.QuantityRemaining, requested = dispenseQty });
+                }
 
                 // Check for scheduled drugs
                 if (matchedDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
@@ -661,6 +680,12 @@ public class PharmacyController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> CheckoutPos([FromBody] PosCheckoutRequest req, CancellationToken ct)
     {
+        // SEC-009: Tenant feature flag check (FR-14-04) applied uniformly to walk-in checkout
+        if (!await IsPharmacyEnabledAsync(ct))
+        {
+            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
+        }
+
         if (req.Items == null || req.Items.Count == 0)
             return BadRequest(new { error = "no_items_in_cart" });
 
@@ -722,6 +747,14 @@ public class PharmacyController : ControllerBase
                     return BadRequest(new { error = $"insufficient_stock_for_batch: {batch.BatchNumber} (Available: {batch.QuantityRemaining}, Requested: {item.Quantity})" });
 
                 var drug = batch.Drug!;
+
+                // SEC-004: Validate client-supplied UnitPrice against the batch's actual MRP.
+                // Prevent price manipulation where a malicious client sets UnitPrice = 0.01.
+                if (item.UnitPrice > batch.Mrp * 1.01m) // Allow 1% rounding tolerance
+                    return BadRequest(new { error = $"unit_price_exceeds_mrp: {batch.BatchNumber}", maxPrice = batch.Mrp });
+                if (item.UnitPrice < batch.PurchaseRate * 0.5m) // Floor at 50% of purchase rate
+                    return BadRequest(new { error = $"unit_price_below_floor: {batch.BatchNumber}", floorPrice = Math.Round(batch.PurchaseRate * 0.5m, 2), mrp = batch.Mrp });
+
                 if (drug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
                 {
                     scheduleH1Items.Add((batch, item.Quantity, drug));
@@ -886,6 +919,7 @@ public class PharmacyController : ControllerBase
     // 4. STATUTORY SCHEDULE COMPLIANCE REGISTER
     // ==========================================
 
+    // SEC-005: Added pagination to prevent OOM on large compliance registers
     [HttpGet("compliance/register")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
     public async Task<IActionResult> GetComplianceRegister(
@@ -893,6 +927,8 @@ public class PharmacyController : ControllerBase
         [FromQuery] string? startDate,
         [FromQuery] string? endDate,
         [FromQuery] bool exportCsv = false,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100,
         CancellationToken ct = default)
     {
         var q = _db.ControlledSubstanceRegisters.AsNoTracking().AsQueryable();
@@ -912,7 +948,10 @@ public class PharmacyController : ControllerBase
             q = q.Where(r => r.DispensedAt <= end.ToUniversalTime());
         }
 
-        var records = await q.OrderByDescending(r => r.DispensedAt).ToListAsync(ct);
+        var totalCount = exportCsv ? 0 : await q.CountAsync(ct);
+        var records = exportCsv
+            ? await q.OrderByDescending(r => r.DispensedAt).ToListAsync(ct)
+            : await q.OrderByDescending(r => r.DispensedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
 
         if (exportCsv)
         {
@@ -927,20 +966,26 @@ public class PharmacyController : ControllerBase
             return File(bytes, "text/csv", $"statutory_controlled_substance_register_{DateTime.UtcNow:yyyyMMdd}.csv");
         }
 
-        return Ok(records.Select(r => new
+        return Ok(new
         {
-            id = r.Id,
-            scheduleClass = r.ScheduleClass.ToString(),
-            drugName = r.DrugName,
-            batchNumber = r.BatchNumber,
-            quantity = r.Quantity,
-            patientName = r.PatientName,
-            patientAddress = r.PatientAddress,
-            prescriberName = r.PrescriberName,
-            prescriberRegNo = r.PrescriberRegNo,
-            dispenserName = r.DispenserName,
-            dispensedAt = r.DispensedAt
-        }));
+            total = totalCount,
+            page,
+            pageSize,
+            data = records.Select(r => new
+            {
+                id = r.Id,
+                scheduleClass = r.ScheduleClass.ToString(),
+                drugName = r.DrugName,
+                batchNumber = r.BatchNumber,
+                quantity = r.Quantity,
+                patientName = r.PatientName,
+                patientAddress = r.PatientAddress,
+                prescriberName = r.PrescriberName,
+                prescriberRegNo = r.PrescriberRegNo,
+                dispenserName = r.DispenserName,
+                dispensedAt = r.DispensedAt
+            })
+        });
     }
 
     // ==========================================
@@ -1073,7 +1118,10 @@ public class PharmacyController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist")]
     public async Task<IActionResult> GetSuppliers(CancellationToken ct)
     {
-        var suppliers = await _db.Suppliers.AsNoTracking().OrderBy(s => s.Name).ToListAsync(ct);
+        // SEC-014: Map to DTO to prevent internal entity field leakage
+        var suppliers = await _db.Suppliers.AsNoTracking().OrderBy(s => s.Name)
+            .Select(s => new { id = s.Id, name = s.Name, gstin = s.Gstin, phone = s.Phone, email = s.Email, address = s.Address })
+            .ToListAsync(ct);
         return Ok(suppliers);
     }
 
@@ -1112,7 +1160,7 @@ public class PharmacyController : ControllerBase
     {
         var invoice = await _db.Invoices
             .Include(i => i.LineItems)
-                .ThenInclude(li => li.DrugBatch)
+                .ThenInclude(li => li.DrugBatch!)
                     .ThenInclude(db => db.Drug)
             .Include(i => i.Payments)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, ct);
@@ -1231,7 +1279,38 @@ public class PharmacyController : ControllerBase
         });
     }
 
-    private static string EscapeCsv(string s) => s.Replace("\"", "\"\"");
+    // SEC-015: Sanitize CSV cells to prevent formula injection in Excel/LibreOffice.
+    // Cells starting with =, +, -, @, \t, or \r can trigger formula evaluation.
+    private static string EscapeCsv(string s)
+    {
+        var escaped = s.Replace("\"", "\"\"");
+        if (escaped.Length > 0 && "=+-@\t\r".Contains(escaped[0]))
+            escaped = "'" + escaped;
+        return escaped;
+    }
+
+    // SEC-009: Unified helper to ensure consistent pharmacy feature flag enforcement across all endpoints
+    private async Task<bool> IsPharmacyEnabledAsync(CancellationToken ct)
+    {
+        var tenantId = Guid.Empty;
+        var pharmacyFlag = await _db.TenantFeatureFlags
+            .FirstOrDefaultAsync(f => f.TenantId == tenantId && f.FlagName == "pharmacy", ct);
+        if (pharmacyFlag == null)
+        {
+            pharmacyFlag = new TenantFeatureFlag
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                FlagName = "pharmacy",
+                Enabled = false,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                UpdatedBy = Guid.Empty
+            };
+            _db.TenantFeatureFlags.Add(pharmacyFlag);
+            await _db.SaveChangesAsync(ct);
+        }
+        return pharmacyFlag.Enabled;
+    }
 }
 
 // ==========================================

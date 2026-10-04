@@ -3,6 +3,45 @@ import api from '../services/api'
 import { friendlyError } from '../components/ui/Alert'
 import { EmptyState } from '../components/ui/EmptyState'
 
+// ── Type Definitions ──────────────────────────────────────────────────────────
+interface FinancialData {
+  grossIncome: number
+  grossCollectionsMoMChange: number
+  expenses: number
+  expensesPercentage: number
+  gstLiability: number
+  netProfit: number
+  netProfitMargin: number
+  [key: string]: unknown
+}
+
+interface PresumptiveData {
+  grossReceipts: number
+  deemedProfit: number
+  [key: string]: unknown
+}
+
+interface PaymentDistribution {
+  digitalPaymentPercentage: number
+  upiAmount: number
+  upiPercentage: number
+  cardAmount: number
+  cardPercentage: number
+  cashAmount: number
+  cashPercentage: number
+  [key: string]: unknown
+}
+
+interface PlatformHealth {
+  overallStatus: 'healthy' | 'degraded' | 'unhealthy'
+  activeTenants: number
+  totalUsers: number
+  monthlyConsultations: number
+  [key: string]: unknown
+}
+
+type ReportFormat = 'ITR-4 CSV' | 'GSTR-1 JSON'
+
 const MONTH_OPTIONS = Array.from({ length: 3 }, (_, i) => {
   const d = new Date()
   d.setDate(1)
@@ -15,13 +54,35 @@ const MONTH_OPTIONS = Array.from({ length: 3 }, (_, i) => {
 export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(MONTH_OPTIONS[0].value)
   const [toast, setToast] = useState<string | null>(null)
-  const [financialData, setFinancialData] = useState<any>(null)
-  const [presumptiveData, setPresumptiveData] = useState<any>(null)
-  const [paymentDistribution, setPaymentDistribution] = useState<any>(null)
-  const [platformHealth, setPlatformHealth] = useState<any>(null)
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null)
+  const [presumptiveData, setPresumptiveData] = useState<PresumptiveData | null>(null)
+  const [paymentDistribution, setPaymentDistribution] = useState<PaymentDistribution | null>(null)
+  const [platformHealth, setPlatformHealth] = useState<PlatformHealth | null>(null)
   const [loading, setLoading] = useState(true)
-  const [exporting, setExporting] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<ReportFormat | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Helper function to safely access nested data with fallbacks
+  const safeGet = <T,>(obj: Record<string, unknown> | null | undefined, path: string, fallback: T): T => {
+    if (!obj) return fallback
+    const parts = path.split('.')
+    let current: unknown = obj
+    
+    for (const part of parts) {
+      if (current === null || current === undefined) return fallback
+      current = (current as Record<string, unknown>)[part]
+    }
+    
+    return (current !== undefined && current !== null ? current : fallback) as T
+  }
+
+  // Compute platform health status color
+  const platformStatusColor = ((): string => {
+    const status = safeGet(platformHealth, 'overallStatus', 'unhealthy') as 'healthy' | 'degraded' | 'unhealthy'
+    if (status === 'healthy') return 'var(--brand-success)'
+    if (status === 'degraded') return 'var(--brand-warning)'
+    return 'var(--brand-error)'
+  })()
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -67,7 +128,7 @@ export default function Reports() {
       setPresumptiveData(presumptiveRes.data)
       setPaymentDistribution(paymentRes.data)
       setPlatformHealth(healthRes.data)
-    } catch (err: any) {
+    } catch (err) {
       const message = friendlyError(err)
       setError(message)
       showToast(message)
@@ -78,20 +139,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchData()
-  }, [selectedMonth])
-
-  // Helper function to safely access nested data with fallbacks
-  const safeGet = (obj: any, path: string, fallback: any = null) => {
-    const parts = path.split('.')
-    let current = obj
-    
-    for (const part of parts) {
-      if (current === null || current === undefined) return fallback
-      current = current[part]
-    }
-    
-    return current !== undefined && current !== null ? current : fallback
-  }
+  }, [selectedMonth, fetchData])
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
@@ -422,14 +470,10 @@ export default function Reports() {
               </p>
             </div>
             <span className="badge badge-brand">
-              <span 
+<span 
                 className="w-2 h-2 rounded-full" 
                 style={{ 
-                  backgroundColor: safeGet(platformHealth, 'overallStatus') === 'healthy' 
-                    ? 'var(--brand-success)' 
-                    : safeGet(platformHealth, 'overallStatus') === 'degraded'
-                      ? 'var(--brand-warning)' 
-                      : 'var(--brand-error)' 
+                  backgroundColor: platformStatusColor
                 }}
               ></span>
               {safeGet(platformHealth, 'overallStatus', 'unknown').toUpperCase()}

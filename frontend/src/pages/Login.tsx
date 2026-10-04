@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
+import { BrandLogo } from '../components/ui/BrandLogo'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -53,7 +54,7 @@ export default function Login() {
         aria-hidden="true"
         style={{
           flex: '0 0 44%',
-          background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 60%, #0d9488 100%)',
+          background: 'linear-gradient(160deg, #09131d 0%, #0d3b43 55%, #0d9488 100%)',
           display: 'flex',
           flexDirection: 'column',
           padding: '48px 40px',
@@ -71,8 +72,8 @@ export default function Login() {
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              radial-gradient(circle at 20% 80%, rgba(13,148,136,0.25) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(8,145,178,0.15) 0%, transparent 50%)
+              radial-gradient(circle at 20% 80%, rgba(13,148,136,0.3) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(6,182,212,0.2) 0%, transparent 50%)
             `,
             pointerEvents: 'none',
             zIndex: 1,
@@ -81,51 +82,25 @@ export default function Login() {
 
         {/* Brand mark */}
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(8px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 14H11v-4H7v-2h4V6h2v4h4v2h-4v4z"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em' }}>
-                SAMSTACK AI
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Healthcare Platform
-              </div>
-            </div>
-          </div>
+          <BrandLogo size="lg" theme="dark" organizationName="SAMSTACK AI" tagline="Clinical Operating System" />
         </div>
 
         {/* Main message */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
           <h1
             style={{
-              fontSize: 36,
-              fontWeight: 700,
+              fontSize: 34,
+              fontWeight: 800,
               color: '#fff',
               letterSpacing: '-0.04em',
-              lineHeight: 1.15,
+              lineHeight: 1.18,
               marginBottom: 16,
             }}
           >
-            The operating system for modern healthcare.
+            The Operating System for Modern Healthcare.
           </h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, maxWidth: 320 }}>
-            Manage patients, appointments, consultations, and billing — from a single, secure workspace.
+          <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: 360 }}>
+            Unified patient registry, sequential queue triage, clinical consultations, and statutory DPDP compliance — built for high-tempo clinic workflows.
           </p>
 
           {/* Trust indicators */}
@@ -175,29 +150,7 @@ export default function Login() {
         <div style={{ width: '100%', maxWidth: 420 }}>
           {/* Mobile brand (visible on mobile only) */}
           <div className="block md:hidden mb-6 text-center">
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: 'linear-gradient(135deg, #0d9488, #0891b2)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 10,
-                boxShadow: '0 4px 12px rgba(13,148,136,0.3)',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 14H11v-4H7v-2h4V6h2v4h4v2h-4v4z"/>
-              </svg>
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
-              SAMSTACK AI
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Healthcare Platform
-            </div>
+            <BrandLogo size="lg" theme="auto" organizationName="SAMSTACK AI" tagline="Clinical Operating System" className="justify-center" />
           </div>
 
           {/* Form header */}
@@ -378,7 +331,7 @@ export default function Login() {
                     key={p.label}
                     type="button"
                     onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm flex items-center justify-center gap-1.5 p-2 min-h-[40px] text-[12px] font-semibold transition-all cursor-pointer"
+                    className="btn btn-secondary btn-sm flex items-center justify-start gap-1.5 px-2.5 py-2 min-h-[42px] text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap overflow-hidden hover:border-teal-500/50"
                   >
                     <span className="text-sm shrink-0">{p.icon}</span>
                     <span className="truncate">{p.label}</span>

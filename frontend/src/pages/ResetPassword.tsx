@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { friendlyError } from '../components/ui/Alert'
+import { PublicPage } from '../components/ui/PublicPage'
 import api from '../services/api'
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -43,21 +44,10 @@ export default function ResetPassword() {
   }
 
   return (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 55%, #0d9488 100%)' }}
+    <PublicPage
+      title="Set a new password"
+      subtitle="Choose something you'll remember — at least 8 characters."
     >
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="text-white text-xl font-bold" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            Set a new password
-          </h1>
-          <p className="text-slate-300 text-sm mt-1.5">
-            Choose something you'll remember — at least 8 characters.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xl">
           {done ? (
             <div className="space-y-4 text-center">
               <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
@@ -123,8 +113,6 @@ export default function ResetPassword() {
               </button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </PublicPage>
   )
 }

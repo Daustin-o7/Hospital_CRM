@@ -102,7 +102,7 @@ export default function Billing() {
           net: data.net ?? 0
         })
       }
-    } catch (err: any) {
+    } catch {
       showToast('Failed to load billing data', 'err')
     } finally {
       setLoading(false)

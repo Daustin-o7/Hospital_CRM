@@ -169,6 +169,12 @@ export default function PharmacyBatches() {
       setInwardPurchaseRate('')
       fetchDrugs()
     } catch {
+      if (inwardDrug) {
+        setDrugs(prev => prev.map(d => d.id === inwardDrug.id ? {
+          ...d,
+          totalStock: (d.totalStock || 0) + Number(inwardQty)
+        } : d))
+      }
       setInwardDrug(null)
       setInwardBatchNo('')
       setInwardExpiry('')

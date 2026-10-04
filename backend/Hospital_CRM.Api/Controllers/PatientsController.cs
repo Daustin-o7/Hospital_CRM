@@ -107,8 +107,31 @@ public class PatientsController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize]
-    public async Task<IActionResult> GetAll(CancellationToken ct) => await Search(null, ct);
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> GetAll(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        // ponytail: loads up to 1000 rows for dropdowns/lists; server-side typeahead when a clinic outgrows it
+        var patients = await _db.Patients.AsNoTracking()
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(1000)
+            .ToListAsync(ct);
+
+        return Ok(patients.Select(patient => new
+        {
+            id = patient.Id,
+            name = patient.Name,
+            phone = patient.Phone,
+            gender = patient.Gender.ToString(),
+            dob = patient.Dob?.ToString("yyyy-MM-dd"),
+            approxAge = patient.ApproxAge,
+            address = patient.Address,
+            createdAt = patient.CreatedAt,
+            patientId = patient.Id
+        }));
+    }
 
     [HttpGet("search")]
     [Authorize]

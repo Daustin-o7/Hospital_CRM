@@ -169,7 +169,17 @@ public class InvoicesController : ControllerBase
         if (!Request.Headers.TryGetValue("X-Razorpay-Signature", out var signatureHeader) || string.IsNullOrWhiteSpace(signatureHeader))
             return BadRequest(new { error = "missing_webhook_signature" });
 
-        var secret = _config["Razorpay:WebhookSecret"] ?? "dev_webhook_secret_key";
+        // SEC-013: Never fall back to a hardcoded webhook secret in production.
+        // An attacker who knows the default can forge webhook signatures.
+        var secret = _config["Razorpay:WebhookSecret"];
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            var env = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            if (env.IsDevelopment())
+                secret = "dev_webhook_secret_key";
+            else
+                return StatusCode(503, new { error = "webhook_not_configured" });
+        }
         
         using var reader = new StreamReader(Request.Body);
         var bodyText = await reader.ReadToEndAsync(ct);

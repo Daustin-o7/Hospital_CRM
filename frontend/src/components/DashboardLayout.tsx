@@ -3,111 +3,142 @@ import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
 import { ThemeToggle } from './ui/ThemeToggle'
+import { BrandLogo } from './ui/BrandLogo'
 
-// ── Navigation definition ────────────────────────────────────────────────────
-const NAV_ITEMS = [
+// ── Categorized Healthcare Navigation ──────────────────────────────────────────
+export interface NavItem {
+  name: string
+  href: string
+  end?: boolean
+  roles: string[]
+  icon: (props: { className?: string }) => React.JSX.Element
+  liveIndicator?: boolean
+}
+
+export interface NavSection {
+  category: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    name: 'Dashboard',
-    href: '/dashboard',
-    end: true,
-    roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
-    icon: HomeIcon,
+    category: 'Clinical',
+    items: [
+      {
+        name: 'Dashboard',
+        href: '/dashboard',
+        end: true,
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
+        icon: HomeIcon,
+      },
+      {
+        name: 'Appointments',
+        href: '/dashboard/appointments',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: CalendarIcon,
+      },
+      {
+        name: 'Patients',
+        href: '/dashboard/patients',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: UsersIcon,
+      },
+      {
+        name: 'Queue',
+        href: '/dashboard/queue',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: QueueIcon,
+        liveIndicator: true,
+      },
+      {
+        name: 'Consultations',
+        href: '/dashboard/consultations',
+        roles: ['doctor', 'clinicadmin'],
+        icon: FileTextIcon,
+      },
+      {
+        name: 'Lab Orders',
+        href: '/dashboard/lab-orders',
+        roles: ['doctor', 'clinicadmin'],
+        icon: FlaskIcon,
+      },
+    ],
   },
   {
-    name: 'Appointments',
-    href: '/dashboard/appointments',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: CalendarIcon,
+    category: 'Pharmacy',
+    items: [
+      {
+        name: 'Pharmacy POS',
+        href: '/dashboard/pharmacy/pos',
+        roles: ['clinicadmin', 'pharmacist', 'doctor', 'receptionist'],
+        icon: ShoppingBagIcon,
+      },
+      {
+        name: 'Drug Batches',
+        href: '/dashboard/pharmacy/batches',
+        roles: ['clinicadmin', 'pharmacist', 'doctor'],
+        icon: PillIcon,
+      },
+      {
+        name: 'Drug Compliance',
+        href: '/dashboard/pharmacy/compliance',
+        roles: ['clinicadmin', 'pharmacist', 'doctor'],
+        icon: ShieldCheckIcon,
+      },
+    ],
   },
   {
-    name: 'Patients',
-    href: '/dashboard/patients',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: UsersIcon,
-  },
-  {
-    name: 'Queue',
-    href: '/dashboard/queue',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: QueueIcon,
-  },
-  {
-    name: 'Consultations',
-    href: '/dashboard/consultations',
-    roles: ['doctor', 'clinicadmin'],
-    icon: FileTextIcon,
-  },
-  {
-    name: 'Lab Orders',
-    href: '/dashboard/lab-orders',
-    roles: ['doctor', 'clinicadmin'],
-    icon: FlaskIcon,
-  },
-  {
-    name: 'Billing',
-    href: '/dashboard/billing',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: CreditCardIcon,
-  },
-  {
-    name: 'Pharmacy POS',
-    href: '/dashboard/pharmacy/pos',
-    roles: ['clinicadmin', 'pharmacist', 'doctor', 'receptionist'],
-    icon: ShoppingBagIcon,
-  },
-  {
-    name: 'Drug Batches',
-    href: '/dashboard/pharmacy/batches',
-    roles: ['clinicadmin', 'pharmacist', 'doctor'],
-    icon: PillIcon,
-  },
-  {
-    name: 'Drug Compliance',
-    href: '/dashboard/pharmacy/compliance',
-    roles: ['clinicadmin', 'pharmacist', 'doctor'],
-    icon: ShieldCheckIcon,
-  },
-  {
-    name: 'Inventory',
-    href: '/dashboard/inventory',
-    roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
-    icon: BoxIcon,
-  },
-  {
-    name: 'Wishlist',
-    href: '/dashboard/wishlist',
-    roles: ['clinicadmin', 'doctor'],
-    icon: StarIcon,
-  },
-  {
-    name: 'Reports',
-    href: '/dashboard/reports',
-    roles: ['clinicadmin', 'doctor', 'pharmacist'],
-    icon: BarChartIcon,
-  },
-  {
-    name: 'Messages',
-    href: '/dashboard/messages',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: MailIcon,
-  },
-  {
-    name: 'Staff & Team',
-    href: '/dashboard/staff',
-    roles: ['clinicadmin'],
-    icon: UsersIcon,
-  },
-  {
-    name: 'Settings',
-    href: '/dashboard/settings',
-    roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
-    icon: SettingsIcon,
-  },
-  {
-    name: 'Platform Admin',
-    href: '/dashboard/platform-admin',
-    roles: ['platformadmin'],
-    icon: GlobeIcon,
+    category: 'Administration',
+    items: [
+      {
+        name: 'Billing',
+        href: '/dashboard/billing',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: CreditCardIcon,
+      },
+      {
+        name: 'Inventory',
+        href: '/dashboard/inventory',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
+        icon: BoxIcon,
+      },
+      {
+        name: 'Wishlist',
+        href: '/dashboard/wishlist',
+        roles: ['clinicadmin', 'doctor'],
+        icon: ClipboardListIcon,
+      },
+      {
+        name: 'Reports',
+        href: '/dashboard/reports',
+        roles: ['clinicadmin', 'doctor', 'pharmacist'],
+        icon: BarChartIcon,
+      },
+      {
+        name: 'Messages',
+        href: '/dashboard/messages',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: MailIcon,
+      },
+      {
+        name: 'Staff',
+        href: '/dashboard/staff',
+        roles: ['clinicadmin'],
+        icon: UsersIcon,
+      },
+      {
+        name: 'Platform Admin',
+        href: '/dashboard/platform-admin',
+        roles: ['platformadmin'],
+        icon: GlobeIcon,
+      },
+      {
+        name: 'Settings',
+        href: '/dashboard/settings',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
+        icon: SettingsIcon,
+      },
+    ],
   },
 ]
 
@@ -131,7 +162,6 @@ export default function DashboardLayout() {
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
   const displayRole = ROLE_LABEL[rawRole] ?? (user?.role || 'Staff')
-  const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(rawRole))
 
   useEffect(() => { setSidebarOpen(false); setShowNotifications(false) }, [location.pathname])
 
@@ -173,42 +203,23 @@ export default function DashboardLayout() {
 
       {/* Desktop & Mobile Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0b131e] text-[#dbe3f3] flex flex-col border-r border-[#22364f]/80 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0f172a] text-slate-200 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-4 border-b border-[#22364f]/80 flex items-center justify-between bg-[#070f19]/90 backdrop-blur-md">
-          <div className="flex items-center gap-3 min-w-0">
-            {branding.logoUrl ? (
-              <img
-                src={branding.logoUrl}
-                alt={branding.organizationName}
-                className="w-9 h-9 rounded-xl object-cover ring-1 ring-[#2dd4bf]/40 shadow-sm"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0d5c63] via-[#14b8a6] to-[#0b131e] border border-[#2dd4bf]/40 flex items-center justify-center text-white font-bold shadow-md shadow-teal-950/60">
-                <svg className="w-5 h-5 text-[#2dd4bf]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-4H7v-2h4V7h2v4h4v2h-4v4z"/>
-                </svg>
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm font-bold text-[#f8fafc] tracking-tight truncate font-heading">
-                {branding.organizationName || 'SAMSTACK AI'}
-              </h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] animate-pulse" />
-                <p className="text-[10px] uppercase font-bold tracking-wider text-[#2dd4bf] truncate font-mono">
-                  <span>Clinical Precision</span>
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-[#0b1322]/80 backdrop-blur-md">
+          <BrandLogo
+            size="md"
+            theme="dark"
+            organizationName={branding.organizationName || 'SAMSTACK AI'}
+            tagline="Clinical Operating System"
+            className="flex-1 min-w-0"
+          />
           {sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#111e2e]"
+              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
               aria-label="Close sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,86 +229,82 @@ export default function DashboardLayout() {
           )}
         </div>
 
-        {/* Navigation items */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-          <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono">
-            Clinical Modules
-          </div>
-          {filteredNav.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              end={item.end}
-              className={({ isActive }) =>
-                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-tight transition-all duration-150 group ${
-                  isActive
-                    ? 'bg-gradient-to-r from-[#0d5c63] to-[#14b8a6] text-[#f8fafc] border border-[#2dd4bf]/40 shadow-lg shadow-teal-950/40 font-bold'
-                    : 'text-slate-200 hover:text-white hover:bg-[#111e2e]/90 hover:border hover:border-[#22364f]/60'
-                }`
-              }
-            >
-              <item.icon className="w-4 h-4 text-teal-400 group-hover:text-teal-300 transition-transform group-hover:scale-110 shrink-0" />
-              <span className="truncate">{item.name}</span>
-            </NavLink>
-          ))}
+        {/* Categorized Navigation items */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+          {NAV_SECTIONS.map((section) => {
+            const visibleItems = section.items.filter(item => item.roles.includes(rawRole))
+            if (visibleItems.length === 0) return null
 
-          {/* Quick Actions Section */}
-          <div className="pt-4 mt-4 border-t border-[#22364f]/80">
-            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono">
-              Fast Shortcuts
-            </div>
-            <div className="space-y-1 mt-1">
-              <button
-                onClick={() => navigate('/dashboard/appointments')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
-              >
-                <span className="w-2 h-2 rounded-full bg-[#2dd4bf] shadow-[0_0_8px_#2dd4bf]"></span>
-                <span>Today's OPD Queue</span>
-              </button>
-              <button
-                onClick={() => navigate('/dashboard/patients')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
-              >
-                <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]"></span>
-                <span>Register Patient</span>
-              </button>
-              <button
-                onClick={() => navigate('/dashboard/pharmacy/pos')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-[#111e2e]/70 transition-colors text-left"
-              >
-                <span className="w-2 h-2 rounded-full bg-[#5eead4] shadow-[0_0_8px_#5eead4]"></span>
-                <span>Pharmacy Fast POS</span>
-              </button>
-            </div>
-          </div>
+            return (
+              <div key={section.category} className="space-y-1">
+                <div className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                  {section.category}
+                </div>
+                {visibleItems.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `relative flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
+                        isActive
+                          ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <item.icon
+                            className={`w-4 h-4 shrink-0 transition-colors ${
+                              isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-200'
+                            }`}
+                          />
+                          <span className="truncate">{item.name}</span>
+                        </div>
+                        {item.liveIndicator && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399] shrink-0"
+                            title="Live queue"
+                          />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            )
+          })}
 
           {/* Mobile Theme Switcher inside Drawer */}
-          <div className="lg:hidden pt-4 mt-4 border-t border-[#22364f]/80 px-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-[#899294] font-mono mb-2">
+          <div className="lg:hidden pt-2 border-t border-slate-800 px-2 mt-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono mb-2">
               Appearance Theme
             </div>
             <ThemeToggle variant="segmented" className="w-full justify-between" />
           </div>
         </nav>
 
-        {/* User Footer Card */}
-        <div className="p-3 border-t border-[#22364f]/80 bg-[#070f19]/90">
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[#111e2e]/90 border border-[#22364f] shadow-inner">
-            <div className="w-8 h-8 rounded-lg bg-[#0d5c63] text-[#2dd4bf] border border-[#2dd4bf]/40 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+        {/* Refined User Footer Card */}
+        <div className="p-3 border-t border-slate-800 bg-[#0b1322]/80">
+          <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-slate-800/80">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-[#f8fafc] truncate tracking-tight font-heading">
-                {user?.name || 'Dr. Arjun Mehta'}
+              <div className="text-xs font-semibold text-slate-200 truncate">
+                {user?.name || 'Staff Member'}
               </div>
-              <div className="text-[10px] text-[#2dd4bf] font-medium capitalize truncate font-mono">
+              <div className="text-[10px] text-slate-400 capitalize truncate">
                 {displayRole}
               </div>
             </div>
             <button
               onClick={logout}
               title="Sign out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors cursor-pointer"
+              aria-label="Sign out"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -596,18 +603,19 @@ function FlaskIcon(props: { className?: string }) {
   )
 }
 
-function StarIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.48 3.5a.56.56 0 011.04 0l2.13 5.11a.56.56 0 00.47.35l5.52.44c.5.04.7.66.32.99l-4.2 3.6a.56.56 0 00-.18.56l1.28 5.38a.56.56 0 01-.84.61l-4.73-2.88a.56.56 0 00-.58 0l-4.73 2.88a.56.56 0 01-.84-.61l1.29-5.38a.56.56 0 00-.18-.56l-4.2-3.6a.56.56 0 01.32-.99l5.52-.44a.56.56 0 00.47-.35l2.13-5.11z" />
-    </svg>
-  )
-}
 
 function GlobeIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 000 18M12 3a15 15 0 010 18" />
+    </svg>
+  )
+}
+
+function ClipboardListIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
     </svg>
   )
 }

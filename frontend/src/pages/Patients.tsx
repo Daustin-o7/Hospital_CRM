@@ -1,23 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useDeferredValue, useTransition } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
 import { Modal } from '../components/ui/Modal'
-import { Alert } from '../components/ui/Alert'
+import { Alert, friendlyError } from '../components/ui/Alert'
 import { EmptyState, EmptySearch } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
+import { fmtDate as formatDate } from '../utils/format'
 
 const patientSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  phone: z.string().min(10, 'Phone must be at least 10 digits'),
+  phone: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number (starting with 6-9)'),
   dob: z.string().optional(),
   approxAge: z.string().optional(),
-  gender: z.string().min(1, 'Gender is required'),
+  gender: z.string().optional(),
   address: z.string().optional(),
   consent: z.object({
     accepted: z.boolean().refine(v => v === true, 'Patient consent is required under DPDP Act'),
-    purpose: z.string(),
+    purpose: z.string().min(1, 'Consent purpose is required'),
   }),
 })
 type PatientForm = z.infer<typeof patientSchema>
@@ -28,7 +30,7 @@ interface Patient {
   phone: string
   dob?: string
   approxAge?: number
-  gender: string
+  gender?: string
   address?: string
   createdAt: string
 }
@@ -45,21 +47,17 @@ interface DuplicateMatch {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-  } catch { return '—' }
-}
-
 function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Patients() {
+  const navigate = useNavigate()
   const [patients, setPatients] = useState<Patient[]>([])
   // Seed from the topbar global search: /dashboard/patients?q=…
   const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
+  const deferredSearchQuery = useDeferredValue(searchQuery)
   const [searchResults, setSearchResults] = useState<Patient[]>([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -80,16 +78,46 @@ export default function Patients() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<PatientForm>({
     resolver: zodResolver(patientSchema),
     defaultValues: { consent: { accepted: false, purpose: 'care_delivery' } },
   })
 
+  // Auto-calculate approximate age from DOB
+  const calculateAgeFromDob = (dob: string) => {
+    const birth = new Date(dob)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age >= 0 && age <= 150 ? age : null
+  }
+
+  const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dobValue = e.target.value
+    // Let RHF handle the dob value via spread register
+    if (dobValue) {
+      const age = calculateAgeFromDob(dobValue)
+      if (age !== null) {
+        setValue('approxAge', age.toString(), { shouldValidate: true })
+      }
+    } else {
+      setValue('approxAge', '', { shouldValidate: true })
+    }
+  }
+
   const fetchPatients = useCallback(async (query = '') => {
     setLoading(true)
     try {
-      const res = await api.get(`/patients/search?q=${encodeURIComponent(query)}`)
+      // Blank query lists everything; /patients/search treats blank as "no results"
+      const url = query.trim()
+        ? `/patients/search?q=${encodeURIComponent(query)}`
+        : '/patients'
+      const res = await api.get(url)
       setPatients(Array.isArray(res.data) ? res.data : [])
       if (query.trim()) setSearchResults(Array.isArray(res.data) ? res.data : [])
     } catch {
@@ -112,10 +140,12 @@ export default function Patients() {
 
   // Actual registration execution
   const executeRegistration = useCallback(async (data: PatientForm) => {
+    setSubmitError('')
+    const cleanPhone = (data.phone || '').replace(/[\s\-()]/g, '').replace(/^\+?91/, '')
     const idempotencyKey = `IDEMP-PAT-${Date.now()}`
     const payload = {
       name: data.name,
-      phone: data.phone,
+      phone: cleanPhone,
       dob: data.dob ? data.dob : null,
       approxAge: data.approxAge ? Number(data.approxAge) : null,
       gender: data.gender,
@@ -129,10 +159,11 @@ export default function Patients() {
 
     try {
       const res = await api.post('/patients', payload)
-      const newPatient = res.data?.id ? res.data : {
-        id: `pat-${Date.now()}`,
+      const patientId = res.data?.id || res.data?.patientId
+      const newPatient = {
+        id: patientId || `pat-${Date.now()}`,
         name: data.name,
-        phone: data.phone,
+        phone: cleanPhone,
         dob: data.dob || undefined,
         approxAge: data.approxAge ? Number(data.approxAge) : undefined,
         gender: data.gender,
@@ -145,23 +176,8 @@ export default function Patients() {
       setShowDuplicateModal(false)
       setPendingFormData(null)
       setDuplicateMatches([])
-    } catch (err: any) {
-      const fallbackPatient = {
-        id: `pat-${Date.now()}`,
-        name: data.name,
-        phone: data.phone,
-        dob: data.dob || undefined,
-        approxAge: data.approxAge ? Number(data.approxAge) : undefined,
-        gender: data.gender,
-        address: data.address || undefined,
-        createdAt: new Date().toISOString()
-      }
-      setPatients(prev => [fallbackPatient, ...prev])
-      reset({ consent: { accepted: false, purpose: 'care_delivery' } })
-      setShowRegister(false)
-      setShowDuplicateModal(false)
-      setPendingFormData(null)
-      setDuplicateMatches([])
+    } catch (err) {
+      setSubmitError(friendlyError(err))
     } finally {
       setIsCreatingDuplicate(false)
     }
@@ -169,15 +185,16 @@ export default function Patients() {
 
   const onSubmit = useCallback(async (data: PatientForm) => {
     setSubmitError('')
+    const cleanPhone = (data.phone || '').replace(/[\s\-()]/g, '').replace(/^\+?91/, '')
     // Step 1: Check for duplicates before creating
     try {
       const checkRes = await api.post('/patients/check-duplicate', {
         name: data.name,
-        phone: data.phone,
+        phone: cleanPhone,
         dob: data.dob ? data.dob : undefined
       })
       if (checkRes.data?.duplicate && Array.isArray(checkRes.data.matches) && checkRes.data.matches.length > 0) {
-        setPendingFormData(data)
+        setPendingFormData({ ...data, phone: cleanPhone })
         setDuplicateMatches(checkRes.data.matches)
         setShowDuplicateModal(true)
         return
@@ -186,14 +203,14 @@ export default function Patients() {
       // If check fails or Typesense is in fallback, proceed to direct register
     }
 
-    await executeRegistration(data)
+    await executeRegistration({ ...data, phone: cleanPhone })
   }, [executeRegistration])
 
   useEffect(() => { fetchPatients() }, [fetchPatients])
 
   // Search dropdown effect - debounced
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!deferredSearchQuery.trim()) {
       setSearchResults([])
       setShowSearchDropdown(false)
       return
@@ -201,7 +218,7 @@ export default function Patients() {
     setSearchLoading(true)
     const t = setTimeout(async () => {
       try {
-        const res = await api.get(`/patients/search?q=${encodeURIComponent(searchQuery)}`)
+        const res = await api.get(`/patients/search?q=${encodeURIComponent(deferredSearchQuery)}`)
         setSearchResults(Array.isArray(res.data) ? res.data : [])
         setShowSearchDropdown(true)
       } catch {
@@ -212,7 +229,7 @@ export default function Patients() {
       }
     }, 250)
     return () => clearTimeout(t)
-  }, [searchQuery])
+  }, [deferredSearchQuery])
 
   // Click outside & Escape key listeners for search dropdown
   useEffect(() => {
@@ -235,6 +252,13 @@ export default function Patients() {
   }, [])
 
   const [filterType, setFilterType] = useState<'all' | 'today' | 'senior' | 'pediatric'>('all')
+  const [, startTransition] = useTransition()
+
+  const handleFilterChange = (value: typeof filterType) => {
+    startTransition(() => {
+      setFilterType(value)
+    })
+  }
 
   const filteredPatients = patients.filter(p => {
     if (filterType === 'senior') return (p.approxAge || 0) >= 60
@@ -246,7 +270,7 @@ export default function Patients() {
     return true
   })
 
-  const hasSearch = searchQuery.trim().length > 0
+  const hasSearch = deferredSearchQuery.trim().length > 0
 
   return (
     <div className="animate-fadein space-y-5">
@@ -367,12 +391,14 @@ export default function Patients() {
           ].map(chip => (
             <button
               key={chip.id}
-              onClick={() => setFilterType(chip.id as any)}
+              onClick={() => handleFilterChange(chip.id as any)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 filterType === chip.id
                   ? 'btn-primary'
                   : 'btn-secondary'
               }`}
+              aria-pressed={filterType === chip.id}
+              role="tab"
             >
               <span>{chip.label}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${filterType === chip.id ? 'bg-white/20 text-white' : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)]'}`}>
@@ -488,14 +514,27 @@ export default function Patients() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={e => { e.stopPropagation(); openPatient(p.id) }}
-                        aria-label={`View ${p.name}`}
-                        style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--brand-primary)', fontWeight: 600 }}
-                      >
-                        View Chart →
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          className="btn btn-primary btn-sm flex items-center gap-1"
+                          onClick={e => {
+                            e.stopPropagation()
+                            navigate(`/dashboard/consultations?patientId=${p.id}`)
+                          }}
+                          style={{ padding: '3px 8px', fontSize: '11px', fontWeight: 600 }}
+                        >
+                          <span>🩺</span>
+                          <span>Consult</span>
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={e => { e.stopPropagation(); openPatient(p.id) }}
+                          aria-label={`View ${p.name}`}
+                          style={{ padding: '4px 8px', fontSize: '11.5px', color: 'var(--brand-primary)', fontWeight: 600 }}
+                        >
+                          View Chart →
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -536,9 +575,9 @@ export default function Patients() {
 
             {/* Gender */}
             <div>
-              <label htmlFor="reg-gender" className="form-label">Gender Identity *</label>
+              <label htmlFor="reg-gender" className="form-label">Gender Identity</label>
               <select id="reg-gender" className="form-select" {...register('gender')}>
-                <option value="">Select gender</option>
+                <option value="">Select gender (optional)</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>
@@ -550,7 +589,7 @@ export default function Patients() {
             {/* DOB */}
             <div>
               <label htmlFor="reg-dob" className="form-label">Date of Birth</label>
-              <input id="reg-dob" className="form-input" {...register('dob')} type="date" />
+              <input id="reg-dob" className="form-input" {...register('dob')} type="date" onChange={(e) => { register('dob').onChange(e); handleDobChange(e); }} />
             </div>
 
             {/* Approx age */}
@@ -625,6 +664,10 @@ export default function Patients() {
               </p>
             </div>
           </div>
+
+          {submitError && (
+            <Alert variant="error" onDismiss={() => setSubmitError('')}>{submitError}</Alert>
+          )}
 
           <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
             {duplicateMatches.map(match => (
@@ -760,14 +803,45 @@ export default function Patients() {
             </div>
 
             {/* Patient Clinical Quick Actions */}
-            <div className="pt-2 flex items-center justify-between border-t" style={{ borderColor: 'var(--color-border)' }}>
-              <span className="text-xs font-medium text-[var(--color-text-muted)]">Ready for next clinical interaction</span>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs font-medium text-[var(--color-text-muted)]">Direct Clinical Actions:</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setViewingPatient(null)}
-                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  onClick={() => {
+                    setViewingPatient(null)
+                    navigate('/dashboard/appointments')
+                  }}
+                  className="btn btn-secondary btn-sm text-xs"
                 >
-                  Close Chart
+                  📅 Book OPD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingPatient(null)
+                    navigate(`/dashboard/billing`)
+                  }}
+                  className="btn btn-secondary btn-sm text-xs"
+                >
+                  💳 Invoice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pid = viewingPatient.id
+                    setViewingPatient(null)
+                    navigate(`/dashboard/consultations?patientId=${pid}`)
+                  }}
+                  className="btn btn-primary btn-sm text-xs flex items-center gap-1 font-semibold"
+                >
+                  <span>🩺 Start Consultation</span>
+                </button>
+                <button
+                  onClick={() => setViewingPatient(null)}
+                  className="btn btn-ghost btn-sm text-xs"
+                >
+                  Close
                 </button>
               </div>
             </div>

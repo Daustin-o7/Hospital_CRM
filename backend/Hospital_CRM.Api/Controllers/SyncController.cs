@@ -337,7 +337,8 @@ public class SyncController : ControllerBase
         {
             await tx.RollbackAsync(ct);
             _logger.LogError(ex, "Error processing sync push batch");
-            return StatusCode(500, new { error = "sync_batch_failed", message = ex.Message });
+            // SEC-008: Never expose internal exception details to clients
+            return StatusCode(500, new { error = "sync_batch_failed", message = "An internal error occurred while processing the sync batch. Please retry." });
         }
 
         foreach (var created in createdPatients)

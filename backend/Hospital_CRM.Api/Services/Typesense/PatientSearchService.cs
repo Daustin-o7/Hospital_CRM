@@ -347,9 +347,10 @@ public class PatientSearchService : IPatientSearchService
     {
         try
         {
+            var lowerQuery = query.Trim().ToLower();
             var matches = await _db.Patients.AsNoTracking()
                 .Where(p => (tenantId == Guid.Empty || p.TenantId == tenantId)
-                         && (EF.Functions.ILike(p.Name, $"%{query}%") || EF.Functions.ILike(p.Phone, $"%{query}%")))
+                         && (p.Name.ToLower().Contains(lowerQuery) || p.Phone.Contains(query)))
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(limit)
                 .ToListAsync(ct);
@@ -396,8 +397,9 @@ public class PatientSearchService : IPatientSearchService
                 }
             }
 
+            var lowerName = name.Trim().ToLower();
             var nameDobMatches = await query
-                .Where(p => EF.Functions.ILike(p.Name, $"%{name}%") && (dob == null || p.Dob == dob))
+                .Where(p => p.Name.ToLower().Contains(lowerName) && (dob == null || p.Dob == dob))
                 .Take(5)
                 .ToListAsync(ct);
 
@@ -421,13 +423,14 @@ public class PatientSearchService : IPatientSearchService
     {
         try
         {
+            var cleanQuery = query.Trim().ToLower();
             var matches = await _db.Drugs.AsNoTracking()
                 .Where(m => (tenantId == Guid.Empty || m.TenantId == tenantId)
-                         && (EF.Functions.ILike(m.Name, $"%{query}%")
-                             || EF.Functions.ILike(m.GenericName, $"%{query}%")
-                             || (m.CommonBrands != null && EF.Functions.ILike(m.CommonBrands, $"%{query}%"))
-                             || (m.DosageForm != null && EF.Functions.ILike(m.DosageForm, $"%{query}%"))
-                             || (m.Strength != null && EF.Functions.ILike(m.Strength, $"%{query}%"))))
+                         && (m.Name.ToLower().Contains(cleanQuery)
+                             || m.GenericName.ToLower().Contains(cleanQuery)
+                             || (m.CommonBrands != null && m.CommonBrands.ToLower().Contains(cleanQuery))
+                             || (m.DosageForm != null && m.DosageForm.ToLower().Contains(cleanQuery))
+                             || (m.Strength != null && m.Strength.ToLower().Contains(cleanQuery))))
                 .Take(limit)
                 .ToListAsync(ct);
 

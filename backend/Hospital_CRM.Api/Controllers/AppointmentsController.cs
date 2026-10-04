@@ -284,7 +284,9 @@ public class AppointmentsController : ControllerBase
             .Select(a => new
             {
                 appointmentId = a.Id,
+                patientId = a.PatientId,
                 patientName = a.Patient.Name,
+                doctorId = a.DoctorId,
                 doctorName = a.Doctor.Name,
                 time = a.TimeSlot,
                 status = a.Status.ToString().ToLower(),

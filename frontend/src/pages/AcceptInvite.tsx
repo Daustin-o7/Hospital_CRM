@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { friendlyError } from '../components/ui/Alert'
+import { PublicPage } from '../components/ui/PublicPage'
 import api from '../services/api'
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -43,25 +44,11 @@ export default function AcceptInvite() {
   }
 
   return (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 55%, #0d9488 100%)' }}
+    <PublicPage
+      badge="Team Invitation"
+      title="Join your clinic's workspace"
+      subtitle="Set your password to activate your account."
     >
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-teal-50 text-xs font-bold tracking-wide">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
-            Team Invitation
-          </div>
-          <h1 className="text-white text-xl font-bold mt-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            Join your clinic's workspace
-          </h1>
-          <p className="text-slate-300 text-sm mt-1.5">
-            Set your password to activate your account.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xl">
           {done ? (
             <div className="space-y-4 text-center">
               <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
@@ -127,8 +114,6 @@ export default function AcceptInvite() {
               </button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </PublicPage>
   )
 }
