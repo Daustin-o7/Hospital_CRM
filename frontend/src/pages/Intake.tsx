@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { friendlyError } from '../components/ui/Alert'
+import { PublicPage } from '../components/ui/PublicPage'
 import api from '../services/api'
 
 type Phase = 'form' | 'submitting' | 'done' | 'already' | 'invalid' | 'expired'
@@ -49,74 +50,50 @@ export default function Intake() {
     }
   }
 
-  const shell = (children: React.ReactNode) => (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 55%, #0d9488 100%)' }}
+  return (
+    <PublicPage
+      maxWidth="lg"
+      badge="Pre-Visit Check-in"
+      title="A few questions before your visit"
+      subtitle="Your answers reach your doctor before you walk in. Takes under a minute."
+      footer="Powered by Samstack Health CRM"
     >
-      <div className="w-full max-w-lg">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-teal-50 text-xs font-bold tracking-wide">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
-            Pre-Visit Check-in
+      {(phase === 'done' || phase === 'already') && (
+        <div className="text-center py-6 space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
+            <svg className="w-7 h-7 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          <h1 className="text-white text-xl font-bold mt-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            A few questions before your visit
-          </h1>
-          <p className="text-slate-300 text-sm mt-1.5">
-            Your answers reach your doctor before you walk in. Takes under a minute.
+          <h2 className="text-lg font-bold text-slate-800" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            {phase === 'already' ? 'Already submitted' : 'All set — thank you!'}
+          </h2>
+          <p className="text-sm text-slate-600">
+            {phase === 'already'
+              ? 'We have your answers from earlier. No need to fill this again.'
+              : 'Your doctor has your answers and will review them shortly. Please arrive a few minutes early.'}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xl">
-          {children}
-        </div>
-        <p className="text-center text-slate-400 text-xs mt-4">
-          Powered by Samstack Health CRM
-        </p>
-      </div>
-    </div>
-  )
+      )}
 
-  if (phase === 'done' || phase === 'already') {
-    return shell(
-      <div className="text-center py-6 space-y-3">
-        <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
-          <svg className="w-7 h-7 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      {(phase === 'invalid' || phase === 'expired') && (
+        <div className="text-center py-6 space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
+            <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.34 16a2 2 0 001.73 3z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-slate-800" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            {phase === 'expired' ? 'Link expired' : 'Link not valid'}
+          </h2>
+          <p className="text-sm text-slate-600">
+            {ERRORS[phase === 'expired' ? 'token_expired' : 'invalid_token'].message}
+          </p>
         </div>
-        <h2 className="text-lg font-bold text-slate-800" style={{ fontFamily: 'Outfit, sans-serif' }}>
-          {phase === 'already' ? 'Already submitted' : 'All set — thank you!'}
-        </h2>
-        <p className="text-sm text-slate-600">
-          {phase === 'already'
-            ? 'We have your answers from earlier. No need to fill this again.'
-            : 'Your doctor has your answers and will review them shortly. Please arrive a few minutes early.'}
-        </p>
-      </div>
-    )
-  }
+      )}
 
-  if (phase === 'invalid' || phase === 'expired') {
-    return shell(
-      <div className="text-center py-6 space-y-3">
-        <div className="w-14 h-14 mx-auto rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
-          <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.34 16a2 2 0 001.73 3z" />
-          </svg>
-        </div>
-        <h2 className="text-lg font-bold text-slate-800" style={{ fontFamily: 'Outfit, sans-serif' }}>
-          {phase === 'expired' ? 'Link expired' : 'Link not valid'}
-        </h2>
-        <p className="text-sm text-slate-600">
-          {ERRORS[phase === 'expired' ? 'token_expired' : 'invalid_token'].message}
-        </p>
-      </div>
-    )
-  }
-
-  return shell(
-    <form onSubmit={submit} className="space-y-4">
+      {phase !== 'done' && phase !== 'already' && phase !== 'invalid' && phase !== 'expired' && (
+        <form onSubmit={submit} className="space-y-4">
       {error && <div className="alert alert-error">{error}</div>}
 
       <div>
@@ -208,6 +185,8 @@ export default function Intake() {
       <p className="text-[11px] text-slate-400 text-center">
         Trouble? <Link to="/login" className="underline">Staff sign-in</Link>
       </p>
-    </form>
+        </form>
+      )}
+    </PublicPage>
   )
 }

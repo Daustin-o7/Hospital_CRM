@@ -173,7 +173,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     // Navigate to Patients
     await page.getByRole('link', { name: /Patients/i }).click()
     await expect(page).toHaveURL(/.*patients/)
-    await expect(page.getByRole('heading', { name: 'Patients' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Patients', exact: true })).toBeVisible()
 
     // Open Register Modal
     await page.locator('#register-patient-btn').click()
@@ -219,10 +219,11 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     // Select first patient and first doctor
     await page.locator('#appt-patient').selectOption({ index: 1 })
     await page.locator('#appt-doctor').selectOption({ index: 1 })
-    const targetDate = new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]
+    const randomDays = 5 + Math.floor(Math.random() * 60)
+    const targetDate = new Date(Date.now() + 86400000 * randomDays).toISOString().split('T')[0]
     await page.locator('#appt-date-input').fill(targetDate)
-    const randomHour = 10 + Math.floor(Math.random() * 2)
-    const randomMin = (Math.floor(Math.random() * 11) * 5).toString().padStart(2, '0')
+    const randomHour = 10 + Math.floor(Math.random() * 7)
+    const randomMin = (Math.floor(Math.random() * 12) * 5).toString().padStart(2, '0')
     await page.locator('#appt-time').fill(`${randomHour.toString().padStart(2, '0')}:${randomMin}`)
 
     await page.locator('#submit-appt-btn').click()

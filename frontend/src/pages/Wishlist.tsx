@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Modal } from '../components/ui/Modal'
 import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
+import { fmtDate } from '../utils/format'
+import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 
 interface WishlistItem {
@@ -21,11 +23,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   expansion: 'Expansion',
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 export default function Wishlist() {
+  const { toast } = useToast()
   const [items, setItems] = useState<WishlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -37,12 +36,6 @@ export default function Wishlist() {
   const [category, setCategory] = useState<WishlistItem['category']>('task')
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
 
   const fetchItems = useCallback(async () => {
     try {
@@ -71,15 +64,15 @@ export default function Wishlist() {
     try {
       if (editId) {
         await api.patch(`/wishlist-items/${editId}`, { text: text.trim(), category })
-        showToast('Item updated.')
+        toast('Item updated.')
       } else {
         await api.post('/wishlist-items', { text: text.trim(), category })
-        showToast('Added to wishlist.')
+        toast('Added to wishlist.')
       }
       setModalOpen(false)
       await fetchItems()
     } catch (err) {
-      showToast(friendlyError(err))
+      toast(friendlyError(err), 'error')
     } finally {
       setSaving(false)
     }
@@ -91,9 +84,9 @@ export default function Wishlist() {
     try {
       await api.patch(`/wishlist-items/${item.id}`, { status })
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, status } : i))
-      showToast(status === 'done' ? 'Marked done.' : status === 'open' ? 'Reopened.' : 'Cancelled.')
+      toast(status === 'done' ? 'Marked done.' : status === 'open' ? 'Reopened.' : 'Cancelled.')
     } catch (err) {
-      showToast(friendlyError(err))
+      toast(friendlyError(err), 'error')
       await fetchItems()
     } finally {
       setBusyId(null)
@@ -133,14 +126,6 @@ export default function Wishlist() {
         </div>
       </div>
 
-      {toast && (
-        <div className="alert alert-success">
-          <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>{toast}</span>
-        </div>
-      )}
 
       {error && (
         <div className="alert alert-error">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
+import { fmtDate } from '../utils/format'
 import api from '../services/api'
 
 interface LabOrder {
@@ -18,11 +19,6 @@ interface LabOrder {
 
 type Tab = 'pending' | 'completed' | 'all'
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 export default function LabOrders() {
   const [orders, setOrders] = useState<LabOrder[]>([])
   const [patientNames, setPatientNames] = useState<Record<string, string>>({})
@@ -34,17 +30,15 @@ export default function LabOrders() {
     try {
       setLoading(true)
       setError(null)
-      const res = await api.get('/lab-orders')
-      const list: LabOrder[] = Array.isArray(res.data) ? res.data : []
+      const [orderRes, patRes] = await Promise.all([
+        api.get('/lab-orders'),
+        api.get('/patients').catch(() => ({ data: [] })),
+      ])
+      const list: LabOrder[] = Array.isArray(orderRes.data) ? orderRes.data : []
       setOrders(list)
 
-      // Resolve patient names for the worklist (unique ids, tolerant of 404s)
-      const ids = [...new Set(list.map(o => o.patientId).filter((id): id is string => !!id))]
-      const lookups = await Promise.allSettled(ids.map(id => api.get(`/patients/${id}`)))
-      const names: Record<string, string> = {}
-      lookups.forEach((r, i) => {
-        if (r.status === 'fulfilled' && r.value.data?.name) names[ids[i]] = r.value.data.name
-      })
+      const patList = Array.isArray(patRes.data) ? patRes.data : []
+      const names = Object.fromEntries(patList.map((p: any) => [p.id, p.name]))
       setPatientNames(names)
     } catch (err) {
       setError(friendlyError(err))

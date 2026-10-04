@@ -326,9 +326,24 @@ public class ConsultationsController : ControllerBase
     [AuthorizeRoles("Doctor")]
     public async Task<IActionResult> AddPrescription(Guid consultationId, [FromBody] AddPrescriptionRequest request, CancellationToken ct)
     {
+        var doctorId = User.GetUserId();
+        if (!doctorId.HasValue)
+            return Unauthorized(new { error = "invalid_token" });
+
         var consultation = await _db.Consultations.FindAsync([consultationId], ct);
         if (consultation is null)
             return NotFound(new { error = "consultation_not_found" });
+
+        // SEC-011: Verify the calling doctor owns this consultation or is in the same clinic.
+        // Without this, any authenticated Doctor can add prescriptions to any consultation.
+        if (consultation.DoctorId != doctorId.Value)
+        {
+            // Allow same-clinic doctors (consistent with AmendConsultation logic)
+            var authorUser = await _db.Users.FindAsync([consultation.DoctorId], ct);
+            var currentUser = await _db.Users.FindAsync([doctorId.Value], ct);
+            if (authorUser?.ClinicId is null || currentUser?.ClinicId is null || authorUser.ClinicId != currentUser.ClinicId)
+                return Forbid();
+        }
 
         var prescription = new Prescription
         {

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
@@ -12,6 +13,7 @@ using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -33,6 +35,47 @@ builder.Services.AddDbContext<HospitalCrmDbContext>(options =>
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddMemoryCache();
+
+// Rate limiting (per IP + per user)
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 5
+            }));
+
+    // Stricter limits for auth endpoints
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+
+    // Precheck submission limit
+    options.AddPolicy("precheck", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(5),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 1
+            }));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 // JWT static config validation
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
@@ -166,7 +209,7 @@ builder.Services.AddOpenApi();
 // Typesense self-hosted search — proxy only, never exposed to the frontend.
 builder.Services.Configure<Hospital_CRM.Api.Services.Typesense.TypesenseOptions>(
     builder.Configuration.GetSection(Hospital_CRM.Api.Services.Typesense.TypesenseOptions.SectionName));
-builder.Services.AddHttpClient("typesense");
+builder.Services.AddHttpClient("typesense", c => c.Timeout = TimeSpan.FromSeconds(2));
 builder.Services.AddSingleton<Hospital_CRM.Api.Services.Typesense.ITypesenseClientFactory,
                               Hospital_CRM.Api.Services.Typesense.TypesenseClientFactory>();
 builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.IPatientSearchService,
@@ -316,17 +359,36 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
+app.UseRateLimiter();
+app.UseSecurityHeaders();
+
+
 // MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
 var labUploadDir = Path.Combine(builder.Environment.ContentRootPath, "lab-uploads");
 Directory.CreateDirectory(labUploadDir);
-app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(labUploadDir),
-    RequestPath = "/lab-uploads"
-});
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// SEC-002: Lab file static middleware MUST run AFTER UseAuthentication/UseAuthorization
+// so that JWT is parsed before OnPrepareResponse fires. Also short-circuit the response
+// body to prevent the file from being served to unauthenticated users.
+app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(labUploadDir),
+    RequestPath = "/lab-uploads",
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.Context.User?.Identity?.IsAuthenticated != true)
+        {
+            ctx.Context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            ctx.Context.Response.Headers["WWW-Authenticate"] = "Bearer";
+            ctx.Context.Response.ContentLength = 0;
+            ctx.Context.Response.Body = Stream.Null;
+        }
+    }
+});
+
 app.UseMiddleware<InactivityMiddleware>();
 
 // Hangfire dashboard - gated to ClinicAdmin role.

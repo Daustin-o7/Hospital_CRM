@@ -168,7 +168,7 @@ export default function Dashboard() {
 
       {/* ── 4 Top KPI Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Appointments */}
+        {/* Card 1: Consultations */}
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -177,7 +177,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="stat-label mt-0">Appointments today</span>
+              <span className="stat-label mt-0">Today's appointments</span>
             </div>
             <span
               className="text-teal-700 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200 transition-colors cursor-pointer"
@@ -197,7 +197,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 2: Patients */}
+        {/* Card 2: Registered Patients */}
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -206,7 +206,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <span className="stat-label mt-0">Patients registry</span>
+              <span className="stat-label mt-0">Patient registry</span>
             </div>
             <span
               className="text-sky-700 dark:text-sky-400 hover:text-sky-900 dark:hover:text-sky-200 transition-colors cursor-pointer"
@@ -222,11 +222,11 @@ export default function Dashboard() {
             <span className="stat-value font-heading font-mono">
               {loading ? <Skeleton width="48px" height="28px" /> : stats.totalPatients}
             </span>
-            <span className="badge badge-info">Registered records</span>
+            <span className="badge badge-info">Active records</span>
           </div>
         </div>
 
-        {/* Card 3: Revenue */}
+        {/* Card 3: Collections */}
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -235,7 +235,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <span className="stat-label mt-0">Revenue today</span>
+              <span className="stat-label mt-0">Today's collections</span>
             </div>
             <span
               className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 transition-colors cursor-pointer"
@@ -251,11 +251,11 @@ export default function Dashboard() {
             <span className="stat-value font-heading font-mono">
               {loading ? <Skeleton width="80px" height="28px" /> : `₹${stats.revenueToday.toLocaleString('en-IN')}`}
             </span>
-            <span className="badge badge-success">Collected today</span>
+            <span className="badge badge-success">Realized today</span>
           </div>
         </div>
 
-        {/* Card 4: Pending Payments */}
+        {/* Card 4: Pending Invoices */}
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -264,7 +264,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <span className="stat-label mt-0">Unsettled invoices</span>
+              <span className="stat-label mt-0">Pending invoices</span>
             </div>
             <span
               className="text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors cursor-pointer"

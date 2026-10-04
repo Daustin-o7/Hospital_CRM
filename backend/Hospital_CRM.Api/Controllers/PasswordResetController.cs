@@ -2,6 +2,7 @@ using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
@@ -21,6 +22,7 @@ public class PasswordResetController : ControllerBase
 
     [HttpPost("request-password-reset")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> RequestReset([FromBody] RequestResetRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -46,13 +48,17 @@ public class PasswordResetController : ControllerBase
         _db.PasswordResetTokens.Add(resetToken);
         await _db.SaveChangesAsync(ct);
 
+        // SEC-001: NEVER return the raw token in the response body.
+        // In production, send via email/SMS. In dev, log to console for testing.
         _logger.LogInformation("Password reset requested for user {UserId}", user.Id);
+        _logger.LogDebug("DEV ONLY — reset token for {UserId}: {Token}", user.Id, rawToken);
 
-        return Ok(new { message = "If the email exists, a reset token has been issued.", resetToken = rawToken });
+        return Ok(new { message = "If the email exists, a reset token has been issued." });
     }
 
     [HttpPost("confirm-password-reset")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ConfirmReset([FromBody] ConfirmResetRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.ResetToken) || string.IsNullOrWhiteSpace(request.NewPassword))

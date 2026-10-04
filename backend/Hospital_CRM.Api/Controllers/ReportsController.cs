@@ -43,16 +43,7 @@ public class ReportsController : ControllerBase
         var clinicId = await GetUserClinicId(userId.Value, ct);
 
         // Income from completed payments
-        var paymentsQuery = _db.Payments
-            .Include(p => p.Invoice)
-            .Where(p => p.Status == PaymentStatus.Completed
-                     && p.PaidAt >= startDt
-                     && p.PaidAt < endDt);
-
-        if (clinicId.HasValue)
-            paymentsQuery = paymentsQuery.Where(p => p.Invoice.Appointment.ClinicId == clinicId.Value);
-
-        var payments = await paymentsQuery.ToListAsync(ct);
+        var payments = await QueryPayments(startDt, endDt, clinicId).ToListAsync(ct);
 
         var grossIncome = payments.Sum(p => p.Amount);
         // GST is per-invoice — group by invoice so partially-paid invoices aren't double-counted
@@ -121,16 +112,7 @@ public class ReportsController : ControllerBase
 
         var clinicId = await GetUserClinicId(User.GetUserId().Value, ct);
 
-        var paymentsQuery = _db.Payments
-            .Include(p => p.Invoice)
-            .Where(p => p.Status == PaymentStatus.Completed
-                     && p.PaidAt >= startDt
-                     && p.PaidAt < endDt);
-
-        if (clinicId.HasValue)
-            paymentsQuery = paymentsQuery.Where(p => p.Invoice.Appointment.ClinicId == clinicId.Value);
-
-        var payments = await paymentsQuery.ToListAsync(ct);
+        var payments = await QueryPayments(startDt, endDt, clinicId).ToListAsync(ct);
 
         var grossReceipts = payments.Sum(p => p.Amount);
         var deemedProfit = Math.Round(payments.Sum(p => p.Amount) * 0.5m, 2);
@@ -163,59 +145,11 @@ public class ReportsController : ControllerBase
 
         var clinicId = await GetUserClinicId(User.GetUserId().Value, ct);
 
-        var invoicesQuery = _db.Invoices
-            .Include(i => i.Appointment).ThenInclude(a => a.Patient)
-            .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt && i.Status != InvoiceStatus.Cancelled);
-
-        if (clinicId.HasValue)
-            invoicesQuery = invoicesQuery.Where(i => i.Appointment.ClinicId == clinicId.Value);
-
-        var invoices = await invoicesQuery
+        var invoices = await QueryInvoices(startDt, endDt, clinicId)
             .Include(i => i.LineItems)
             .ToListAsync(ct);
 
-        var b2bInvoices = invoices
-            .Where(i => i.Appointment != null) // B2B = patient invoices
-            .Select(i => new
-            {
-                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Unknown",
-                patientGstin = (string?)null, // Not captured
-                invoiceValue = i.Total,
-                taxableValue = i.Subtotal,
-                gstRate = 18,
-                gstAmount = i.GstAmount,
-                placeOfSupply = "27", // Maharashtra default
-                invoiceType = "B2B"
-            })
-            .ToList();
-
-        var b2cInvoices = invoices
-            .Where(i => i.Appointment == null) // B2C = walk-in / pharmacy
-            .Select(i => new
-            {
-                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                patientName = i.WalkInCustomerName ?? "Walk-in Customer",
-                invoiceValue = i.Total,
-                taxableValue = i.Subtotal,
-                gstRate = 18,
-                gstAmount = i.GstAmount,
-                placeOfSupply = "27",
-                invoiceType = "B2C"
-            })
-            .ToList();
-
-        return Ok(new
-        {
-            month = $"{year:D4}-{monthNum:D2}",
-            b2bInvoices,
-            b2cInvoices,
-            totalInvoices = invoices.Count,
-            totalTaxableValue = invoices.Sum(i => i.Subtotal),
-            totalGst = invoices.Sum(i => i.GstAmount)
-        });
+        return Ok(BuildGstr1Payload($"{year:D4}-{monthNum:D2}", invoices));
     }
 
     [HttpGet("payment-distribution")]
@@ -316,35 +250,7 @@ public class ReportsController : ControllerBase
             case "GSTR-1 JSON":
             {
                 var invoices = await QueryInvoices(startDt, endDt, clinicId).ToListAsync(ct);
-                var payload = new
-                {
-                    month,
-                    b2bInvoices = invoices.Where(i => i.Appointment != null).Select(i => new
-                    {
-                        invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                        invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                        patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Unknown",
-                        invoiceValue = i.Total,
-                        taxableValue = i.Subtotal,
-                        gstRate = 18,
-                        gstAmount = i.GstAmount,
-                        invoiceType = "B2B"
-                    }),
-                    b2cInvoices = invoices.Where(i => i.Appointment == null).Select(i => new
-                    {
-                        invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                        invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                        patientName = i.WalkInCustomerName ?? "Walk-in Customer",
-                        invoiceValue = i.Total,
-                        taxableValue = i.Subtotal,
-                        gstRate = 18,
-                        gstAmount = i.GstAmount,
-                        invoiceType = "B2C"
-                    }),
-                    totalInvoices = invoices.Count,
-                    totalTaxableValue = invoices.Sum(i => i.Subtotal),
-                    totalGst = invoices.Sum(i => i.GstAmount)
-                };
+                var payload = BuildGstr1Payload(month, invoices);
                 var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
                 return File(Encoding.UTF8.GetBytes(json), "application/json", $"GSTR1-{month}.json");
             }
@@ -356,13 +262,13 @@ public class ReportsController : ControllerBase
     private IQueryable<Payment> QueryPayments(DateTime startDt, DateTime endDt, Guid? clinicId)
     {
         var query = _db.Payments
-            .Include(p => p.Invoice)
+            .Include(p => p.Invoice).ThenInclude(inv => inv.Appointment)
             .Where(p => p.Status == PaymentStatus.Completed
                      && p.PaidAt >= startDt
                      && p.PaidAt < endDt);
 
         if (clinicId.HasValue)
-            query = query.Where(p => p.Invoice.Appointment.ClinicId == clinicId.Value);
+            query = query.Where(p => p.Invoice.Appointment != null && p.Invoice.Appointment.ClinicId == clinicId.Value);
 
         return query;
     }
@@ -374,9 +280,55 @@ public class ReportsController : ControllerBase
             .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt && i.Status != InvoiceStatus.Cancelled);
 
         if (clinicId.HasValue)
-            query = query.Where(i => i.Appointment.ClinicId == clinicId.Value);
+            query = query.Where(i => i.Appointment != null && i.Appointment.ClinicId == clinicId.Value);
 
         return query;
+    }
+
+    private static object BuildGstr1Payload(string month, List<Invoice> invoices)
+    {
+        var b2bInvoices = invoices
+            .Where(i => i.Appointment != null)
+            .Select(i => new
+            {
+                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
+                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
+                patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Unknown",
+                patientGstin = (string?)null,
+                invoiceValue = i.Total,
+                taxableValue = i.Subtotal,
+                gstRate = 18,
+                gstAmount = i.GstAmount,
+                placeOfSupply = "27",
+                invoiceType = "B2B"
+            })
+            .ToList();
+
+        var b2cInvoices = invoices
+            .Where(i => i.Appointment == null)
+            .Select(i => new
+            {
+                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
+                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
+                patientName = i.WalkInCustomerName ?? "Walk-in Customer",
+                invoiceValue = i.Total,
+                taxableValue = i.Subtotal,
+                gstRate = 18,
+                gstAmount = i.GstAmount,
+                placeOfSupply = "27",
+                invoiceType = "B2C"
+            })
+            .ToList();
+
+        return new
+        {
+            month,
+            b2bInvoices,
+            b2cInvoices,
+            totalInvoices = invoices.Count,
+            totalTaxableValue = invoices.Sum(i => i.Subtotal),
+            totalGst = invoices.Sum(i => i.GstAmount)
+        };
     }
 
     private async Task<Guid?> GetUserClinicId(Guid userId, CancellationToken ct)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
+import { fmtDate } from '../utils/format'
 import api from '../services/api'
 
 interface Tenant {
@@ -11,11 +12,6 @@ interface Tenant {
   activatedModules: string[] | null
   createdAt: string
   subscriptionEndsAt: string | null
-}
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export default function PlatformAdmin() {

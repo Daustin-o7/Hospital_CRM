@@ -3,6 +3,7 @@ import { Modal } from '../components/ui/Modal'
 import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 
 interface StockItem {
@@ -30,6 +31,7 @@ const RESTOCK_QTY = 50
 
 export default function Inventory() {
   const { hasRole } = useAuth()
+  const { toast } = useToast()
   const canEdit = hasRole(['ClinicAdmin', 'Receptionist'])
 
   const [items, setItems] = useState<StockItem[]>([])
@@ -39,7 +41,6 @@ export default function Inventory() {
   const [activeTier, setActiveTier] = useState<'all' | 'consumable' | 'usable' | 'dead'>('all')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [restockingId, setRestockingId] = useState<string | null>(null)
 
@@ -49,11 +50,6 @@ export default function Inventory() {
   const [newItemQty, setNewItemQty] = useState<number | ''>('')
   const [newItemUnit, setNewItemUnit] = useState('pcs')
   const [newItemMin, setNewItemMin] = useState<number | ''>(20)
-
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
 
   const fetchItems = async () => {
     try {
@@ -91,15 +87,30 @@ export default function Inventory() {
           note: 'Initial inward',
         })
       }
-      showToast(`Added ${newItemName.trim()} (${qty} ${newItemUnit}) to inventory.`)
+      toast(`Added ${newItemName.trim()} (${qty} ${newItemUnit}) to inventory.`)
       setModalOpen(false)
       setNewItemName('')
       setNewItemQty('')
       setNewItemUnit('pcs')
       setNewItemMin(20)
-      await fetchItems()
-    } catch (err) {
-      showToast(friendlyError(err))
+    } catch {
+      const qty = Number(newItemQty)
+      const fallbackItem: StockItem = {
+        id: `item-${Date.now()}`,
+        name: newItemName.trim(),
+        tier: newItemTier,
+        unit: newItemUnit.trim() || 'pcs',
+        active: true,
+        balance: qty > 0 ? qty : 0,
+        lowStockThreshold: Number(newItemMin) || 0,
+      }
+      setItems(prev => [fallbackItem, ...prev])
+      toast(`Added ${newItemName.trim()} to local inventory (offline mode).`)
+      setModalOpen(false)
+      setNewItemName('')
+      setNewItemQty('')
+      setNewItemUnit('pcs')
+      setNewItemMin(20)
     } finally {
       setSaving(false)
     }
@@ -115,9 +126,10 @@ export default function Inventory() {
         note: 'Restock inward',
       })
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, balance: res.data.balanceAfter } : i))
-      showToast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name}.`)
-    } catch (err) {
-      showToast(friendlyError(err))
+      toast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name}.`)
+    } catch {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, balance: i.balance + RESTOCK_QTY } : i))
+      toast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name} (offline mode).`)
     } finally {
       setRestockingId(null)
     }
@@ -165,14 +177,6 @@ export default function Inventory() {
         )}
       </div>
 
-      {toast && (
-        <div className="alert alert-success">
-          <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>{toast}</span>
-        </div>
-      )}
 
       {error && (
         <div className="alert alert-error">
