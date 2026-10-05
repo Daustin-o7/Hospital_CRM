@@ -3,6 +3,7 @@ using System;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hospital_CRM.Infrastructure.Migrations
 {
     [DbContext(typeof(HospitalCrmDbContext))]
-    partial class HospitalCrmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004194754_AddNurseProfileAndAvailability")]
+    partial class AddNurseProfileAndAvailability
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1056,65 +1059,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.ToTable("LabResults");
                 });
 
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.LeaveRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<DateOnly>("EndDate")
-                        .HasColumnType("date");
-
-                    b.Property<Guid>("NurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid>("RequestedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ReviewNote")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid?>("ReviewedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly>("StartDate")
-                        .HasColumnType("date");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NurseProfileId", "StartDate", "EndDate");
-
-                    b.ToTable("LeaveRequests");
-                });
-
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.LedgerExpense", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1268,60 +1212,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("TenantId", "Active");
 
                     b.ToTable("NotificationRules");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseAuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTimeOffset>("ChangedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("ChangedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("EntityId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("NewValue")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<Guid?>("NurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("OldValue")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NurseProfileId");
-
-                    b.HasIndex("EntityType", "EntityId");
-
-                    b.ToTable("NurseAuditLogs");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseAvailability", b =>
@@ -1525,103 +1415,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.ToTable("NurseProfiles");
                 });
 
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseShift", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly>("Date")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Notes")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid?>("NurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("ShiftType")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NurseProfileId");
-
-                    b.HasIndex("ClinicId", "Date");
-
-                    b.HasIndex("TenantId", "NurseProfileId", "Date", "ShiftType")
-                        .IsUnique()
-                        .HasFilter("\"Status\" = 1 AND \"NurseProfileId\" IS NOT NULL");
-
-                    b.ToTable("NurseShifts");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseShiftApplication", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("AppliedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("NurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ShiftId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NurseProfileId", "Status");
-
-                    b.HasIndex("ShiftId", "NurseProfileId")
-                        .IsUnique();
-
-                    b.ToTable("NurseShiftApplications");
-                });
-
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PasswordResetToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1791,52 +1584,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("PatientId");
 
                     b.ToTable("PatientConsents");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientNurseAssignment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AppointmentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("AssignedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("AssignedBy")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("NurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ShiftId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NurseProfileId", "Status");
-
-                    b.HasIndex("PatientId", "Status");
-
-                    b.ToTable("PatientNurseAssignments");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Payment", b =>
@@ -2105,50 +1852,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("RefreshTokens");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ShiftHandover", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AuthorNurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Note")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ShiftId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
-
-                    b.Property<Guid>("ToNurseProfileId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AuthorNurseProfileId");
-
-                    b.HasIndex("ToNurseProfileId");
-
-                    b.HasIndex("PatientId", "CreatedAt");
-
-                    b.ToTable("ShiftHandovers");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.StaffInvite", b =>
@@ -2762,17 +2465,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Navigation("PreviousVersion");
                 });
 
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.LeaveRequest", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", "Nurse")
-                        .WithMany()
-                        .HasForeignKey("NurseProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Nurse");
-                });
-
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.LedgerExpense", b =>
                 {
                     b.HasOne("Hospital_CRM.Domain.Entities.User", "Recorder")
@@ -2826,34 +2518,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseShift", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", "Nurse")
-                        .WithMany()
-                        .HasForeignKey("NurseProfileId");
-
-                    b.Navigation("Nurse");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseShiftApplication", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", "Nurse")
-                        .WithMany()
-                        .HasForeignKey("NurseProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseShift", "Shift")
-                        .WithMany("Applications")
-                        .HasForeignKey("ShiftId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Nurse");
-
-                    b.Navigation("Shift");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PasswordResetToken", b =>
@@ -2912,23 +2576,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Navigation("CapturedByUser");
 
                     b.Navigation("Patient");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientNurseAssignment", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", "Nurse")
-                        .WithMany()
-                        .HasForeignKey("NurseProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hospital_CRM.Domain.Entities.Patient", null)
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Nurse");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Payment", b =>
@@ -3020,27 +2667,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ShiftHandover", b =>
-                {
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", null)
-                        .WithMany()
-                        .HasForeignKey("AuthorNurseProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hospital_CRM.Domain.Entities.Patient", null)
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Hospital_CRM.Domain.Entities.NurseProfile", null)
-                        .WithMany()
-                        .HasForeignKey("ToNurseProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.StaffInvite", b =>
@@ -3162,11 +2788,6 @@ namespace Hospital_CRM.Infrastructure.Migrations
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseProfile", b =>
                 {
                     b.Navigation("Availabilities");
-                });
-
-            modelBuilder.Entity("Hospital_CRM.Domain.Entities.NurseShift", b =>
-                {
-                    b.Navigation("Applications");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Patient", b =>

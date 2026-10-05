@@ -202,7 +202,9 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+// String enums in JSON both ways (e.g. employmentStatus: "Active") — numbers still bind
+builder.Services.AddControllers().AddJsonOptions(o =>
+    o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
@@ -323,6 +325,31 @@ if (autoMigrate)
                         });
                         await db.SaveChangesAsync();
                     }
+                }
+                // MOD-26: existing dev DBs predate NurseProfile — backfill so the
+                // seeded nurse preset can use roster/leave/handover.
+                var seededNurse = await db.Users.FirstOrDefaultAsync(u => u.Email == "nurse@samstack.ai");
+                if (seededNurse != null && !await db.NurseProfiles.AnyAsync(p => p.UserId == seededNurse.Id))
+                {
+                    var seedingAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@samstack.ai");
+                    db.NurseProfiles.Add(new NurseProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = seededNurse.Id,
+                        TenantId = Guid.Empty,
+                        DepartmentId = Guid.Empty,
+                        Designation = "Staff Nurse",
+                        EmploymentType = EmploymentType.FullTime,
+                        JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                        Status = EmploymentStatus.Active,
+                        LicenseNumber = "DEV-SEED-000",
+                        LicenseExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3)),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow,
+                        CreatedBy = seedingAdmin?.Id ?? seededNurse.Id,
+                        UpdatedBy = seedingAdmin?.Id ?? seededNurse.Id
+                    });
+                    await db.SaveChangesAsync();
                 }
                 if (!await db.Drugs.AnyAsync())
                 {
@@ -511,6 +538,25 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(nurse);
+
+    // MOD-26: seeded nurse needs a NurseProfile or the roster/leave endpoints 403.
+    db.NurseProfiles.Add(new NurseProfile
+    {
+        Id = Guid.NewGuid(),
+        UserId = nurse.Id,
+        TenantId = Guid.Empty,
+        DepartmentId = Guid.Empty,
+        Designation = "Staff Nurse",
+        EmploymentType = EmploymentType.FullTime,
+        JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),
+        Status = EmploymentStatus.Active,
+        LicenseNumber = "DEV-SEED-000",
+        LicenseExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3)),
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow,
+        CreatedBy = admin.Id,
+        UpdatedBy = admin.Id
+    });
 
     // Seed: configure all 7 days (Monday=1, Tuesday=2, ..., Sunday=0).
     // Sunday is a first-class configurable day (may be open or closed per clinic).
