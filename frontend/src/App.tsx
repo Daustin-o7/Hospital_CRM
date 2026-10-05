@@ -13,6 +13,7 @@ import PharmacyCompliance from './pages/PharmacyCompliance'
 import Inventory from './pages/Inventory'
 import Messages from './pages/Messages'
 import Staff from './pages/Staff'
+import NurseRoster from './pages/NurseRoster'
 import Intake from './pages/Intake'
 import QueueStatus from './pages/QueueStatus'
 import ForgotPassword from './pages/ForgotPassword'
@@ -80,6 +81,7 @@ function App() {
         } />
         <Route path="/dashboard/messages" element={<Messages />} />
         <Route path="/dashboard/staff" element={<Staff />} />
+        <Route path="/dashboard/roster" element={<NurseRoster />} />
         <Route path="/dashboard/settings" element={
           <Suspense fallback={<SkeletonCard />}>
             <Settings />

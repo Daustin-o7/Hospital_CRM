@@ -8,7 +8,9 @@ import { Modal } from '../components/ui/Modal'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { EmptyState, EmptySearch } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
+import { Badge } from '../components/ui/Badge'
 import { fmtDate as formatDate } from '../utils/format'
+import { useAuth } from '../context/AuthContext'
 
 const patientSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -802,6 +804,9 @@ export default function Patients() {
               ))}
             </div>
 
+            {/* Nursing care — assignments + handover (MOD-26) */}
+            <NursingCareSection patientId={viewingPatient.id} />
+
             {/* Patient Clinical Quick Actions */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
               <span className="text-xs font-medium text-[var(--color-text-muted)]">Direct Clinical Actions:</span>
@@ -857,5 +862,262 @@ function PlusIcon() {
     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 4v16m8-8H4" />
     </svg>
+  )
+}
+
+// ── MOD-26 nursing care: patient ↔ nurse assignments + free-text shift handover ──
+
+interface CareAssignment {
+  id: string
+  nurseName: string
+  appointmentId: string | null
+  status: string
+  assignedAt: string
+}
+
+interface HandoverItem {
+  id: string
+  authorName?: string | null
+  toName?: string | null
+  note: string
+  createdAt: string
+}
+
+function NursingCareSection({ patientId }: { patientId: string }) {
+  const { hasRole } = useAuth()
+  const isAdmin = hasRole(['clinicadmin'])
+  const isNurse = hasRole(['nurse'])
+  const canManageCare = isAdmin || isNurse
+
+  const [assignments, setAssignments] = useState<CareAssignment[]>([])
+  const [handovers, setHandovers] = useState<HandoverItem[]>([])
+  const [nurses, setNurses] = useState<{ id: string; name: string }[]>([])
+  const [peers, setPeers] = useState<{ id: string; name: string }[]>([])
+  const [assignTo, setAssignTo] = useState('')
+  const [showComposer, setShowComposer] = useState(false)
+  const [handoverTo, setHandoverTo] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setError('')
+    try {
+      const ho = await api.get('/handovers', { params: { patientId } })
+      setHandovers(ho.data)
+      if (!canManageCare) return
+      const asg = await api.get('/nurse-assignments', { params: { patientId } })
+      setAssignments(asg.data)
+      if (isAdmin) {
+        const nl = await api.get('/staff/nurses').catch(() => ({ data: [] }))
+        setNurses(nl.data)
+      }
+      if (isNurse) {
+        const pr = await api.get('/staff/nurses/peers').catch(() => ({ data: [] }))
+        setPeers(pr.data)
+      }
+    } catch (err) {
+      setError(friendlyError(err))
+    }
+  }, [patientId, canManageCare, isAdmin, isNurse])
+
+  useEffect(() => { load() }, [load])
+
+  const assign = async () => {
+    if (!assignTo) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.post('/nurse-assignments', {
+        patientId, nurseProfileId: assignTo, appointmentId: null, shiftId: null,
+      })
+      setAssignTo('')
+      load()
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const complete = async (id: string) => {
+    setBusy(true)
+    setError('')
+    try {
+      await api.post(`/nurse-assignments/${id}/complete`)
+      setConfirmId(null)
+      load()
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const postHandover = async () => {
+    if (!handoverTo || !note.trim()) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.post('/handovers', {
+        patientId, toNurseProfileId: handoverTo, note: note.trim(), shiftId: null,
+      })
+      setNote('')
+      setHandoverTo('')
+      setShowComposer(false)
+      load()
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const when = (iso: string) =>
+    `${formatDate(iso)} · ${new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+
+  return (
+    <div className="rounded-2xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <div>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text)', fontFamily: 'var(--font-heading)' }}>
+            Nursing care
+          </div>
+          <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+            Assignments &amp; shift-to-shift handover notes
+          </div>
+        </div>
+        {isNurse && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm text-xs"
+            aria-expanded={showComposer}
+            onClick={() => setShowComposer(v => !v)}
+          >
+            {showComposer ? 'Cancel note' : '+ Handover note'}
+          </button>
+        )}
+      </div>
+
+      {error && <div className="mx-4 mt-3"><Alert variant="error" onDismiss={() => setError('')}>{error}</Alert></div>}
+
+      {isNurse && showComposer && (
+        <div className="mx-4 mt-3 p-3 rounded-xl space-y-2" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border-subtle)' }}>
+          <label htmlFor="handover-to" className="form-label">Hand over to *</label>
+          <select id="handover-to" className="form-select" value={handoverTo} onChange={e => setHandoverTo(e.target.value)}>
+            <option value="">Select a nurse…</option>
+            {peers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <label htmlFor="handover-note" className="form-label">Note *</label>
+          <textarea
+            id="handover-note"
+            className="form-input"
+            rows={3}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Vitals, meds given, family updates, watch-outs for next shift…"
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={busy || !handoverTo || !note.trim()}
+              onClick={postHandover}
+            >
+              {busy && <span className="spinner spinner-sm" />}
+              {busy ? 'Posting…' : 'Post handover'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2">
+        {/* Assignments (admin/nurse only — other roles get 403) */}
+        {canManageCare && (
+          <div className="p-4 border-b lg:border-b-0 lg:border-r" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Assignments</span>
+              <span className="text-[11px] text-[var(--color-text-muted)]">· {assignments.filter(a => a.status === 'Active').length} active</span>
+            </div>
+
+            {isAdmin && (
+              <div className="flex items-center gap-2 mb-3">
+                <select
+                  className="form-select text-xs"
+                  aria-label="Nurse to assign"
+                  value={assignTo}
+                  onChange={e => setAssignTo(e.target.value)}
+                >
+                  <option value="">Select nurse…</option>
+                  {nurses.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                </select>
+                <button type="button" className="btn btn-primary btn-sm shrink-0" disabled={busy || !assignTo} onClick={assign}>
+                  {busy ? 'Assigning…' : 'Assign'}
+                </button>
+              </div>
+            )}
+
+            {assignments.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-muted)]">No nursing assignments for this patient.</p>
+            ) : (
+              <ul className="space-y-2">
+                {assignments.map(a => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border-subtle)' }}>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-[var(--color-text)] truncate">{a.nurseName}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">{formatDate(a.assignedAt)}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={a.status === 'Active' ? 'success' : 'neutral'} dot>{a.status}</Badge>
+                      {a.status === 'Active' && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm text-xs ${confirmId === a.id ? 'btn-secondary' : 'btn-ghost'}`}
+                          disabled={busy}
+                          onClick={() => confirmId === a.id ? complete(a.id) : setConfirmId(a.id)}
+                        >
+                          {confirmId === a.id ? 'Confirm complete?' : 'Complete'}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Handover timeline */}
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Handover notes</span>
+            <span className="text-[11px] text-[var(--color-text-muted)]">· {handovers.length}</span>
+          </div>
+          {handovers.length === 0 ? (
+            <p className="text-xs text-[var(--color-text-muted)]">No handover notes yet.</p>
+          ) : (
+            <ul className="space-y-3" style={{ borderLeft: '2px solid var(--color-border)', marginLeft: 6, paddingLeft: 14 }}>
+              {handovers.map(h => (
+                <li key={h.id} className="relative">
+                  <span
+                    className="absolute rounded-full"
+                    style={{ width: 8, height: 8, background: 'var(--color-accent, #0d9488)', left: -19, top: 5 }}
+                    aria-hidden="true"
+                  />
+                  <div className="text-[11px] font-semibold text-[var(--color-text)]">
+                    {h.authorName || 'Nurse'} <span className="text-[var(--color-text-muted)] font-normal">→</span> {h.toName || 'next nurse'}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-muted)] mb-1">{when(h.createdAt)}</div>
+                  <div className="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap" style={{ textWrap: 'pretty' }}>
+                    {h.note}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
