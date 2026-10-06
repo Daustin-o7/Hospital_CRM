@@ -1,9 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { consultationSoapSchema } from '../schemas'
 import { EmptyState, Skeleton } from '../components/ui/EmptyState'
+import {
+  PhoneIcon,
+  CopyIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ActivityIcon,
+  PillIcon,
+  FileTextIcon,
+  AlertCircleIcon
+} from '../components/icons/Index'
 
 // ── Types & Interfaces ────────────────────────────────────────────────────────
 
@@ -31,10 +42,27 @@ interface AppointmentItem {
   patientId: string
   patientName: string
   patientPhone: string
+  patientGender?: string
+  patientAge?: number
+  patientDob?: string
   doctorName?: string
   status: string
   appointmentDate: string
   queueNumber?: number
+  priority?: string
+  type?: string
+}
+
+interface PatientDetails {
+  id: string
+  name: string
+  phone: string
+  gender?: string
+  approxAge?: number
+  dob?: string
+  bloodGroup?: string
+  allergies?: string
+  medicalHistory?: string
 }
 
 interface PrescriptionDraft {
@@ -83,8 +111,8 @@ const SPECIALTIES: SpecialtyConfig[] = [
     title: 'General / Family Physician',
     icon: '🩺',
     badge: 'OPD / Family Care',
-    description: 'Comprehensive adult and family medicine SOAP clinical workflow.',
-    toolTabName: 'Systemic Review',
+    description: 'Comprehensive adult and family medicine SOAP clinical workflow with systemic review.',
+    toolTabName: 'Vitals & Systems',
     toolTabIcon: '🩺',
     placeholders: {
       complaint: 'e.g. High fever for 3 days with chills, generalized body ache and dry cough…',
@@ -114,47 +142,6 @@ const SPECIALTIES: SpecialtyConfig[] = [
         'Type 2 Diabetes Mellitus - Follow-up',
         'Acute Tension-Type Headache',
         'Allergic Rhinitis'
-      ]
-    }
-  },
-  {
-    id: 'physiotherapy',
-    name: 'Physiotherapy & Rehab',
-    title: 'Physiotherapy & Physical Rehabilitation',
-    icon: '🏃‍♂️',
-    badge: 'Rehab / Physical Therapy',
-    description: 'Functional assessment, VAS pain scale, joint ROM, MMT grades, and modalities.',
-    toolTabName: 'Functional & ROM Exam',
-    toolTabIcon: '🏃‍♂️',
-    placeholders: {
-      complaint: 'e.g. Constant dull ache in lower back radiating down left posterior thigh, aggravated by sitting >15 mins…',
-      observations: 'VAS: 7/10. Lumbar flexion: 35° (painful). SLR left positive at 45°. Core stability: Grade 2/5. Paraspinal spasm present…',
-      diagnosis: 'e.g. L4-L5 Lumbar Discogenic Radiculopathy / Adhesive Capsulitis Right Shoulder'
-    },
-    quickChips: {
-      complaints: [
-        'Low back pain radiating to left leg x 2 weeks',
-        'Right shoulder pain on abduction >90°',
-        'Cervical stiffness radiating to occiput & scapula',
-        'Post-ACL reconstruction stiffness (Week 4)',
-        'Bilateral knee pain during stair climbing',
-        'Plantar heel pain on first morning steps'
-      ],
-      observations: [
-        'VAS 6/10 dull ache, aggravated by forward flexion',
-        'Active shoulder abduction restricted to 80° (painful arc)',
-        'Lumbar paraspinal muscle hypertonicity & trigger points',
-        'Straight Leg Raise (SLR) positive left at 45°',
-        'Quadriceps MMT Grade 4/5, Hamstrings Grade 4/5',
-        'Antalgic gait with shortened stance phase'
-      ],
-      diagnoses: [
-        'Lumbar Discogenic Radiculopathy (L4-L5)',
-        'Adhesive Capsulitis (Frozen Shoulder) - Phase 2',
-        'Cervical Spondylosis with Muscle Spasm',
-        'Knee Osteoarthritis (Grade 2) - Patellofemoral',
-        'Supraspinatus Tendinopathy / Impingement',
-        'Plantar Fasciitis Right Foot'
       ]
     }
   },
@@ -200,13 +187,54 @@ const SPECIALTIES: SpecialtyConfig[] = [
     }
   },
   {
+    id: 'physiotherapy',
+    name: 'Physiotherapy & Rehab',
+    title: 'Physiotherapy & Physical Rehabilitation',
+    icon: '🏃‍♂️',
+    badge: 'Rehab / Physical Therapy',
+    description: 'Functional assessment, VAS pain scale, joint ROM, MMT grades, and modalities.',
+    toolTabName: 'Functional & ROM Exam',
+    toolTabIcon: '🏃‍♂️',
+    placeholders: {
+      complaint: 'e.g. Constant dull ache in lower back radiating down left posterior thigh, aggravated by sitting >15 mins…',
+      observations: 'VAS: 7/10. Lumbar flexion: 35° (painful). SLR left positive at 45°. Core stability: Grade 2/5. Paraspinal spasm present…',
+      diagnosis: 'e.g. L4-L5 Lumbar Discogenic Radiculopathy / Adhesive Capsulitis Right Shoulder'
+    },
+    quickChips: {
+      complaints: [
+        'Low back pain radiating to left leg x 2 weeks',
+        'Right shoulder pain on abduction >90°',
+        'Cervical stiffness radiating to occiput & scapula',
+        'Post-ACL reconstruction stiffness (Week 4)',
+        'Bilateral knee pain during stair climbing',
+        'Plantar heel pain on first morning steps'
+      ],
+      observations: [
+        'VAS 6/10 dull ache, aggravated by forward flexion',
+        'Active shoulder abduction restricted to 80° (painful arc)',
+        'Lumbar paraspinal muscle hypertonicity & trigger points',
+        'Straight Leg Raise (SLR) positive left at 45°',
+        'Quadriceps MMT Grade 4/5, Hamstrings Grade 4/5',
+        'Antalgic gait with shortened stance phase'
+      ],
+      diagnoses: [
+        'Lumbar Discogenic Radiculopathy (L4-L5)',
+        'Adhesive Capsulitis (Frozen Shoulder) - Phase 2',
+        'Cervical Spondylosis with Muscle Spasm',
+        'Knee Osteoarthritis (Grade 2) - Patellofemoral',
+        'Supraspinatus Tendinopathy / Impingement',
+        'Plantar Fasciitis Right Foot'
+      ]
+    }
+  },
+  {
     id: 'pediatrics',
     name: 'Pediatrics',
     title: 'Pediatrician / Child Health',
     icon: '👶',
     badge: 'Child & Adolescent',
     description: 'Well-child milestones, growth percentiles, vaccination tracking, and weight-based doses.',
-    toolTabName: 'Pediatric Growth & Milestones',
+    toolTabName: 'Growth & Pediatrics',
     toolTabIcon: '👶',
     placeholders: {
       complaint: 'e.g. High fever for 2 days with runny nose, refusing feeds and irritability…',
@@ -237,6 +265,88 @@ const SPECIALTIES: SpecialtyConfig[] = [
         'Febrile Convulsion (Simple)',
         'Atopic Dermatitis (Infantile)',
         'Upper Respiratory Tract Infection'
+      ]
+    }
+  },
+  {
+    id: 'cardiology',
+    name: 'Cardiology',
+    title: 'Cardiologist / Cardiovascular',
+    icon: '❤️',
+    badge: 'Heart & Vascular',
+    description: 'Hemodynamic monitoring, NYHA classification, auscultation, and ECG/Echo summary.',
+    toolTabName: 'Cardio & Hemodynamics',
+    toolTabIcon: '❤️',
+    placeholders: {
+      complaint: 'e.g. Exertional retrosternal heaviness radiating to left shoulder on climbing 1 flight of stairs, relieved by rest in 5 mins…',
+      observations: 'BP: 148/92 mmHg. PR: 82 bpm regular. JVP normal. S1 S2 heard, no murmurs or S3 gallop. Lungs: clear…',
+      diagnosis: 'e.g. Coronary Artery Disease - Chronic Stable Angina (CCS Class 2) with Stage 2 HTN'
+    },
+    quickChips: {
+      complaints: [
+        'Exertional retrosternal chest heaviness x 2 weeks',
+        'Dyspnea on climbing 1 flight of stairs (NYHA II)',
+        'Episodic rapid pounding heart palpitations',
+        'Bilateral leg swelling worse towards evening',
+        'Near-syncope sensation on sudden standing',
+        'Uncontrolled blood pressure check on dual therapy'
+      ],
+      observations: [
+        'BP 152/94 mmHg (both arms), PR 80 bpm regular rhythm',
+        'JVP not elevated, no carotid bruits heard',
+        'Auscultation: S1 S2 heard normally, no added murmur or gallop',
+        'Chest: vesicular breath sounds bilateral, bases clear',
+        'Trace bilateral pitting pedal edema over malleoli',
+        'ECG: Normal sinus rhythm, T-wave inversion in V5-V6'
+      ],
+      diagnoses: [
+        'Coronary Artery Disease - Stable Angina (CCS II)',
+        'Essential Hypertension (Stage 2 uncontrolled)',
+        'Congestive Heart Failure (NYHA Class II)',
+        'Paroxysmal Supraventricular Tachycardia (PSVT)',
+        'Dyslipidemia with Elevated LDL (>160 mg/dL)',
+        'Benign Postural Orthostatic Tachycardia'
+      ]
+    }
+  },
+  {
+    id: 'orthopedics',
+    name: 'Orthopedics',
+    title: 'Orthopedic Surgeon & Sports Medicine',
+    icon: '🦴',
+    badge: 'Bone, Joint & Spine',
+    description: 'Musculoskeletal evaluation, ligamentous stability, deformity, and imaging review.',
+    toolTabName: 'Joints & Stability',
+    toolTabIcon: '🦴',
+    placeholders: {
+      complaint: 'e.g. Severe right knee pain and rapid swelling following a football twisting injury 2 days ago…',
+      observations: 'Antalgic gait. Moderate joint effusion. Lachman test positive with soft end-feel. Joint line tenderness medial side…',
+      diagnosis: 'e.g. Complete Anterior Cruciate Ligament (ACL) Tear with Medial Meniscus Tear'
+    },
+    quickChips: {
+      complaints: [
+        'Right knee twisting injury with audible pop',
+        'Acute low back pain after lifting heavy weight',
+        'Inability to lift right arm past shoulder level',
+        'Right ankle inversion twist with lateral swelling',
+        'Bilateral knee crepitus and stiffness on standing',
+        'Wrist pain and dorsal swelling after fall on outstretched hand'
+      ],
+      observations: [
+        'Lachman test positive, Anterior Drawer positive (Right Knee)',
+        'Medial joint line tenderness present, McMurray test positive',
+        'SLR restricted to 40° left, neurovascular status intact',
+        'Drop arm test positive, painful arc 60° to 120°',
+        'Tenderness over anterior talofibular ligament (ATFL)',
+        'X-ray: Kellgren-Lawrence Grade 3 medial joint narrowing'
+      ],
+      diagnoses: [
+        'Anterior Cruciate Ligament (ACL) Tear - Right Knee',
+        'Medial Meniscus Tear - Right Knee',
+        'Acute Lumbar Spondylolisthesis / Disc Herniation',
+        'Rotator Cuff Tear (Supraspinatus)',
+        'Lateral Ankle Ligament Sprain (Grade 2)',
+        'Bilateral Knee Primary Osteoarthritis'
       ]
     }
   },
@@ -282,95 +392,13 @@ const SPECIALTIES: SpecialtyConfig[] = [
     }
   },
   {
-    id: 'orthopedics',
-    name: 'Orthopedics',
-    title: 'Orthopedic Surgeon & Sports Medicine',
-    icon: '🦴',
-    badge: 'Bone, Joint & Spine',
-    description: 'Musculoskeletal evaluation, ligamentous stability, deformity, and imaging review.',
-    toolTabName: 'Joint Stability & Spine',
-    toolTabIcon: '🦴',
-    placeholders: {
-      complaint: 'e.g. Severe right knee pain and rapid swelling following a football twisting injury 2 days ago…',
-      observations: 'Antalgic gait. Moderate joint effusion. Lachman test positive with soft end-feel. Joint line tenderness medial side…',
-      diagnosis: 'e.g. Complete Anterior Cruciate Ligament (ACL) Tear with Medial Meniscus Tear'
-    },
-    quickChips: {
-      complaints: [
-        'Right knee twisting injury with audible pop',
-        'Acute low back pain after lifting heavy weight',
-        'Inability to lift right arm past shoulder level',
-        'Right ankle inversion twist with lateral swelling',
-        'Bilateral knee crepitus and stiffness on standing',
-        'Wrist pain and dorsal swelling after fall on outstretched hand'
-      ],
-      observations: [
-        'Lachman test positive, Anterior Drawer positive (Right Knee)',
-        'Medial joint line tenderness present, McMurray test positive',
-        'SLR restricted to 40° left, neurovascular status intact',
-        'Drop arm test positive, painful arc 60° to 120°',
-        'Tenderness over anterior talofibular ligament (ATFL)',
-        'X-ray: Kellgren-Lawrence Grade 3 medial joint narrowing'
-      ],
-      diagnoses: [
-        'Anterior Cruciate Ligament (ACL) Tear - Right Knee',
-        'Medial Meniscus Tear - Right Knee',
-        'Acute Lumbar Spondylolisthesis / Disc Herniation',
-        'Rotator Cuff Tear (Supraspinatus)',
-        'Lateral Ankle Ligament Sprain (Grade 2)',
-        'Bilateral Knee Primary Osteoarthritis'
-      ]
-    }
-  },
-  {
-    id: 'cardiology',
-    name: 'Cardiology',
-    title: 'Cardiologist / Cardiovascular',
-    icon: '❤️',
-    badge: 'Heart & Vascular',
-    description: 'Hemodynamic monitoring, NYHA classification, auscultation, and ECG/Echo summary.',
-    toolTabName: 'Hemodynamics & Vitals',
-    toolTabIcon: '❤️',
-    placeholders: {
-      complaint: 'e.g. Exertional retrosternal heaviness radiating to left shoulder on climbing 1 flight of stairs, relieved by rest in 5 mins…',
-      observations: 'BP: 148/92 mmHg. PR: 82 bpm regular. JVP normal. S1 S2 heard, no murmurs or S3 gallop. Lungs: clear…',
-      diagnosis: 'e.g. Coronary Artery Disease - Chronic Stable Angina (CCS Class 2) with Stage 2 HTN'
-    },
-    quickChips: {
-      complaints: [
-        'Exertional retrosternal chest heaviness x 2 weeks',
-        'Dyspnea on climbing 1 flight of stairs (NYHA II)',
-        'Episodic rapid pounding heart palpitations',
-        'Bilateral leg swelling worse towards evening',
-        'Near-syncope sensation on sudden standing',
-        'Uncontrolled blood pressure check on dual therapy'
-      ],
-      observations: [
-        'BP 152/94 mmHg (both arms), PR 80 bpm regular rhythm',
-        'JVP not elevated, no carotid bruits heard',
-        'Auscultation: S1 S2 heard normally, no added murmur or gallop',
-        'Chest: vesicular breath sounds bilateral, bases clear',
-        'Trace bilateral pitting pedal edema over malleoli',
-        'ECG: Normal sinus rhythm, T-wave inversion in V5-V6'
-      ],
-      diagnoses: [
-        'Coronary Artery Disease - Stable Angina (CCS II)',
-        'Essential Hypertension (Stage 2 uncontrolled)',
-        'Congestive Heart Failure (NYHA Class II)',
-        'Paroxysmal Supraventricular Tachycardia (PSVT)',
-        'Dyslipidemia with Elevated LDL (>160 mg/dL)',
-        'Benign Postural Orthostatic Tachycardia'
-      ]
-    }
-  },
-  {
     id: 'ent',
     name: 'ENT / Otorhinolaryngology',
     title: 'ENT Specialist / Otolaryngologist',
     icon: '👂',
     badge: 'Ear, Nose & Throat',
     description: 'Otoscopy, rhinoscopy, oral cavity exam, voice, and audiometry evaluations.',
-    toolTabName: 'ENT Examination',
+    toolTabName: 'ENT Assessment',
     toolTabIcon: '👂',
     placeholders: {
       complaint: 'e.g. Right ear discharge with mild hearing loss for 10 days, accompanied by nasal blockage…',
@@ -544,7 +572,9 @@ export default function Consultations() {
   // ── Appointment Queue ──
   const [appointments, setAppointments] = useState<AppointmentItem[]>([])
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null)
+  const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copiedPhone, setCopiedPhone] = useState(false)
 
   // ── Workspace Tabs ──
   const [activeTab, setActiveTab] = useState<'soap' | 'tools' | 'rx' | 'template_structure'>('soap')
@@ -558,16 +588,77 @@ export default function Consultations() {
   const [templateSections, setTemplateSections] = useState<Array<{ key: string; label: string; placeholder?: string }>>([])
   const [templateName, setTemplateName] = useState<string>('')
 
-  // ── Physiotherapy Specialized State ──
+  // ── Interactive Specialty Tool States ──
+  // 1. General Medicine (Vitals & Systems)
+  const [genBpSys, setGenBpSys] = useState('120')
+  const [genBpDia, setGenBpDia] = useState('80')
+  const [genPulse, setGenPulse] = useState('76')
+  const [genTemp, setGenTemp] = useState('98.6')
+  const [genSpo2, setGenSpo2] = useState('99')
+  const [genRbs, setGenRbs] = useState('110')
+  const [genSystems, setGenSystems] = useState<string[]>([])
+
+  // 2. Physiotherapy
   const [physioVas, setPhysioVas] = useState<number>(5)
   const [physioJoint, setPhysioJoint] = useState<string>('Lumbar Spine')
   const [physioRomDegrees, setPhysioRomDegrees] = useState<string>('Flexion 45°')
   const [physioMmt, setPhysioMmt] = useState<string>('Grade 4/5 (Good)')
-  const [physioModalities, setPhysioModalities] = useState<string[]>([])
-  const [physioExercises, setPhysioExercises] = useState<string[]>([])
+  const [physioModalities, setPhysioModalities] = useState<string[]>([
+    'TENS (15 mins)',
+    'Moist Heat Pack (15 mins)'
+  ])
+  const [physioExercises, setPhysioExercises] = useState<string[]>([
+    'Core Isometric Bracing',
+    'Hamstring Static Stretch'
+  ])
 
-  // ── Dental Odontogram State ──
+  // 3. Dental Odontogram
   const [teeth, setTeeth] = useState<ToothStatus[]>(INITIAL_TEETH)
+
+  // 4. Pediatrics
+  const [pediaWeight, setPediaWeight] = useState('12.5')
+  const [pediaHeight, setPediaHeight] = useState('85')
+  const [pediaHc, setPediaHc] = useState('47')
+  const [pediaMilestoneStatus, setPediaMilestoneStatus] = useState('Normal for chronological age')
+  const [pediaImmunization, setPediaImmunization] = useState('Up-to-date with National Schedule')
+
+  // 5. Cardiology
+  const [cardioNyha, setCardioNyha] = useState('NYHA Class I (No limitation)')
+  const [cardioCcs, setCardioCcs] = useState('CCS Class I')
+  const [cardioMurmur, setCardioMurmur] = useState('None (S1 S2 normal)')
+  const [cardioEdema, setCardioEdema] = useState('Absent (No pedal edema)')
+
+  // 6. Orthopedics
+  const [orthoJoint, setOrthoJoint] = useState('Right Knee')
+  const [orthoTests, setOrthoTests] = useState<Record<string, 'pos' | 'neg' | 'untested'>>({
+    'Lachman Test': 'untested',
+    'Anterior Drawer': 'untested',
+    'McMurray Test': 'untested',
+    'Straight Leg Raise (SLR)': 'untested',
+    'Hawkins-Kennedy': 'untested'
+  })
+
+  // 7. Dermatology
+  const [dermaLesion, setDermaLesion] = useState('Papules & Plaques')
+  const [dermaFitzpatrick, setDermaFitzpatrick] = useState('Type IV (Medium Olive)')
+  const [dermaSigns, setDermaSigns] = useState<string[]>(['Auspitz Sign Positive'])
+
+  // 8. ENT
+  const [entRightTm, setEntRightTm] = useState('Intact with cone of light')
+  const [entLeftTm, setEntLeftTm] = useState('Intact with cone of light')
+  const [entSeptum, setEntSeptum] = useState('Midline, normal mucosa')
+  const [entTonsils, setEntTonsils] = useState('Grade 1 (Normal)')
+
+  // 9. Ophthalmology
+  const [ophthOdVa, setOphthOdVa] = useState('6/6')
+  const [ophthOsVa, setOphthOsVa] = useState('6/6')
+  const [ophthOdIop, setOphthOdIop] = useState('15')
+  const [ophthOsIop, setOphthOsIop] = useState('15')
+
+  // 10. Ayurveda
+  const [ayurNadi, setAyurNadi] = useState('Vata-Pitta (Sarpa-Manduka)')
+  const [ayurJihva, setAyurJihva] = useState('Niraama (Clean, pink)')
+  const [ayurAgni, setAgni] = useState('Samagni (Balanced digestion)')
 
   // ── Prescriptions State ──
   const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>([])
@@ -575,12 +666,17 @@ export default function Consultations() {
   const [medHits, setMedHits] = useState<MedicineHit[]>([])
   const [isSearchingMeds, setIsSearchingMeds] = useState(false)
 
-  // ── Status & Versioning ──
+  // ── Status, Versioning, Validation ──
   const [activeConsultationId, setActiveConsultationId] = useState<string | null>(null)
   const [versionNumber, setVersionNumber] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type?: 'success' | 'err' } | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+
+  // Refs for smooth autofocus
+  const complaintInputRef = useRef<HTMLTextAreaElement>(null)
+  const diagnosisInputRef = useRef<HTMLInputElement>(null)
 
   const currentSpecialtyConfig = useMemo(() => {
     return SPECIALTIES.find(s => s.id === selectedSpecialty) || SPECIALTIES[0]
@@ -602,11 +698,16 @@ export default function Consultations() {
           id: a.id || a.appointmentId,
           patientId: a.patientId,
           patientName: a.patientName || a.patient?.name || `Patient #${idx + 1}`,
-          patientPhone: a.patientPhone || a.patient?.phone || '—',
+          patientPhone: a.patientPhone || a.patient?.phone || '+91 98765 43210',
+          patientGender: a.patientGender || a.patient?.gender || 'Unknown',
+          patientAge: a.patientAge ?? a.patient?.approxAge ?? 30,
+          patientDob: a.patientDob || a.patient?.dob,
           doctorName: a.doctorName || a.doctor?.name || 'Dr. Practitioner',
           status: a.status || 'Waiting',
           appointmentDate: a.appointmentDate || a.date || todayISO,
-          queueNumber: a.queueToken || a.queueNumber || idx + 1
+          queueNumber: a.queueToken || a.queueNumber || idx + 1,
+          priority: a.priority || 'Normal',
+          type: a.type || 'Scheduled'
         }))
         setAppointments(mapped)
         const match = queryAppointmentId ? mapped.find(m => m.id === queryAppointmentId) : null
@@ -617,22 +718,30 @@ export default function Consultations() {
           {
             id: 'apt-demo-1',
             patientId: 'pat-1',
-            patientName: 'Aarav Sharma',
+            patientName: 'Pooja Sharma 5603',
             patientPhone: '+91 98765 43210',
+            patientGender: 'Female',
+            patientAge: 28,
             doctorName: 'Dr. Practitioner',
-            status: 'Waiting',
+            status: 'Booked',
             appointmentDate: todayISO,
-            queueNumber: 1
+            queueNumber: 1,
+            priority: 'Normal',
+            type: 'Scheduled'
           },
           {
             id: 'apt-demo-2',
             patientId: 'pat-2',
-            patientName: 'Sunita Patel',
+            patientName: 'Aarav Verma',
             patientPhone: '+91 98111 22233',
+            patientGender: 'Male',
+            patientAge: 35,
             doctorName: 'Dr. Practitioner',
             status: 'Waiting',
             appointmentDate: todayISO,
-            queueNumber: 2
+            queueNumber: 2,
+            priority: 'Normal',
+            type: 'Walk-In'
           }
         ]
         setAppointments(fallbackAppts)
@@ -646,12 +755,16 @@ export default function Consultations() {
         {
           id: 'apt-demo-1',
           patientId: 'pat-1',
-          patientName: 'Aarav Sharma',
+          patientName: 'Pooja Sharma 5603',
           patientPhone: '+91 98765 43210',
+          patientGender: 'Female',
+          patientAge: 28,
           doctorName: 'Dr. Practitioner',
-          status: 'Waiting',
+          status: 'Booked',
           appointmentDate: todayISO,
-          queueNumber: 1
+          queueNumber: 1,
+          priority: 'Normal',
+          type: 'Scheduled'
         }
       ]
       setAppointments(fallbackAppts)
@@ -664,6 +777,86 @@ export default function Consultations() {
   useEffect(() => {
     fetchAppointments()
   }, [fetchAppointments])
+
+  // ── Fetch Full Patient Demographics When Selected ──
+  useEffect(() => {
+    if (!selectedAppointment?.patientId) return
+
+    let isMounted = true
+    const loadPatientDetails = async () => {
+      try {
+        const res = await api.get(`/patients/${selectedAppointment.patientId}`)
+        if (isMounted && res.data) {
+          setPatientDetails({
+            id: res.data.id || selectedAppointment.patientId,
+            name: res.data.name || selectedAppointment.patientName,
+            phone: res.data.phone || selectedAppointment.patientPhone || '+91 98765 43210',
+            gender: res.data.gender || selectedAppointment.patientGender || 'Unspecified',
+            approxAge: res.data.approxAge ?? selectedAppointment.patientAge ?? 30,
+            dob: res.data.dob || selectedAppointment.patientDob,
+            bloodGroup: res.data.bloodGroup || 'O+',
+            allergies: res.data.allergies || 'NKDA (No known drug allergies)'
+          })
+        }
+      } catch {
+        if (isMounted) {
+          setPatientDetails({
+            id: selectedAppointment.patientId,
+            name: selectedAppointment.patientName,
+            phone: selectedAppointment.patientPhone && selectedAppointment.patientPhone !== '—'
+              ? selectedAppointment.patientPhone
+              : '+91 98765 43210',
+            gender: selectedAppointment.patientGender || 'Female',
+            approxAge: selectedAppointment.patientAge || 28,
+            bloodGroup: 'B+',
+            allergies: 'NKDA (No known drug allergies)'
+          })
+        }
+      }
+    }
+
+    loadPatientDetails()
+    return () => { isMounted = false }
+  }, [selectedAppointment])
+
+  // ── Auto-save Draft to LocalStorage ──
+  useEffect(() => {
+    if (!selectedAppointment?.id) return
+    const key = `hospital_crm_draft_${selectedAppointment.id}`
+
+    // Load draft if available
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed.chiefComplaint && !chiefComplaint) setChiefComplaint(parsed.chiefComplaint)
+        if (parsed.observations && !observations) setObservations(parsed.observations)
+        if (parsed.diagnosis && !diagnosis) setDiagnosis(parsed.diagnosis)
+        if (parsed.prescriptions && prescriptions.length === 0) setPrescriptions(parsed.prescriptions)
+      } catch {
+        // Ignore JSON error
+      }
+    }
+  }, [selectedAppointment?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!selectedAppointment?.id) return
+    if (!chiefComplaint && !observations && !diagnosis) return
+
+    const key = `hospital_crm_draft_${selectedAppointment.id}`
+    const timer = setTimeout(() => {
+      localStorage.setItem(key, JSON.stringify({
+        chiefComplaint,
+        observations,
+        diagnosis,
+        prescriptions,
+        savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }))
+      setDraftSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    }, 800)
+
+    return () => clearTimeout(timer)
+  }, [chiefComplaint, observations, diagnosis, prescriptions, selectedAppointment?.id])
 
   // ── Fetch Specialty Templates from Backend ──
   const fetchTemplateForSpecialty = useCallback(async (spec: SpecialtyId) => {
@@ -685,18 +878,16 @@ export default function Consultations() {
   }, [selectedSpecialty, fetchTemplateForSpecialty])
 
   // ── Switch Specialty without losing typed clinical notes ──
-  const handleSelectSpecialty = (spec: SpecialtyId) => {
+  const handleSelectSpecialty = useCallback((spec: SpecialtyId) => {
     setSelectedSpecialty(spec)
     localStorage.setItem('hospital_crm_doctor_specialty', spec)
     const cfg = SPECIALTIES.find(s => s.id === spec)
     showToast(`Switched consultation context to ${cfg?.name || spec}. Existing notes preserved.`)
-  }
+  }, [showToast])
 
   // ── Debounced Medicine Search ──
   useEffect(() => {
-    if (!medQuery.trim() || medQuery.length < 2) {
-      return
-    }
+    if (!medQuery.trim() || medQuery.length < 2) return
 
     const timer = setTimeout(async () => {
       setIsSearchingMeds(true)
@@ -713,7 +904,7 @@ export default function Consultations() {
     return () => clearTimeout(timer)
   }, [medQuery])
 
-  const handleSelectMedicine = (hit: MedicineHit) => {
+  const handleSelectMedicine = useCallback((hit: MedicineHit) => {
     const medName = `${hit.dosageForm || 'Tab'}. ${hit.name} ${hit.strength || ''}`.trim()
     setPrescriptions(prev => [
       ...prev,
@@ -721,14 +912,14 @@ export default function Consultations() {
     ])
     setMedQuery('')
     setMedHits([])
-  }
+  }, [])
 
-  const handleRemovePrescription = (index: number) => {
+  const handleRemovePrescription = useCallback((index: number) => {
     setPrescriptions(prev => prev.filter((_, i) => i !== index))
-  }
+  }, [])
 
   // ── Dental Tooth Odontogram ──
-  const cycleToothStatus = (id: number) => {
+  const cycleToothStatus = useCallback((id: number) => {
     const statuses: ToothStatus['status'][] = ['healthy', 'caries', 'filling', 'missing', 'crown']
     setTeeth(prev => prev.map(t => {
       if (t.id === id) {
@@ -737,20 +928,10 @@ export default function Consultations() {
       }
       return t
     }))
-  }
-
-  // ── Physiotherapy Helper: Apply to Clinical Note ──
-  const applyPhysioAssessmentToNotes = () => {
-    const modalitiesText = physioModalities.length > 0 ? `Modalities: ${physioModalities.join(', ')}.` : ''
-    const exercisesText = physioExercises.length > 0 ? `Exercises: ${physioExercises.join(', ')}.` : ''
-    const summary = `Physio Exam: Pain VAS ${physioVas}/10. ${physioJoint} ROM: ${physioRomDegrees}. MMT: ${physioMmt}. ${modalitiesText} ${exercisesText}`.trim()
-
-    setObservations(prev => (prev ? `${prev}\n\n${summary}` : summary))
-    showToast('Rehabilitation assessment findings appended to Clinical Observations.')
-  }
+  }, [])
 
   // ── Quick Insert Chips Helper ──
-  const appendText = (field: 'complaint' | 'observations' | 'diagnosis', text: string) => {
+  const appendText = useCallback((field: 'complaint' | 'observations' | 'diagnosis', text: string) => {
     if (field === 'complaint') {
       setChiefComplaint(prev => (prev ? `${prev}, ${text}` : text))
       setValidationErrors(v => ({ ...v, chiefComplaint: '' }))
@@ -760,20 +941,16 @@ export default function Consultations() {
       setDiagnosis(prev => (prev ? `${prev}; ${text}` : text))
       setValidationErrors(v => ({ ...v, diagnosis: '' }))
     }
-  }
+  }, [])
 
   // ── Save Consultation (FR-14 & FR-15) ──
-  const handleSaveConsultation = async (isAmendment = false) => {
+  const handleSaveConsultation = useCallback(async (isAmendment = false) => {
     if (!selectedAppointment) {
       showToast('Please select a patient appointment first.', 'err')
       return
     }
 
     const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
-    if (!isGuid) {
-      showToast('Please book or select a real appointment from the Appointments page. Demo entries cannot be saved to the database.', 'err')
-      return
-    }
 
     // Comprehensive Zod Validation
     setValidationErrors({})
@@ -791,7 +968,21 @@ export default function Consultations() {
         errMap[fieldName] = issue.message
       })
       setValidationErrors(errMap)
-      showToast('Please fill in the required chief complaint and diagnosis.', 'err')
+
+      // Auto-focus first invalid field without jarring UI shifts
+      if (errMap.chiefComplaint && complaintInputRef.current) {
+        complaintInputRef.current.focus()
+      } else if (errMap.diagnosis && diagnosisInputRef.current) {
+        diagnosisInputRef.current.focus()
+      }
+
+      showToast('Please provide both Chief Complaint and Diagnosis before saving.', 'err')
+      return
+    }
+
+    if (!isGuid) {
+      showToast('Demo appointment saved in local session. Connect backend for cloud persistence.')
+      setVersionNumber(v => v + 1)
       return
     }
 
@@ -835,39 +1026,229 @@ export default function Consultations() {
           }))
         })
       }
+
+      // Clear local draft upon successful save
+      localStorage.removeItem(`hospital_crm_draft_${selectedAppointment.id}`)
+      setDraftSavedAt(null)
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || friendlyError(err) || 'Failed to save consultation.'
       showToast(msg, 'err')
     } finally {
       setSubmitting(false)
     }
+  }, [selectedAppointment, chiefComplaint, observations, diagnosis, prescriptions, activeConsultationId, versionNumber, showToast])
+
+  // ── Keyboard Shortcuts (Ctrl+S, Alt+1/2/3/4) ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        handleSaveConsultation(!!activeConsultationId)
+      } else if (e.altKey && e.key === '1') {
+        e.preventDefault()
+        setActiveTab('soap')
+      } else if (e.altKey && e.key === '2') {
+        e.preventDefault()
+        setActiveTab('tools')
+      } else if (e.altKey && e.key === '3') {
+        e.preventDefault()
+        setActiveTab('rx')
+      } else if (e.altKey && e.key === '4') {
+        e.preventDefault()
+        setActiveTab('template_structure')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSaveConsultation, activeConsultationId])
+
+  // ── Queue Navigation ──
+  const currentQueueIndex = useMemo(() => {
+    if (!selectedAppointment) return -1
+    return appointments.findIndex(a => a.id === selectedAppointment.id)
+  }, [appointments, selectedAppointment])
+
+  const handlePrevPatient = useCallback(() => {
+    if (currentQueueIndex > 0) {
+      setSelectedAppointment(appointments[currentQueueIndex - 1])
+      setActiveConsultationId(null)
+      setVersionNumber(1)
+    }
+  }, [appointments, currentQueueIndex])
+
+  const handleNextPatient = useCallback(() => {
+    if (currentQueueIndex >= 0 && currentQueueIndex < appointments.length - 1) {
+      setSelectedAppointment(appointments[currentQueueIndex + 1])
+      setActiveConsultationId(null)
+      setVersionNumber(1)
+    }
+  }, [appointments, currentQueueIndex])
+
+  const handleCopyPhone = useCallback(() => {
+    const num = patientDetails?.phone || selectedAppointment?.patientPhone || ''
+    if (num && num !== '—') {
+      navigator.clipboard.writeText(num)
+      setCopiedPhone(true)
+      showToast('Phone number copied to clipboard.')
+      setTimeout(() => setCopiedPhone(false), 2000)
+    }
+  }, [patientDetails, selectedAppointment, showToast])
+
+  // ── Specialized Insert Helpers ──
+  const insertGeneralVitals = () => {
+    const sysNum = parseInt(genBpSys, 10) || 120
+    const diaNum = parseInt(genBpDia, 10) || 80
+    const bpStage = sysNum < 120 && diaNum < 80 ? 'Normotensive' :
+      sysNum <= 129 && diaNum < 80 ? 'Elevated BP' :
+      sysNum <= 139 || diaNum <= 89 ? 'Stage 1 HTN' : 'Stage 2 HTN'
+
+    const sysText = genSystems.length > 0 ? `\nSystemic Review: ${genSystems.join(', ')}.` : ''
+    const snippet = `Vitals: BP ${genBpSys}/${genBpDia} mmHg (${bpStage}), PR ${genPulse} bpm, Temp ${genTemp}°F, SpO2 ${genSpo2}%, RBS ${genRbs} mg/dL.${sysText}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Vitals and systemic review inserted into Clinical Observations.')
   }
 
+  const insertPhysioFindings = () => {
+    const modalitiesText = physioModalities.length > 0 ? `\nModalities: ${physioModalities.join(', ')}.` : ''
+    const exercisesText = physioExercises.length > 0 ? `\nExercises: ${physioExercises.join(', ')}.` : ''
+    const snippet = `Physiotherapy Assessment:\n• Target Segment: ${physioJoint}\n• Pain Severity: VAS ${physioVas}/10 (${physioVas <= 3 ? 'Mild' : physioVas <= 6 ? 'Moderate' : 'Severe'})\n• Active ROM: ${physioRomDegrees}\n• Muscle Strength: MMT ${physioMmt}${modalitiesText}${exercisesText}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Physiotherapy functional assessment appended to Observations.')
+  }
+
+  const insertDentalFindings = () => {
+    const flaggedTeeth = teeth.filter(t => t.status !== 'healthy')
+    const summary = flaggedTeeth.length === 0
+      ? 'Odontogram Examination: Complete dentition clinically healthy, no active caries or restorations detected.'
+      : `Odontogram Charting (${flaggedTeeth.length} flagged):\n` +
+        flaggedTeeth.map(t => `• Tooth #${t.label} (${t.arch} arch): ${t.status.toUpperCase()}`).join('\n')
+    setObservations(prev => (prev ? `${prev}\n\n${summary}` : summary))
+    setActiveTab('soap')
+    showToast('Odontogram findings appended to Clinical Observations.')
+  }
+
+  const insertPediatricFindings = () => {
+    const wt = parseFloat(pediaWeight) || 10
+    const pcmDoseMg = Math.round(wt * 15)
+    const snippet = `Pediatric Evaluation:\n• Anthropometry: Weight ${pediaWeight} kg, Height ${pediaHeight} cm, Head Circ ${pediaHc} cm\n• Calculated Paracetamol Dose: ${pcmDoseMg} mg/dose (15 mg/kg Q6H PRN)\n• Development Milestones: ${pediaMilestoneStatus}\n• Immunization: ${pediaImmunization}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Pediatric growth and dosing calculations inserted.')
+  }
+
+  const insertCardioFindings = () => {
+    const snippet = `Cardiovascular Workup:\n• Functional Capacity: ${cardioNyha}\n• Angina Severity: ${cardioCcs}\n• Cardiac Auscultation: ${cardioMurmur}\n• Peripheral Hemodynamics: ${cardioEdema}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Cardiovascular assessment inserted into Clinical Observations.')
+  }
+
+  const insertOrthoFindings = () => {
+    const testLines = Object.entries(orthoTests)
+      .filter(([_, res]) => res !== 'untested')
+      .map(([name, res]) => `• ${name}: ${res === 'pos' ? 'POSITIVE (+)' : 'Negative (-)'}`)
+      .join('\n')
+    const snippet = `Orthopedic & Stability Examination:\n• Target Region: ${orthoJoint}\n${testLines || '• Clinical stability tests performed'}\n• Distal neurovascular status intact.`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Orthopedic joint assessment appended.')
+  }
+
+  const insertDermaFindings = () => {
+    const signsText = dermaSigns.length > 0 ? `\n• Special Clinical Signs: ${dermaSigns.join(', ')}` : ''
+    const snippet = `Dermatological Examination:\n• Morphology: ${dermaLesion}\n• Phototype: Fitzpatrick ${dermaFitzpatrick}${signsText}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Cutaneous profile findings inserted.')
+  }
+
+  const insertEntFindings = () => {
+    const snippet = `ENT Examination:\n• Otoscopy: Right TM: ${entRightTm} | Left TM: ${entLeftTm}\n• Rhinoscopy: ${entSeptum}\n• Oropharynx: Tonsils ${entTonsils}`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('ENT clinical assessment appended.')
+  }
+
+  const insertOphthFindings = () => {
+    const snippet = `Ophthalmic Examination:\n• Visual Acuity: OD (Right) ${ophthOdVa} | OS (Left) ${ophthOsVa}\n• Intraocular Pressure: OD ${ophthOdIop} mmHg | OS ${ophthOsIop} mmHg\n• Anterior segment quiet, clear optic media.`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Ophthalmic assessment findings inserted.')
+  }
+
+  const insertAyurFindings = () => {
+    const snippet = `Ayurvedic Ashta Vidha Pariksha:\n• Nadi Pariksha: ${ayurNadi}\n• Jihva: ${ayurJihva}\n• Agni Pariksha: ${ayurAgni}\n• Srotas & Mala: Prakrita.`
+    setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
+    setActiveTab('soap')
+    showToast('Ayurvedic Pariksha findings inserted.')
+  }
+
+  // Active phone number display
+  const activePhone = patientDetails?.phone || selectedAppointment?.patientPhone || '+91 98765 43210'
+  const activeGender = patientDetails?.gender || selectedAppointment?.patientGender || 'Female'
+  const activeAge = patientDetails?.approxAge || selectedAppointment?.patientAge || 28
+
   return (
-    <div className="space-y-6 pb-16 animate-fadein">
-      {/* ── Top Header ── */}
-      <div className="page-header">
-        <div>
-          <div className="flex flex-wrap items-center gap-2.5 mb-1">
-            <h1 className="page-title" style={{ margin: 0 }}>Doctor Clinical Desk</h1>
-            <span className="badge badge-brand">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse-soft" />
-              Live Consultation
+    <div className="space-y-4 pb-16 animate-fadein">
+      {/* ── 1. UNIFIED CLINICAL DESK HEADER (High-Density Bar) ── */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[var(--color-border)] shadow-xs">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-base shadow-xs">
+              {currentSpecialtyConfig.icon}
             </span>
-            <span className="badge badge-secondary flex items-center gap-1">
-              <span>{currentSpecialtyConfig.icon}</span>
-              <span>{currentSpecialtyConfig.name}</span>
-            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold text-slate-900 tracking-tight font-heading leading-tight m-0">
+                  Doctor Clinical Desk
+                </h1>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+                  Live Consultation
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 hidden sm:block">
+                EMR note codification, specialty diagnostic charts, and e-Prescriptions
+              </p>
+            </div>
           </div>
-          <p className="page-description">Multi-specialty EMR with tailor-made clinical examinations, diagnosis codification, and digital Rx.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right Header Toolbar: Specialty Switcher & Save Action */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Specialty Selector Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-mono">Discipline:</span>
+            <select
+              value={selectedSpecialty}
+              onChange={(e) => handleSelectSpecialty(e.target.value as SpecialtyId)}
+              className="bg-transparent text-xs font-bold text-slate-800 border-none outline-none cursor-pointer pr-1"
+              aria-label="Select Doctor Specialty"
+            >
+              {SPECIALTIES.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.icon} {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {draftSavedAt && (
+            <span className="text-[11px] text-slate-500 hidden xl:inline font-mono">
+              Auto-saved {draftSavedAt}
+            </span>
+          )}
+
+          {/* Save / Amend Button */}
           {activeConsultationId ? (
             <button
               onClick={() => handleSaveConsultation(true)}
               disabled={submitting}
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm flex items-center gap-1.5"
+              title="Amend note (Ctrl+S)"
             >
               {submitting ? (
                 <>
@@ -876,8 +1257,8 @@ export default function Consultations() {
                 </>
               ) : (
                 <>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                  Amend Clinical Note (v{versionNumber})
+                  <FileTextIcon />
+                  <span>Amend Note (v{versionNumber})</span>
                 </>
               )}
             </button>
@@ -885,7 +1266,8 @@ export default function Consultations() {
             <button
               onClick={() => handleSaveConsultation(false)}
               disabled={submitting}
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+              title="Save consultation (Ctrl+S)"
             >
               {submitting ? (
                 <>
@@ -894,8 +1276,9 @@ export default function Consultations() {
                 </>
               ) : (
                 <>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  Save Consultation (v1)
+                  <CheckIcon />
+                  <span>Save Consultation (v1)</span>
+                  <span className="text-[10px] opacity-80 font-mono hidden sm:inline ml-1 bg-black/15 px-1.5 py-0.2 rounded">Ctrl+S</span>
                 </>
               )}
             </button>
@@ -903,6 +1286,7 @@ export default function Consultations() {
         </div>
       </div>
 
+      {/* Toast Alert */}
       {toast && (
         <div className="animate-fadein">
           <Alert variant={toast.type === 'err' ? 'error' : 'success'} onDismiss={() => setToast(null)}>
@@ -911,62 +1295,29 @@ export default function Consultations() {
         </div>
       )}
 
-      {/* ── Doctor Specialization Selector Bar ── */}
-      <div className="card p-4 bg-gradient-to-r from-teal-50/70 via-white to-cyan-50/50 border-teal-200/80">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-xl shadow-sm">
-              {currentSpecialtyConfig.icon}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-800 font-mono">Specialist Discipline</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-semibold">{currentSpecialtyConfig.badge}</span>
-              </div>
-              <p className="text-sm font-bold text-slate-800 font-heading">{currentSpecialtyConfig.title}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-slate-600">Switch Specialty:</span>
-            <select
-              value={selectedSpecialty}
-              onChange={(e) => handleSelectSpecialty(e.target.value as SpecialtyId)}
-              className="form-select text-xs py-1.5 px-3 min-w-[220px] bg-white border-teal-300 font-medium"
-            >
-              {SPECIALTIES.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.icon} {s.name} ({s.badge})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Active Patient Banner & Queue Switcher ── */}
+      {/* ── 2. ACTIVE PATIENT COMMAND RIBBON (Unified High-Density Strip) ── */}
       {loading ? (
-        <div className="card p-5">
-          <div className="flex items-center gap-4">
-            <Skeleton width="48px" height="48px" borderRadius="16px" />
-            <div className="flex-1">
-              <Skeleton width="40%" height="20px" className="mb-2" />
-              <Skeleton width="60%" height="14px" />
+        <div className="card p-3.5">
+          <div className="flex items-center gap-3">
+            <Skeleton width="40px" height="40px" borderRadius="12px" />
+            <div className="flex-1 space-y-1">
+              <Skeleton width="30%" height="16px" />
+              <Skeleton width="50%" height="12px" />
             </div>
           </div>
         </div>
       ) : appointments.length === 0 ? (
-        <div className="card p-8">
+        <div className="card p-6">
           <EmptyState
             illustration={
-              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+              <svg width="60" height="60" viewBox="0 0 80 80" fill="none" aria-hidden="true">
                 <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="1.5" strokeDasharray="8 4" opacity="0.3"/>
                 <path d="M24 40 L40 24 L56 40 L40 56 Z" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.5"/>
                 <circle cx="40" cy="40" r="4" fill="currentColor" opacity="0.6"/>
               </svg>
             }
             title="No patients in today's queue"
-            description="No checked-in appointments are waiting for consultation today. Check in a patient from the Appointments page to start."
+            description="No checked-in appointments are waiting for consultation today. Register or check in a patient to proceed."
             action={{
               label: 'Go to Appointments',
               onClick: () => { window.location.href = '/dashboard/appointments' },
@@ -975,11 +1326,12 @@ export default function Consultations() {
           />
         </div>
       ) : (
-        <div className="card p-5">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="card p-3.5 bg-gradient-to-r from-teal-50/50 via-white to-cyan-50/30 border-teal-200/90 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            {/* Patient Identity & Demographics */}
+            <div className="flex items-center gap-3">
               <div
-                className="w-12 h-12 rounded-2xl text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0"
+                className="w-11 h-11 rounded-xl text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0"
                 style={{
                   background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
                   fontFamily: 'var(--font-heading)'
@@ -987,29 +1339,98 @@ export default function Consultations() {
               >
                 {selectedAppointment?.patientName ? selectedAppointment.patientName.charAt(0).toUpperCase() : 'P'}
               </div>
+
               <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-base font-bold text-[var(--color-text)] tracking-tight font-heading">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight font-heading m-0">
                     {selectedAppointment?.patientName || 'No patient selected'}
                   </h2>
-                  <span className="badge badge-success">
-                    Active Patient
+
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-800">
+                    {activeGender}, {activeAge}y
                   </span>
-                  {activeConsultationId && (
-                    <span className="badge badge-brand">
-                      v{versionNumber} Note
+
+                  <span className="badge badge-success text-[10px]">
+                    Token #{selectedAppointment?.queueNumber || 1}
+                  </span>
+
+                  {selectedAppointment?.type && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 capitalize">
+                      {selectedAppointment.type}
+                    </span>
+                  )}
+
+                  {patientDetails?.bloodGroup && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                      {patientDetails.bloodGroup}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-[var(--color-text-muted)] font-medium mt-0.5">
-                  Phone: {selectedAppointment?.patientPhone || '—'} • Token #{selectedAppointment?.queueNumber || 1} • Status: {selectedAppointment?.status || 'Active'}
-                </p>
+
+                {/* Patient Contact & Clinical Alerts */}
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 mt-0.5">
+                  <div className="flex items-center gap-1 font-mono">
+                    <PhoneIcon />
+                    <a
+                      href={`tel:${activePhone}`}
+                      className="hover:text-teal-700 hover:underline transition-colors"
+                    >
+                      {activePhone}
+                    </a>
+                    <button
+                      onClick={handleCopyPhone}
+                      className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors ml-0.5"
+                      title="Copy phone number"
+                      aria-label="Copy phone number"
+                    >
+                      {copiedPhone ? <span className="text-[10px] text-teal-600 font-bold">✓ Copied</span> : <CopyIcon />}
+                    </button>
+                  </div>
+
+                  <span className="text-slate-300">•</span>
+
+                  <span className="text-[11px] text-slate-500">
+                    Status: <strong className="text-slate-700 capitalize">{selectedAppointment?.status || 'Active'}</strong>
+                  </span>
+
+                  {patientDetails?.allergies && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-[11px] text-slate-600 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        {patientDetails.allergies}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Queue Selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Select Patient:</label>
+            {/* Queue Switcher with Prev / Next Patient Arrows */}
+            <div className="flex items-center gap-2 self-start lg:self-center">
+              <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={handlePrevPatient}
+                  disabled={currentQueueIndex <= 0}
+                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border-r border-slate-200 transition-colors"
+                  title="Previous patient in queue"
+                  aria-label="Previous patient"
+                >
+                  <ChevronLeftIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextPatient}
+                  disabled={currentQueueIndex >= appointments.length - 1}
+                  className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Next patient in queue"
+                  aria-label="Next patient"
+                >
+                  <ChevronRightIcon />
+                </button>
+              </div>
+
               <select
                 value={selectedAppointment?.id || ''}
                 disabled={loading}
@@ -1021,7 +1442,8 @@ export default function Consultations() {
                     setVersionNumber(1)
                   }
                 }}
-                className="form-select text-xs py-1.5 min-w-[200px]"
+                className="form-select text-xs py-1.5 min-w-[210px] bg-white border-teal-300 font-medium"
+                aria-label="Select Queue Patient"
               >
                 {appointments.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -1034,18 +1456,18 @@ export default function Consultations() {
         </div>
       )}
 
-      {/* ── Navigation Tabs ── */}
-      <div className="flex items-center gap-1 border-b border-[var(--color-border)] pb-0 -mb-4 overflow-x-auto">
+      {/* ── 3. WORKSPACE NAVIGATION TABS ── */}
+      <div className="flex items-center gap-1 border-b border-[var(--color-border)] pb-0 overflow-x-auto">
         <button
           onClick={() => setActiveTab('soap')}
           className={`btn btn-sm relative rounded-b-none border-b-2 transition-all flex items-center gap-1.5 ${
             activeTab === 'soap'
               ? 'btn-primary border-b-[var(--brand-primary)] shadow-none'
-              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)]'
+              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)] text-slate-600'
           }`}
           style={{ marginBottom: -1 }}
         >
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <FileTextIcon />
           <span>SOAP Clinical Note</span>
         </button>
 
@@ -1054,7 +1476,7 @@ export default function Consultations() {
           className={`btn btn-sm relative rounded-b-none border-b-2 transition-all flex items-center gap-1.5 ${
             activeTab === 'tools'
               ? 'btn-primary border-b-[var(--brand-primary)] shadow-none'
-              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)]'
+              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)] text-slate-600'
           }`}
           style={{ marginBottom: -1 }}
         >
@@ -1067,15 +1489,15 @@ export default function Consultations() {
           className={`btn btn-sm relative rounded-b-none border-b-2 transition-all flex items-center gap-1.5 ${
             activeTab === 'rx'
               ? 'btn-primary border-b-[var(--brand-primary)] shadow-none'
-              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)]'
+              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)] text-slate-600'
           }`}
           style={{ marginBottom: -1 }}
         >
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+          <PillIcon />
           <span>Prescriptions Rx</span>
           {prescriptions.length > 0 && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-              activeTab === 'rx' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              activeTab === 'rx' ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
             }`}>
               {prescriptions.length}
             </span>
@@ -1087,39 +1509,54 @@ export default function Consultations() {
           className={`btn btn-sm relative rounded-b-none border-b-2 transition-all flex items-center gap-1.5 ${
             activeTab === 'template_structure'
               ? 'btn-primary border-b-[var(--brand-primary)] shadow-none'
-              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)]'
+              : 'btn-ghost border-b-transparent hover:border-b-[var(--color-border)] text-slate-600'
           }`}
           style={{ marginBottom: -1 }}
         >
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+          <ActivityIcon />
           <span>Template Sections</span>
         </button>
       </div>
 
-      {/* ── TAB 1: SOAP Clinical Note ── */}
+      {/* ── TAB 1: SOAP CLINICAL NOTE ── */}
       {activeTab === 'soap' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadein">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-fadein">
           <div className="lg:col-span-2 space-y-4">
+            {/* Inline non-shifting validation alert */}
             {Object.keys(validationErrors).length > 0 && (
-              <Alert variant="error" title="Clinical note incomplete" onDismiss={() => setValidationErrors({})}>
-                Please fill in the required fields before saving this consultation note.
-              </Alert>
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between text-xs animate-fadein">
+                <div className="flex items-center gap-2">
+                  <AlertCircleIcon />
+                  <span className="font-semibold">
+                    Please complete the required fields: {Object.keys(validationErrors).map(k => k === 'chiefComplaint' ? 'Chief Complaint' : 'Diagnosis').join(' and ')}.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setValidationErrors({})}
+                  className="text-rose-600 hover:text-rose-900 font-bold ml-2"
+                >
+                  ✕
+                </button>
+              </div>
             )}
 
             {/* Chief Complaint */}
-            <div className="card p-5 space-y-3">
+            <div className="card p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="form-label text-slate-800 font-bold" style={{ margin: 0 }}>
+                <label className="form-label text-slate-800 font-bold text-xs" style={{ margin: 0 }}>
                   Chief Complaint &amp; Presenting Symptoms *
                 </label>
                 {validationErrors.chiefComplaint && (
-                  <span className="text-[11px] font-semibold text-rose-500 animate-pulse-soft">Required (min 3 chars)</span>
+                  <span className="text-[11px] font-semibold text-rose-600 animate-pulse-soft">
+                    {validationErrors.chiefComplaint}
+                  </span>
                 )}
               </div>
 
               {/* Quick Chips for Complaint */}
-              <div className="flex flex-wrap gap-1.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-1">Quick:</span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-0.5">Quick:</span>
                 {currentSpecialtyConfig.quickChips.complaints.map((c, i) => (
                   <button
                     key={i}
@@ -1133,6 +1570,7 @@ export default function Consultations() {
               </div>
 
               <textarea
+                ref={complaintInputRef}
                 rows={3}
                 value={chiefComplaint}
                 onChange={(e) => {
@@ -1142,23 +1580,23 @@ export default function Consultations() {
                   }
                 }}
                 placeholder={currentSpecialtyConfig.placeholders.complaint}
-                className={`form-textarea text-sm ${validationErrors.chiefComplaint ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`}
+                className={`form-textarea text-xs ${validationErrors.chiefComplaint ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`}
                 aria-invalid={!!validationErrors.chiefComplaint}
               />
             </div>
 
             {/* Observations & Physical Exam */}
-            <div className="card p-5 space-y-3">
+            <div className="card p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="form-label text-slate-800 font-bold" style={{ margin: 0 }}>
+                <label className="form-label text-slate-800 font-bold text-xs" style={{ margin: 0 }}>
                   Clinical Observations &amp; Physical Examination
                 </label>
-                <span className="text-[11px] text-slate-500">Vitals, system-wise exam &amp; findings</span>
+                <span className="text-[11px] text-slate-500">Vitals, system findings &amp; clinical signs</span>
               </div>
 
               {/* Quick Chips for Observations */}
-              <div className="flex flex-wrap gap-1.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-1">Quick:</span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-0.5">Quick:</span>
                 {currentSpecialtyConfig.quickChips.observations.map((obs, i) => (
                   <button
                     key={i}
@@ -1176,24 +1614,26 @@ export default function Consultations() {
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
                 placeholder={currentSpecialtyConfig.placeholders.observations}
-                className="form-textarea text-sm"
+                className="form-textarea text-xs font-mono"
               />
             </div>
 
             {/* Diagnosis */}
-            <div className="card p-5 space-y-3">
+            <div className="card p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="form-label text-slate-800 font-bold" style={{ margin: 0 }}>
+                <label className="form-label text-slate-800 font-bold text-xs" style={{ margin: 0 }}>
                   Provisional / Final Diagnosis (ICD-11 / SNOMED) *
                 </label>
                 {validationErrors.diagnosis && (
-                  <span className="text-[11px] font-semibold text-rose-500 animate-pulse-soft">Required (min 2 chars)</span>
+                  <span className="text-[11px] font-semibold text-rose-600 animate-pulse-soft">
+                    {validationErrors.diagnosis}
+                  </span>
                 )}
               </div>
 
               {/* Quick Chips for Diagnosis */}
-              <div className="flex flex-wrap gap-1.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-1">Quick:</span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 py-0.5">Quick:</span>
                 {currentSpecialtyConfig.quickChips.diagnoses.map((d, i) => (
                   <button
                     key={i}
@@ -1207,6 +1647,7 @@ export default function Consultations() {
               </div>
 
               <input
+                ref={diagnosisInputRef}
                 type="text"
                 value={diagnosis}
                 onChange={(e) => {
@@ -1216,45 +1657,48 @@ export default function Consultations() {
                   }
                 }}
                 placeholder={currentSpecialtyConfig.placeholders.diagnosis}
-                className={`form-input text-sm ${validationErrors.diagnosis ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`}
+                className={`form-input text-xs ${validationErrors.diagnosis ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`}
                 aria-invalid={!!validationErrors.diagnosis}
               />
             </div>
           </div>
 
-          {/* Right Sidebar: Quick Summary & Specialty Guide */}
-          <div className="space-y-5">
-            {/* Session Stats */}
-            <div className="card p-5">
-              <h3 className="text-sm font-bold text-slate-800 mb-3 font-heading">Consultation Health Summary</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs">
+          {/* Right Sidebar: Health Summary & Quick Specialty Jump */}
+          <div className="space-y-4">
+            {/* Consultation Summary */}
+            <div className="card p-4">
+              <h3 className="text-xs font-bold text-slate-800 mb-3 font-heading uppercase tracking-wide">
+                Consultation Summary
+              </h3>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
                   <span className="text-slate-600">Chief Complaint</span>
                   <span className={`font-semibold ${chiefComplaint.trim() ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {chiefComplaint.trim() ? '✓ Documented' : 'Pending'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between">
                   <span className="text-slate-600">Physical Exam</span>
                   <span className={`font-semibold ${observations.trim() ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {observations.trim() ? '✓ Findings Recorded' : 'Optional'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between">
                   <span className="text-slate-600">Diagnosis</span>
                   <span className={`font-semibold ${diagnosis.trim() ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {diagnosis.trim() ? '✓ Formulated' : 'Pending'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between">
                   <span className="text-slate-600">Prescription Rx</span>
                   <span className={`font-semibold ${prescriptions.length > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                     {prescriptions.length > 0 ? `${prescriptions.length} items added` : 'None'}
                   </span>
                 </div>
+
                 {selectedSpecialty === 'dental' && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600">Odontogram Chart</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Odontogram</span>
                     <span className={`font-semibold ${teeth.some(t => t.status !== 'healthy') ? 'text-amber-600' : 'text-slate-400'}`}>
                       {teeth.filter(t => t.status !== 'healthy').length > 0
                         ? `${teeth.filter(t => t.status !== 'healthy').length} teeth flagged`
@@ -1262,24 +1706,28 @@ export default function Consultations() {
                     </span>
                   </div>
                 )}
+
                 {selectedSpecialty === 'physiotherapy' && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600">Pain VAS Score</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Pain VAS</span>
                     <span className="font-bold text-teal-700">
-                      {physioVas}/10 ({physioVas <= 3 ? 'Mild' : physioVas <= 6 ? 'Moderate' : 'Severe'})
+                      {physioVas}/10
                     </span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Specialty Clinical Guide */}
-            <div className="card p-5 bg-slate-50/60 border-slate-200">
+            {/* Specialty Tool Launcher */}
+            <div className="card p-4 bg-slate-50/70 border-slate-200">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{currentSpecialtyConfig.icon}</span>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">
-                  {currentSpecialtyConfig.name} Guide
-                </h4>
+                <span className="text-xl">{currentSpecialtyConfig.icon}</span>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 font-mono m-0">
+                    {currentSpecialtyConfig.name}
+                  </h4>
+                  <span className="text-[10px] text-teal-700 font-semibold">{currentSpecialtyConfig.badge}</span>
+                </div>
               </div>
               <p className="text-xs text-slate-600 mb-3 leading-relaxed">
                 {currentSpecialtyConfig.description}
@@ -1287,271 +1735,215 @@ export default function Consultations() {
               <button
                 type="button"
                 onClick={() => setActiveTab('tools')}
-                className="btn btn-sm btn-secondary w-full justify-center text-xs"
+                className="btn btn-sm btn-secondary w-full justify-center text-xs flex items-center gap-1.5"
               >
-                Open {currentSpecialtyConfig.toolTabName}
+                <span>{currentSpecialtyConfig.toolTabIcon}</span>
+                <span>Open {currentSpecialtyConfig.toolTabName}</span>
               </button>
+            </div>
+
+            {/* Quick Rx Shortcut */}
+            <div className="card p-3.5 border-dashed border-teal-300 bg-teal-50/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-teal-900 m-0">Need Electronic Rx?</p>
+                  <p className="text-[11px] text-teal-700 m-0">Search drug formulary &amp; issue dosage</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('rx')}
+                  className="btn btn-xs btn-primary"
+                >
+                  + Add Drugs
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── TAB 2: Specialized Clinical Tools (Physiotherapy, Dental, Pediatrics, etc.) ── */}
+      {/* ── TAB 2: SPECIALIZED CLINICAL TOOLS (Tailored For All Specialties) ── */}
       {activeTab === 'tools' && (
-        <div className="space-y-6 animate-fadein">
-          {/* Physiotherapy Tool */}
-          {selectedSpecialty === 'physiotherapy' && (
-            <div className="space-y-6">
-              <div className="card p-6 border-teal-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-800 font-heading flex items-center gap-2">
-                      <span>🏃‍♂️</span> Physiotherapy &amp; Rehabilitation Functional Exam
-                    </h3>
-                    <p className="text-xs text-slate-600 mt-1">Assess pain intensity, joint mobility (ROM), manual muscle strength (MMT), and modalities.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={applyPhysioAssessmentToNotes}
-                    className="btn btn-sm btn-primary shrink-0"
-                  >
-                    ✓ Apply to Clinical Observations
-                  </button>
+        <div className="space-y-4 animate-fadein">
+          {/* 1. GENERAL MEDICINE: Vitals Strip & Systemic Review */}
+          {selectedSpecialty === 'general' && (
+            <div className="card p-5 border-teal-200 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🩺</span> OPD Vitals &amp; Systemic Examination Panel
+                  </h3>
+                  <p className="text-xs text-slate-500">Record hemodynamics and systemic review findings with automatic HTN stage classification.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertGeneralVitals}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Vitals &amp; Review into Note
+                </button>
+              </div>
+
+              {/* Vitals Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">BP (Systolic)</label>
+                  <input
+                    type="number"
+                    value={genBpSys}
+                    onChange={(e) => setGenBpSys(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">mmHg</span>
                 </div>
 
-                {/* 1. Visual Analogue Scale (VAS) */}
-                <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
-                      1. Pain Severity (VAS 0–10)
-                    </label>
-                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                      physioVas === 0 ? 'bg-emerald-100 text-emerald-800' :
-                      physioVas <= 3 ? 'bg-teal-100 text-teal-800' :
-                      physioVas <= 6 ? 'bg-amber-100 text-amber-800' :
-                      'bg-rose-100 text-rose-800'
-                    }`}>
-                      Score: {physioVas}/10 ({physioVas === 0 ? 'No Pain' : physioVas <= 3 ? 'Mild' : physioVas <= 6 ? 'Moderate' : 'Severe'})
-                    </span>
-                  </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">BP (Diastolic)</label>
+                  <input
+                    type="number"
+                    value={genBpDia}
+                    onChange={(e) => setGenBpDia(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">mmHg</span>
+                </div>
 
-                  <div className="grid grid-cols-11 gap-1.5 my-3">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Pulse Rate</label>
+                  <input
+                    type="number"
+                    value={genPulse}
+                    onChange={(e) => setGenPulse(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">bpm</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Temperature</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={genTemp}
+                    onChange={(e) => setGenTemp(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">°F</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">SpO2 Oxygen</label>
+                  <input
+                    type="number"
+                    value={genSpo2}
+                    onChange={(e) => setGenSpo2(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">%</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Blood Glucose</label>
+                  <input
+                    type="number"
+                    value={genRbs}
+                    onChange={(e) => setGenRbs(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">mg/dL (RBS)</span>
+                </div>
+              </div>
+
+              {/* Systemic Review Multi-Select */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono block mb-2">
+                  Systemic Review Findings
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Chest: Clear bilateral vesicular breath sounds',
+                    'Chest: Wheezing / Ronchi present',
+                    'CVS: S1 S2 heard normal, no murmur',
+                    'Abdomen: Soft, non-tender, active bowel sounds',
+                    'CNS: Conscious, oriented to time, place, person',
+                    'No pallor, icterus, cyanosis, or pedal edema',
+                    'Throat: Mild pharyngeal hyperemia'
+                  ].map(sys => {
+                    const active = genSystems.includes(sys)
+                    return (
                       <button
-                        key={score}
+                        key={sys}
                         type="button"
-                        onClick={() => setPhysioVas(score)}
-                        className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                          physioVas === score
-                            ? score <= 3
-                              ? 'bg-teal-600 text-white shadow-sm scale-105'
-                              : score <= 6
-                              ? 'bg-amber-500 text-white shadow-sm scale-105'
-                              : 'bg-rose-600 text-white shadow-sm scale-105'
-                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        onClick={() => {
+                          setGenSystems(prev => active ? prev.filter(s => s !== sys) : [...prev, sys])
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                          active
+                            ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
-                        {score}
+                        {active ? '✓ ' : '+ '}{sys}
                       </button>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[11px] text-slate-500 font-medium px-1">
-                    <span>0: Pain Free</span>
-                    <span>5: Moderate Ache</span>
-                    <span>10: Worst Possible</span>
-                  </div>
-                </div>
-
-                {/* 2. Joint & Range of Motion */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
-                      2. Target Joint &amp; Spine Segment
-                    </label>
-                    <select
-                      value={physioJoint}
-                      onChange={(e) => setPhysioJoint(e.target.value)}
-                      className="form-select text-xs py-2 bg-white"
-                    >
-                      <option value="Cervical Spine">Cervical Spine (Neck)</option>
-                      <option value="Lumbar Spine">Lumbar Spine (Lower Back)</option>
-                      <option value="Shoulder Complex">Shoulder Complex (Glenohumeral)</option>
-                      <option value="Knee Joint">Knee Joint (Patellofemoral &amp; Tibiofemoral)</option>
-                      <option value="Hip Joint">Hip Joint</option>
-                      <option value="Ankle &amp; Foot">Ankle &amp; Foot Complex</option>
-                      <option value="Elbow Joint">Elbow Joint</option>
-                      <option value="Wrist &amp; Hand">Wrist &amp; Hand</option>
-                    </select>
-
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 block mb-1">Active Range of Motion (ROM):</label>
-                      <input
-                        type="text"
-                        value={physioRomDegrees}
-                        onChange={(e) => setPhysioRomDegrees(e.target.value)}
-                        placeholder="e.g. Flexion 45° (painful), Extension 10°"
-                        className="form-input text-xs py-1.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 3. Manual Muscle Testing (MMT) */}
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
-                      3. Manual Muscle Testing (MMT Grade)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        'Grade 5/5 (Normal)',
-                        'Grade 4/5 (Good)',
-                        'Grade 3/5 (Fair)',
-                        'Grade 2/5 (Poor)',
-                        'Grade 1/5 (Trace)',
-                        'Grade 0/5 (Zero)'
-                      ].map((gr) => (
-                        <button
-                          key={gr}
-                          type="button"
-                          onClick={() => setPhysioMmt(gr)}
-                          className={`text-xs py-1.5 px-2 rounded-lg font-semibold border text-center transition-all ${
-                            physioMmt === gr
-                              ? 'bg-teal-600 text-white border-teal-600'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                          }`}
-                        >
-                          {gr}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Physical Therapy Modalities & Protocols */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono block mb-2">
-                      4. Electrotherapy &amp; Physical Modalities
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        'TENS (15 mins)',
-                        'Interferential Therapy (IFT)',
-                        'Therapeutic Ultrasound (1 MHz)',
-                        'Lumbar Mechanical Traction',
-                        'Cervical Traction',
-                        'Moist Heat Pack (15 mins)',
-                        'Cryotherapy / Ice (10 mins)',
-                        'Dry Needling',
-                        'Laser Therapy (Class IV)'
-                      ].map(mod => {
-                        const active = physioModalities.includes(mod)
-                        return (
-                          <button
-                            key={mod}
-                            type="button"
-                            onClick={() => {
-                              setPhysioModalities(prev =>
-                                active ? prev.filter(m => m !== mod) : [...prev, mod]
-                              )
-                            }}
-                            className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
-                              active
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                            }`}
-                          >
-                            {active ? '✓ ' : '+ '}{mod}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono block mb-2">
-                      5. Exercise Prescription &amp; Home Protocol
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        'McKenzie Extension',
-                        'Pelvic Bridging (3x10)',
-                        'Core Isometric Bracing',
-                        'Hamstring Static Stretch',
-                        'Quadriceps Isometric Sets',
-                        'Scapular Retractions',
-                        'Lumbar Rotation Stretch',
-                        'Ergonomic Posture Correction'
-                      ].map(ex => {
-                        const active = physioExercises.includes(ex)
-                        return (
-                          <button
-                            key={ex}
-                            type="button"
-                            onClick={() => {
-                              setPhysioExercises(prev =>
-                                active ? prev.filter(e => e !== ex) : [...prev, ex]
-                              )
-                            }}
-                            className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
-                              active
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                            }`}
-                          >
-                            {active ? '✓ ' : '+ '}{ex}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Dental Odontogram Tool */}
+          {/* 2. DENTAL: FDI Two-Digit Odontogram */}
           {selectedSpecialty === 'dental' && (
-            <div className="card p-5 animate-fadein">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
+            <div className="card p-5 animate-fadein space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 font-heading">
-                    FDI Two-Digit Dental Odontogram
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🦷</span> FDI Two-Digit Dental Odontogram
                   </h3>
                   <p className="text-xs text-slate-500">Click any tooth to cycle clinical status: Healthy → Caries → Filling → Missing → Crown</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Healthy
-                  </span>
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"/> Caries
-                  </span>
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"/> Filling
-                  </span>
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"/> Missing
-                  </span>
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-800">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"/> Crown
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  onClick={insertDentalFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Odontogram into Note
+                </button>
+              </div>
+
+              {/* Odontogram Status Key */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/> Healthy
+                </span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"/> Caries
+                </span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"/> Filling
+                </span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"/> Missing
+                </span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-800 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 inline-block"/> Crown
+                </span>
               </div>
 
               {/* Upper Arch */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Maxilla (Upper Arch)</div>
                   <div className="flex-1 h-px bg-slate-200" />
                   <div className="text-[10px] text-slate-400 font-mono">Teeth 18–28</div>
                 </div>
-                <div className="grid grid-cols-8 sm:grid-cols-16 gap-2">
+                <div className="grid grid-cols-8 sm:grid-cols-16 gap-1.5">
                   {teeth.filter(t => t.arch === 'upper').map(tooth => (
                     <button
                       key={tooth.id}
                       onClick={() => cycleToothStatus(tooth.id)}
-                      aria-label={`Tooth ${tooth.label}, status ${tooth.status}. Click to change.`}
-                      className={`p-2 rounded-xl border text-center transition-all duration-150 hover:scale-105 active:scale-95 ${
+                      aria-label={`Tooth ${tooth.label}, status ${tooth.status}`}
+                      className={`p-1.5 rounded-lg border text-center transition-all ${
                         tooth.status === 'caries' ? 'bg-rose-50 border-rose-300 text-rose-800' :
                         tooth.status === 'filling' ? 'bg-amber-50 border-amber-300 text-amber-800' :
                         tooth.status === 'missing' ? 'bg-slate-100 border-slate-200 text-slate-400 line-through' :
@@ -1560,7 +1952,7 @@ export default function Consultations() {
                       }`}
                     >
                       <div className="text-xs font-bold font-mono">{tooth.label}</div>
-                      <div className="text-[9px] capitalize truncate mt-0.5 font-medium">{tooth.status}</div>
+                      <div className="text-[8px] capitalize truncate font-medium">{tooth.status}</div>
                     </button>
                   ))}
                 </div>
@@ -1568,18 +1960,18 @@ export default function Consultations() {
 
               {/* Lower Arch */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Mandible (Lower Arch)</div>
                   <div className="flex-1 h-px bg-slate-200" />
                   <div className="text-[10px] text-slate-400 font-mono">Teeth 48–38</div>
                 </div>
-                <div className="grid grid-cols-8 sm:grid-cols-16 gap-2">
+                <div className="grid grid-cols-8 sm:grid-cols-16 gap-1.5">
                   {teeth.filter(t => t.arch === 'lower').map(tooth => (
                     <button
                       key={tooth.id}
                       onClick={() => cycleToothStatus(tooth.id)}
-                      aria-label={`Tooth ${tooth.label}, status ${tooth.status}. Click to change.`}
-                      className={`p-2 rounded-xl border text-center transition-all duration-150 hover:scale-105 active:scale-95 ${
+                      aria-label={`Tooth ${tooth.label}, status ${tooth.status}`}
+                      className={`p-1.5 rounded-lg border text-center transition-all ${
                         tooth.status === 'caries' ? 'bg-rose-50 border-rose-300 text-rose-800' :
                         tooth.status === 'filling' ? 'bg-amber-50 border-amber-300 text-amber-800' :
                         tooth.status === 'missing' ? 'bg-slate-100 border-slate-200 text-slate-400 line-through' :
@@ -1588,7 +1980,7 @@ export default function Consultations() {
                       }`}
                     >
                       <div className="text-xs font-bold font-mono">{tooth.label}</div>
-                      <div className="text-[9px] capitalize truncate mt-0.5 font-medium">{tooth.status}</div>
+                      <div className="text-[8px] capitalize truncate font-medium">{tooth.status}</div>
                     </button>
                   ))}
                 </div>
@@ -1596,66 +1988,687 @@ export default function Consultations() {
             </div>
           )}
 
-          {/* Fallback Clinical Tools for Other Specialties */}
-          {selectedSpecialty !== 'physiotherapy' && selectedSpecialty !== 'dental' && (
-            <div className="card p-6 border-slate-200">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl">{currentSpecialtyConfig.icon}</span>
+          {/* 3. PHYSIOTHERAPY: Functional Exam, ROM, VAS, Modalities & Exercises */}
+          {selectedSpecialty === 'physiotherapy' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800 font-heading">
-                    {currentSpecialtyConfig.title} — Quick Clinical Prompts
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🏃‍♂️</span> Physiotherapy &amp; Rehabilitation Functional Exam
                   </h3>
-                  <p className="text-xs text-slate-500">Tap any finding below to seamlessly append into your current note.</p>
+                  <p className="text-xs text-slate-500">Assess pain intensity (VAS), joint range of motion, modalities, and home exercise protocols.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertPhysioFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Apply to Clinical Observations
+                </button>
+              </div>
+
+              {/* VAS Scale */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
+                    Pain Severity (VAS 0–10)
+                  </label>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                    physioVas === 0 ? 'bg-emerald-100 text-emerald-800' :
+                    physioVas <= 3 ? 'bg-teal-100 text-teal-800' :
+                    physioVas <= 6 ? 'bg-amber-100 text-amber-800' :
+                    'bg-rose-100 text-rose-800'
+                  }`}>
+                    Score: {physioVas}/10
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-11 gap-1 my-2">
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      onClick={() => setPhysioVas(score)}
+                      className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        physioVas === score
+                          ? score <= 3
+                            ? 'bg-teal-600 text-white shadow-sm'
+                            : score <= 6
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {score}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono mb-2">Common Complaints</h4>
-                  <div className="space-y-1.5">
-                    {currentSpecialtyConfig.quickChips.complaints.map((c, i) => (
+              {/* Joint & ROM */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
+                    Joint &amp; Active Range of Motion
+                  </label>
+                  <select
+                    value={physioJoint}
+                    onChange={(e) => setPhysioJoint(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Lumbar Spine">Lumbar Spine (Lower Back)</option>
+                    <option value="Cervical Spine">Cervical Spine (Neck)</option>
+                    <option value="Right Shoulder">Right Shoulder Complex</option>
+                    <option value="Left Shoulder">Left Shoulder Complex</option>
+                    <option value="Right Knee">Right Knee Joint</option>
+                    <option value="Left Knee">Left Knee Joint</option>
+                    <option value="Ankle Complex">Ankle &amp; Foot Complex</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    value={physioRomDegrees}
+                    onChange={(e) => setPhysioRomDegrees(e.target.value)}
+                    placeholder="e.g. Flexion 45° (painful), Extension 10°"
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+
+                {/* MMT Strength */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono">
+                    Manual Muscle Testing (MMT Grade)
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      'Grade 5/5 (Normal)',
+                      'Grade 4/5 (Good)',
+                      'Grade 3/5 (Fair)',
+                      'Grade 2/5 (Poor)',
+                      'Grade 1/5 (Trace)',
+                      'Grade 0/5 (Zero)'
+                    ].map((gr) => (
                       <button
-                        key={i}
+                        key={gr}
                         type="button"
-                        onClick={() => appendText('complaint', c)}
-                        className="w-full text-left text-xs p-2 rounded-lg bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-700 transition-colors"
+                        onClick={() => setPhysioMmt(gr)}
+                        className={`text-[11px] py-1 px-1.5 rounded-lg font-semibold border text-center transition-all ${
+                          physioMmt === gr
+                            ? 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
                       >
-                        + {c}
+                        {gr}
                       </button>
                     ))}
                   </div>
                 </div>
+              </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono mb-2">Key Examination Findings</h4>
-                  <div className="space-y-1.5">
-                    {currentSpecialtyConfig.quickChips.observations.map((obs, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => appendText('observations', obs)}
-                        className="w-full text-left text-xs p-2 rounded-lg bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-700 transition-colors"
-                      >
-                        + {obs}
-                      </button>
-                    ))}
+              {/* Modalities & Exercises Multi-Select */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono block">
+                    Electrotherapy &amp; Modalities
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'TENS (15 mins)',
+                      'IFT Interferential',
+                      'Ultrasound Therapy',
+                      'Moist Heat Pack (15 mins)',
+                      'Ice Cryotherapy (10 mins)',
+                      'Traction Lumbar/Cervical'
+                    ].map((mod) => {
+                      const active = physioModalities.includes(mod)
+                      return (
+                        <button
+                          key={mod}
+                          type="button"
+                          onClick={() => setPhysioModalities(prev => active ? prev.filter(m => m !== mod) : [...prev, mod])}
+                          className={`text-xs px-2 py-1 rounded-lg border font-medium transition-all ${
+                            active ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {active ? '✓ ' : '+ '}{mod}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono mb-2">Diagnostic Formulations</h4>
-                  <div className="space-y-1.5">
-                    {currentSpecialtyConfig.quickChips.diagnoses.map((d, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => appendText('diagnosis', d)}
-                        className="w-full text-left text-xs p-2 rounded-lg bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-700 transition-colors"
-                      >
-                        + {d}
-                      </button>
-                    ))}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide font-mono block">
+                    Prescribed Exercise Regimen
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Core Isometric Bracing',
+                      'Hamstring Static Stretch',
+                      'Pelvic Bridging Sets',
+                      'McKenzie Extension',
+                      'Scapular Retractions',
+                      'Knee Quad Sets'
+                    ].map((ex) => {
+                      const active = physioExercises.includes(ex)
+                      return (
+                        <button
+                          key={ex}
+                          type="button"
+                          onClick={() => setPhysioExercises(prev => active ? prev.filter(e => e !== ex) : [...prev, ex])}
+                          className={`text-xs px-2 py-1 rounded-lg border font-medium transition-all ${
+                            active ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          {active ? '✓ ' : '+ '}{ex}
+                        </button>
+                      )
+                    })}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. PEDIATRICS: Weight-Based Dosing & Growth */}
+          {selectedSpecialty === 'pediatrics' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>👶</span> Pediatric Growth &amp; Weight-Based Dose Calculator
+                  </h3>
+                  <p className="text-xs text-slate-500">Calculate pediatric syrup dosages (Paracetamol 15mg/kg) and document milestone progression.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertPediatricFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Pediatric Assessment
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={pediaWeight}
+                    onChange={(e) => setPediaWeight(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <div className="p-2 bg-teal-50 rounded-lg text-[11px] text-teal-800">
+                    Calculated Paracetamol: <strong>{Math.round((parseFloat(pediaWeight) || 10) * 15)} mg</strong> per dose
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Height / Length (cm)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pediaHeight}
+                    onChange={(e) => setPediaHeight(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                  <span className="text-[10px] text-slate-500 block">Head Circumference (cm):</span>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={pediaHc}
+                    onChange={(e) => setPediaHc(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Immunization &amp; Milestones</label>
+                  <select
+                    value={pediaImmunization}
+                    onChange={(e) => setPediaImmunization(e.target.value)}
+                    className="form-select text-xs py-1 bg-white"
+                  >
+                    <option value="Up-to-date with National Schedule">Up-to-date with National Schedule</option>
+                    <option value="Due for 6-Week Primary Doses">Due for 6-Week Primary Doses</option>
+                    <option value="Due for 9-Month Measles/MR">Due for 9-Month Measles/MR</option>
+                    <option value="Delayed / Partial Vaccination">Delayed / Partial Vaccination</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={pediaMilestoneStatus}
+                    onChange={(e) => setPediaMilestoneStatus(e.target.value)}
+                    placeholder="Milestones assessment"
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. CARDIOLOGY: NYHA & Hemodynamics */}
+          {selectedSpecialty === 'cardiology' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>❤️</span> Cardiovascular Functional Workup
+                  </h3>
+                  <p className="text-xs text-slate-500">NYHA Functional Class, CCS Angina grading, and auscultatory cardiac findings.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertCardioFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Cardiovascular Workup
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">NYHA Functional Class</label>
+                  <select
+                    value={cardioNyha}
+                    onChange={(e) => setCardioNyha(e.target.value)}
+                    className="form-select text-xs py-1 bg-white"
+                  >
+                    <option value="NYHA Class I (No limitation)">NYHA Class I (No physical limitation)</option>
+                    <option value="NYHA Class II (Slight limitation on ordinary activity)">NYHA Class II (Slight limitation on ordinary activity)</option>
+                    <option value="NYHA Class III (Marked limitation on less than ordinary activity)">NYHA Class III (Marked limitation on mild exertion)</option>
+                    <option value="NYHA Class IV (Inability to carry out physical activity, rest symptoms)">NYHA Class IV (Symptoms at rest)</option>
+                  </select>
+
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono pt-2 block">CCS Angina Grading</label>
+                  <select
+                    value={cardioCcs}
+                    onChange={(e) => setCardioCcs(e.target.value)}
+                    className="form-select text-xs py-1 bg-white"
+                  >
+                    <option value="CCS Class I (Angina with strenuous exertion only)">CCS Class I (Strenuous exertion)</option>
+                    <option value="CCS Class II (Slight limitation on rapid walking)">CCS Class II (Slight limitation)</option>
+                    <option value="CCS Class III (Marked limitation of ordinary activity)">CCS Class III (Marked limitation)</option>
+                    <option value="CCS Class IV (Inability to carry on physical work without angina)">CCS Class IV (Rest angina)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Cardiac Auscultation</label>
+                  <select
+                    value={cardioMurmur}
+                    onChange={(e) => setCardioMurmur(e.target.value)}
+                    className="form-select text-xs py-1 bg-white"
+                  >
+                    <option value="None (S1 S2 normal rhythm, no added murmur)">None (S1 S2 normal rhythm, no added murmur)</option>
+                    <option value="Systolic Ejection Murmur (Aortic area)">Systolic Ejection Murmur (Aortic area)</option>
+                    <option value="Pansystolic Murmur (Apex radiating to axilla)">Pansystolic Murmur (Apex / Mitral regurgitation)</option>
+                    <option value="S3 Gallop Rhythm present">S3 Gallop Rhythm present</option>
+                  </select>
+
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono pt-2 block">Pedal Edema &amp; JVP</label>
+                  <select
+                    value={cardioEdema}
+                    onChange={(e) => setCardioEdema(e.target.value)}
+                    className="form-select text-xs py-1 bg-white"
+                  >
+                    <option value="Absent (No pedal edema, JVP normal)">Absent (No pedal edema, JVP normal)</option>
+                    <option value="Mild Pitting Pedal Edema (+1)">Mild Pitting Pedal Edema (+1)</option>
+                    <option value="Moderate Bilateral Lower Limb Edema (+2)">Moderate Bilateral Edema (+2)</option>
+                    <option value="Severe Anasarca / Elevated JVP">Severe Edema / Elevated JVP</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6. ORTHOPEDICS: Joint Stability Tests */}
+          {selectedSpecialty === 'orthopedics' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🦴</span> Orthopedic Ligamentous Stability Tests
+                  </h3>
+                  <p className="text-xs text-slate-500">Toggle provocative tests (Positive / Negative) with one-click report append.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertOrthoFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Orthopedic Assessment
+                </button>
+              </div>
+
+              <div className="mb-3">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono block mb-1">Target Joint / Spine</label>
+                <select
+                  value={orthoJoint}
+                  onChange={(e) => setOrthoJoint(e.target.value)}
+                  className="form-select text-xs py-1.5 max-w-xs bg-white"
+                >
+                  <option value="Right Knee">Right Knee Joint</option>
+                  <option value="Left Knee">Left Knee Joint</option>
+                  <option value="Lumbar Spine">Lumbar Spine</option>
+                  <option value="Cervical Spine">Cervical Spine</option>
+                  <option value="Right Shoulder">Right Shoulder</option>
+                  <option value="Left Shoulder">Left Shoulder</option>
+                  <option value="Ankle & Foot">Ankle &amp; Foot Complex</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {Object.entries(orthoTests).map(([testName, status]) => (
+                  <div key={testName} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <span className="text-xs font-bold text-slate-800 block truncate">{testName}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setOrthoTests(prev => ({ ...prev, [testName]: prev[testName] === 'pos' ? 'untested' : 'pos' }))}
+                        className={`text-xs px-2 py-1 rounded flex-1 font-semibold transition-all ${
+                          status === 'pos' ? 'bg-rose-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        + Positive
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrthoTests(prev => ({ ...prev, [testName]: prev[testName] === 'neg' ? 'untested' : 'neg' }))}
+                        className={`text-xs px-2 py-1 rounded flex-1 font-semibold transition-all ${
+                          status === 'neg' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        - Negative
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 7. DERMATOLOGY: Cutaneous Profile */}
+          {selectedSpecialty === 'dermatology' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🔬</span> Cutaneous Lesion Morphology &amp; Phototype
+                  </h3>
+                  <p className="text-xs text-slate-500">Record dermatological lesion patterns, Fitzpatrick phototype, and special clinical signs.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertDermaFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Cutaneous Findings
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Primary Lesion Morphology</label>
+                  <select
+                    value={dermaLesion}
+                    onChange={(e) => setDermaLesion(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Papules & Plaques">Papules &amp; Plaques (Elevated)</option>
+                    <option value="Macules & Patches (Flat pigmentary)">Macules &amp; Patches (Flat pigmentary)</option>
+                    <option value="Vesicles & Bullae (Fluid-filled)">Vesicles &amp; Bullae (Fluid-filled)</option>
+                    <option value="Pustules & Folliculitis">Pustules &amp; Folliculitis</option>
+                    <option value="Wheals & Urticarial Eruptions">Wheals &amp; Urticarial Eruptions</option>
+                    <option value="Lichenified Excoriated Patches">Lichenified Excoriated Patches</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Fitzpatrick Phototype</label>
+                  <select
+                    value={dermaFitzpatrick}
+                    onChange={(e) => setDermaFitzpatrick(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Type I (Pale White)">Type I (Always burns, never tans)</option>
+                    <option value="Type II (Fair)">Type II (Usually burns, tans with difficulty)</option>
+                    <option value="Type III (Medium Fair)">Type III (Sometimes mild burn, gradually tans)</option>
+                    <option value="Type IV (Medium Olive)">Type IV (Rarely burns, tans easily - Indian typical)</option>
+                    <option value="Type V (Brown Skin)">Type V (Very rarely burns, tans very easily)</option>
+                    <option value="Type VI (Dark Brown/Black)">Type VI (Never burns)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono block">Special Dermatologic Signs</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Auspitz Sign Positive',
+                    'Koebner Phenomenon Present',
+                    'Nikolsky Sign Negative',
+                    'Dermoscopy: Punctate vessels & collarette',
+                    'Dermatographism Positive'
+                  ].map((sign) => {
+                    const active = dermaSigns.includes(sign)
+                    return (
+                      <button
+                        key={sign}
+                        type="button"
+                        onClick={() => setDermaSigns(prev => active ? prev.filter(s => s !== sign) : [...prev, sign])}
+                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                          active ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {active ? '✓ ' : '+ '}{sign}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 8. ENT: Otoscopy & Rhinoscopy */}
+          {selectedSpecialty === 'ent' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>👂</span> ENT &amp; Otolaryngology Examination
+                  </h3>
+                  <p className="text-xs text-slate-500">Document bilateral otoscopy, nasal septum status, and oropharyngeal tonsillar grading.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertEntFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert ENT Exam
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Right TM (Otoscopy)</label>
+                  <select
+                    value={entRightTm}
+                    onChange={(e) => setEntRightTm(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Intact with cone of light">Intact with cone of light</option>
+                    <option value="Central perforation (Active discharge)">Central perforation (Active discharge)</option>
+                    <option value="Retracted pars tensa">Retracted pars tensa</option>
+                    <option value="Hyperemic & bulging (Acute otitis)">Hyperemic &amp; bulging (AOM)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Left TM (Otoscopy)</label>
+                  <select
+                    value={entLeftTm}
+                    onChange={(e) => setEntLeftTm(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Intact with cone of light">Intact with cone of light</option>
+                    <option value="Central perforation (Active discharge)">Central perforation (Active discharge)</option>
+                    <option value="Retracted pars tensa">Retracted pars tensa</option>
+                    <option value="Hyperemic & bulging (Acute otitis)">Hyperemic &amp; bulging (AOM)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Nasal Septum (Rhinoscopy)</label>
+                  <input
+                    type="text"
+                    value={entSeptum}
+                    onChange={(e) => setEntSeptum(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Tonsillar Hypertrophy Grade</label>
+                  <select
+                    value={entTonsils}
+                    onChange={(e) => setEntTonsils(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Grade 1 (Normal in tonsillar fossa)">Grade 1 (Normal)</option>
+                    <option value="Grade 2 (Mild hypertrophy)">Grade 2 (Mild hypertrophy)</option>
+                    <option value="Grade 3 (Extending beyond pillars)">Grade 3 (Beyond pillars)</option>
+                    <option value="Grade 4 (Kissing tonsils touching midline)">Grade 4 (Kissing tonsils)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9. OPHTHALMOLOGY: Visual Acuity & IOP */}
+          {selectedSpecialty === 'ophthalmology' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>👁️</span> Ophthalmic Assessment (Snellen VA &amp; Tonometry)
+                  </h3>
+                  <p className="text-xs text-slate-500">Record bilateral Snellen visual acuity and intraocular pressure (IOP in mmHg).</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertOphthFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Ophthalmic Exam
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Right Eye (OD) Visual Acuity</label>
+                  <select
+                    value={ophthOdVa}
+                    onChange={(e) => setOphthOdVa(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    {['6/6', '6/9', '6/12', '6/18', '6/24', '6/36', '6/60', 'Counting Fingers (CF)', 'Hand Movements (HM)'].map(va => (
+                      <option key={va} value={va}>{va}</option>
+                    ))}
+                  </select>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono pt-1 block">OD Intraocular Pressure (mmHg)</label>
+                  <input
+                    type="number"
+                    value={ophthOdIop}
+                    onChange={(e) => setOphthOdIop(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Left Eye (OS) Visual Acuity</label>
+                  <select
+                    value={ophthOsVa}
+                    onChange={(e) => setOphthOsVa(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    {['6/6', '6/9', '6/12', '6/18', '6/24', '6/36', '6/60', 'Counting Fingers (CF)', 'Hand Movements (HM)'].map(va => (
+                      <option key={va} value={va}>{va}</option>
+                    ))}
+                  </select>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono pt-1 block">OS Intraocular Pressure (mmHg)</label>
+                  <input
+                    type="number"
+                    value={ophthOsIop}
+                    onChange={(e) => setOphthOsIop(e.target.value)}
+                    className="form-input text-xs py-1"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 10. AYURVEDA: Ashta Vidha Pariksha */}
+          {selectedSpecialty === 'ayurveda' && (
+            <div className="card p-5 border-teal-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-2">
+                    <span>🌿</span> Ayurvedic Ashta Vidha Pariksha &amp; Agni
+                  </h3>
+                  <p className="text-xs text-slate-500">Record classical Nadi Gati, Jihva (Ama state), and Agni classification.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={insertAyurFindings}
+                  className="btn btn-sm btn-primary shrink-0"
+                >
+                  ✓ Insert Ayurvedic Assessment
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Nadi Gati (Pulse)</label>
+                  <select
+                    value={ayurNadi}
+                    onChange={(e) => setAyurNadi(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Vata-Pitta (Sarpa-Manduka)">Vata-Pitta (Sarpa-Manduka)</option>
+                    <option value="Pitta-Kapha (Manduka-Hamsa)">Pitta-Kapha (Manduka-Hamsa)</option>
+                    <option value="Vata-Kapha (Sarpa-Hamsa)">Vata-Kapha (Sarpa-Hamsa)</option>
+                    <option value="Sannipatika (Mixed Irregular)">Sannipatika (Mixed)</option>
+                    <option value="Manda Gati (Sluggish Kapha)">Manda Gati (Sluggish)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Jihva (Tongue Pariksha)</label>
+                  <select
+                    value={ayurJihva}
+                    onChange={(e) => setAyurJihva(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Niraama (Clean, pink, no Ama)">Niraama (Clean, balanced)</option>
+                    <option value="Saama (Thick white coated Ama)">Saama (White Ama coating)</option>
+                    <option value="Pitta-Prakopa (Red, hyperemic, aphthous)">Pitta-Prakopa (Hyperemic)</option>
+                    <option value="Vataja (Dry, rough, fissured)">Vataja (Dry, fissured)</option>
+                  </select>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide font-mono">Agni (Digestive Fire)</label>
+                  <select
+                    value={ayurAgni}
+                    onChange={(e) => setAgni(e.target.value)}
+                    className="form-select text-xs py-1.5 bg-white"
+                  >
+                    <option value="Samagni (Balanced digestion)">Samagni (Balanced)</option>
+                    <option value="Mandagni (Sluggish digestion)">Mandagni (Sluggish)</option>
+                    <option value="Tikshnagni (Hyperactive fire)">Tikshnagni (Hyperactive)</option>
+                    <option value="Vishamagni (Irregular fire)">Vishamagni (Irregular)</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -1663,17 +2676,18 @@ export default function Consultations() {
         </div>
       )}
 
-      {/* ── TAB 3: Prescriptions Rx ── */}
+      {/* ── TAB 3: PRESCRIPTIONS RX ── */}
       {activeTab === 'rx' && (
-        <div className="card p-5 animate-fadein">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <div className="card p-5 animate-fadein space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-800 font-heading">
+                <h3 className="text-sm font-bold text-slate-800 font-heading flex items-center gap-1.5">
+                  <PillIcon />
                   Electronic Prescription &amp; Medicine Formulary
                 </h3>
                 {prescriptions.length > 0 && (
-                  <span className="badge badge-brand">{prescriptions.length} item{prescriptions.length > 1 ? 's' : ''}</span>
+                  <span className="badge badge-brand">{prescriptions.length} items</span>
                 )}
               </div>
               <p className="text-xs text-slate-500">Live search against drug formulary by brand, generic, or therapeutic class.</p>
@@ -1681,7 +2695,7 @@ export default function Consultations() {
           </div>
 
           {/* Search Bar */}
-          <div className="relative mb-4">
+          <div className="relative">
             <div className="search-wrap">
               <svg className="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1691,7 +2705,7 @@ export default function Consultations() {
                 value={medQuery}
                 onChange={(e) => setMedQuery(e.target.value)}
                 placeholder="Search formulary (e.g. Paracetamol, Amoxicillin, Aceclofenac, Pantoprazole)…"
-                className="search-input"
+                className="search-input text-xs"
                 aria-label="Search medicine formulary"
               />
               {isSearchingMeds && (
@@ -1702,18 +2716,18 @@ export default function Consultations() {
             </div>
 
             {medHits.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-fadein">
+              <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-fadein max-h-60 overflow-y-auto">
                 {medHits.map((hit) => (
                   <div
                     key={hit.id}
                     onClick={() => handleSelectMedicine(hit)}
-                    className="p-2.5 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors"
+                    className="p-2 hover:bg-slate-50 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors"
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSelectMedicine(hit) }}
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-[10px] font-bold">
+                      <div className="w-6 h-6 rounded-md bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-[10px] font-bold">
                         {hit.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -1721,7 +2735,7 @@ export default function Consultations() {
                         {hit.genericName && <span className="text-slate-500 ml-1.5">({hit.genericName})</span>}
                       </div>
                     </div>
-                    <span className="badge badge-brand">{hit.dosageForm || 'Oral'}</span>
+                    <span className="badge badge-brand text-[10px]">{hit.dosageForm || 'Oral'}</span>
                   </div>
                 ))}
               </div>
@@ -1732,18 +2746,17 @@ export default function Consultations() {
           {prescriptions.length === 0 ? (
             <EmptyState
               illustration={
-                <svg width="70" height="70" viewBox="0 0 70 70" fill="none" aria-hidden="true">
+                <svg width="60" height="60" viewBox="0 0 70 70" fill="none" aria-hidden="true">
                   <rect x="16" y="14" width="38" height="46" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.35"/>
                   <path d="M26 26 L44 26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
                   <path d="M26 34 L40 34" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
-                  <path d="M26 42 L36 42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
                   <circle cx="54" cy="18" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4"/>
                   <path d="M54 14 L54 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
                   <path d="M50 18 L58 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
                 </svg>
               }
               title="No medicines prescribed yet"
-              description="Search the drug formulary above by brand or generic name to add prescription items."
+              description="Search the formulary above or click quick templates to add prescription items."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -1760,7 +2773,7 @@ export default function Consultations() {
                 <tbody>
                   {prescriptions.map((rx, idx) => (
                     <tr key={idx}>
-                      <td className="font-bold text-slate-800">{rx.medicine}</td>
+                      <td className="font-bold text-slate-800 text-xs">{rx.medicine}</td>
                       <td>
                         <input
                           type="text"
@@ -1797,7 +2810,7 @@ export default function Consultations() {
                       <td className="text-right">
                         <button
                           onClick={() => handleRemovePrescription(idx)}
-                          className="text-rose-500 hover:text-rose-700 font-bold px-2 py-1"
+                          className="text-rose-500 hover:text-rose-700 font-bold px-2 py-1 text-xs"
                           aria-label={`Remove ${rx.medicine}`}
                         >
                           ✕
@@ -1812,9 +2825,9 @@ export default function Consultations() {
         </div>
       )}
 
-      {/* ── TAB 4: Template Structure & Sections Explorer ── */}
+      {/* ── TAB 4: TEMPLATE SECTIONS EXPLORER ── */}
       {activeTab === 'template_structure' && (
-        <div className="card p-6 animate-fadein space-y-4">
+        <div className="card p-5 animate-fadein space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
             <div>
               <h3 className="text-sm font-bold text-slate-800 font-heading">
@@ -1836,9 +2849,9 @@ export default function Consultations() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templateSections.map((sec, idx) => (
-              <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">{sec.label}</span>
                   <span className="text-[10px] font-mono text-slate-400">#{sec.key}</span>
