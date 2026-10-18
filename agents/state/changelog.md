@@ -20,6 +20,17 @@ Covers all document revisions from initial strategic drafts (v0.1) up to current
 
 ### Historical Specification Revisions
 
+- **2026-09-04**:
+  - **Track 2a Pharmacy Core SHIPPED.** MOD-15 Drug Catalog & Batches, MOD-16 POS Checkout & Compliance, MOD-17 Substitutes/Stats/Suppliers complete and verified end-to-end.
+  - Branch `feature/pharmacy-pos-dispensary` with 3 commits: schema+entities, controller+seed, frontend+nav.
+  - 6 new entities: Drug, DrugBatch, Supplier, PurchaseOrder, DispenseRecord, DispenseItem, ControlledSubstanceRegister.
+  - Migration `20260904201324_AddPharmacyTrack2` — 7 tables, Invoice nullable AppointmentId + walk-in fields, InvoiceLineItem pharmacy columns.
+  - Frontend: 3 pages (PharmacyPOS, PharmacyBatches, PharmacyCompliance) + nav + dev presets.
+  - Seed: Indian_Essential_Medicine_Master.csv (90 drugs, 180 batches, 1 supplier).
+  - ADR-12 documented: Separate Drug entity + Invoice reuse for walk-in billing.
+  - State/memory files updated; ADR-12 added; `memory.md` refreshed.
+  - Track 2b Stabilize queued (returns, GRN, Rx-dispense, tenant flag).
+
 - **2026-08-30 (evening)**:
   - **Phase 2 Fast-Follow 100% shipped.** All 9 modules complete and verified end-to-end:
     MOD-23 Pre-Check, MOD-24 Emergency Queue, MOD-25 Live Ticket, MOD-12 Speciality Templates,

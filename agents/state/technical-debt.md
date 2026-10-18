@@ -56,9 +56,19 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
    - *Action*: Build when pilot clinics report connectivity issues, or per FR-22 acceptance criteria when prioritized.
 
 8. **Reminder link token discarded after creation**:
-   - *Item*: `PrecheckService.GenerateForAppointmentAsync` generates a plaintext token, embeds it in the WhatsApp message, then discards. If the patient loses the link, the link can't be re-derived. Reminder messages can only show "fill the pre-visit form" without a working URL.
-   - *Status*: Accepted for now. Out-of-band recovery not in MOD-23 scope.
-   - *Action*: If patient loss-rate of precheck links is high in pilot, consider an `outbox` table that retains the last 7 days of plaintext tokens keyed by appointment, or an admin "resend link" action.
+    - *Item*: `PrecheckService.GenerateForAppointmentAsync` generates a plaintext token, embeds it in the WhatsApp message, then discards. If the patient loses the link, the link can't be re-derived. Reminder messages can only show "fill the pre-visit form" without a working URL.
+    - *Status*: Accepted for now. Out-of-band recovery not in MOD-23 scope.
+    - *Action*: If patient loss-rate of precheck links is high in pilot, consider an `outbox` table that retains the last 7 days of plaintext tokens keyed by appointment, or an admin "resend link" action.
+
+9. **Orphan `DispenseRecord` Entity** (Track 2a):
+    - *Item*: `DispenseRecord` + `DispenseItem` entities created in migration `AddPharmacyTrack2`, but no API endpoint writes them. POS checkout uses `Invoice` + `InvoiceLineItem` instead. Rx-to-dispense clinical workflow is incomplete.
+    - *Status*: Known debt. Track 2b will wire `POST /pharmacy/dispense` endpoint to populate these, or they will be dropped in next migration.
+    - *Action*: Implement Rx-to-Dispense endpoint in Track 2b, or drop entities if clinical workflow deferred.
+
+10. **Missing Tenant Feature Flag for `pharmacy`** (Track 2a):
+    - *Item*: Pharmacy module is always-on; no `TenantFeatureFlag` gating it per tenant. MOD-14 infrastructure exists but no seed row for `pharmacy` flag.
+    - *Status*: Known debt. Track 2b will add flag seed + check in `PharmacyController` (or middleware).
+    - *Action*: Add `TenantFeatureFlag` seed in Track 2b; gate controller with feature flag check.
 
 ---
 

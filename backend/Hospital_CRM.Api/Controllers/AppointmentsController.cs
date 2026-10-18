@@ -104,14 +104,17 @@ public class AppointmentsController : ControllerBase
         }
         else
         {
-            // Use the normal weekly schedule — check if this day has any working shifts
-            var workingShifts = clinic.WorkingHours
-                .Where(h => h.DayOfWeek == dayOfWeek)
-                .OrderBy(h => h.ShiftIndex)
-                .ToList();
-
-            if (workingShifts.Count > 0)
+            // Use the normal weekly schedule if configured
+            if (clinic.WorkingHours.Any())
             {
+                var workingShifts = clinic.WorkingHours
+                    .Where(h => h.DayOfWeek == dayOfWeek)
+                    .OrderBy(h => h.ShiftIndex)
+                    .ToList();
+
+                if (workingShifts.Count == 0)
+                    return BadRequest(new { error = "clinic_closed_on_selected_day" });
+
                 // Verify the time slot falls within at least one of the shifts
                 var isInAnyShift = workingShifts.Any(s =>
                     string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
@@ -119,6 +122,15 @@ public class AppointmentsController : ControllerBase
 
                 if (!isInAnyShift)
                     return BadRequest(new { error = "time_slot_outside_working_hours" });
+            }
+            else
+            {
+                // Fallback default working hours (08:00 to 20:00) when not explicitly configured
+                if (string.CompareOrdinal(request.TimeSlot, "08:00") < 0 ||
+                    string.CompareOrdinal(request.TimeSlot, "20:00") >= 0)
+                {
+                    return BadRequest(new { error = "time_slot_outside_working_hours" });
+                }
             }
         }
 

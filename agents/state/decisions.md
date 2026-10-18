@@ -75,6 +75,19 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 - **Rationale**: The `[controller]` token preserves the controller class name case in the route template, which made lowercase URLs return 404. Combined with the two class-level `[Route]` attributes on the old `PrecheckController.cs` (which also registered `api/v1/appointments` and conflicted with `AppointmentsController`), the routing system became inconsistent. Direct lowercase routes are explicit and match every other controller in the codebase.
 - **Status**: Finalized 2026-08-30.
 
+#### ADR-12: Pharmacy Track 2 — Separate Drug Entity + Invoice Reuse for Walk-in Billing
+- **Decision**: Implement Track 2 Pharmacy as single-app with:
+  1. **Separate `Drug` + `DrugBatch` entities** (not extended `InventoryItem`) — clean separation from MOD-09's 3-tier taxonomy (dead/consumable/usable). `Drug` carries ScheduleClass (General/H/H1/NDPS/X), HSN, GST, NLEM, DPCO, MRP, pack size, brands. `DrugBatch` carries BatchNumber, ExpiryDate, MfgDate, QuantityReceived/Remaining, Mrp, PurchaseRate, SupplierId — FEFO-ready.
+  2. **Reuse `Invoice` for walk-in pharmacy billing** — extend `Invoice` with nullable `AppointmentId`, `WalkInCustomerName/Phone`, `InvoiceType.Pharmacy`, `PatientId`. No parallel billing entity. `InvoiceLineItem` extended with `Quantity`, `UnitPrice`, `GstRate`, `HsnCode`, `DrugBatchId`.
+  3. **Ledger auto-reconciliation** — POS checkout writes `Payment` to shared `payments` table; MOD-11 income query reads `payments` directly → pharmacy sales reconcile without new code.
+  4. **Statutory compliance built-in** — `ControlledSubstanceRegister` entity + gate in POS checkout (requires PrescriberName + PrescriberRegNo for Schedule H/H1/NDPS/ScheduleX) + CSV export for inspection.
+- **Rationale**: 
+  - Option A (extend InventoryItem) would pollute MOD-09's clean 3-tier model with drug-specific nullable columns.
+  - Option B (separate Drug entity) keeps domains clean; Inventory = clinic supplies, Drug = pharmacy dispensation.
+  - Invoice reuse follows FR-17 gapless numbering + walk-in pattern already proven.
+  - Schedule H/H1 gate in code enforces India's Drugs and Cosmetics Act at the point of sale; CSV export satisfies Form 20/21 inspection readiness.
+- **Status**: Finalized 2026-09-04 (implemented in Track 2a, `feature/pharmacy-pos-dispensary` branch).
+
 ---
 
 ## Implementation Details
