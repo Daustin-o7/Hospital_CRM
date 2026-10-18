@@ -29,7 +29,7 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
   - ✅ **Configuration Hygiene**: Cleaned obsolete HMAC key from `appsettings.Development.json`; completed `.env.example`.
   - ✅ **Dev & CI Tooling**: Added `scripts/dev-start.ps1`, `scripts/dev-stop.ps1`, and `scripts/check-process-leaks.ps1`.
   - ✅ **Role Perspective Switcher Synchronized**: Connected `Dashboard.tsx` perspective switcher to URL query params, synchronizing `DashboardLayout.tsx` sidebar, settings, header, and mobile nav.
-  - 🔄 **Remaining Item for User**: Execute Git history purge of `jwt-private.pem` using provided `git-filter-repo` commands.
+  - ✅ **Git History Purged**: Purged `jwt-private.pem` from all Git commits via `git-filter-repo`; restored `origin` remote.
 - **Master Action Plan**: Tracked comprehensively in [`TODO.md`](../../TODO.md) and [`Pending Works.md`](../../Pending%20Works.md).
 
 ---

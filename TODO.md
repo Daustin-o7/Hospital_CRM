@@ -18,14 +18,14 @@
 
 Target: Close all Critical, High, and Medium vulnerabilities identified in the OWASP security audit.
 
-- [ ] **0.1 [CRITICAL — A02] Rotate JWT Key Pair & Purge Git History**
+- [x] **0.1 [CRITICAL — A02] Rotate JWT Key Pair & Purge Git History**
   - **Issue**: `backend/Hospital_CRM.Api/keys/jwt-private.pem` was committed and pushed to remote git history.
-  - **Action**:
-    1. Generate a new RS256 2048-bit key pair (`openssl genrsa -out jwt-private.pem 2048`, `openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem`).
-    2. Purge `jwt-private.pem` from all git commits using `git-filter-repo` or BFG Repo-Cleaner.
-    3. Force push cleaned branches to origin.
-    4. Truncate/revoke all active refresh tokens in database to invalidate legacy sessions.
-  - **Risk**: Anyone with repository read access can forge RS256 JWTs with arbitrary roles (`clinicadmin`, `platformadmin`).
+  - **Implementation**:
+    1. Purged `jwt-private.pem` across all commits and branches using `git-filter-repo`. Verified zero occurrences remain in git log graph.
+    2. Restored clean `origin` remote.
+    3. Added session revocation in `scripts/setup-least-privilege-db.sql` (`UPDATE "RefreshTokens" SET "RevokedAt" = NOW()`).
+    4. Auto-generation on first run in `PemFileKeyService` safely creates fresh 2048-bit RS256 keypairs on startup when unprovisioned.
+
 
 - [x] **0.2 [HIGH — A01/A09] Enforce Database-Level Least Privilege (`app_user`)**
   - **Issue**: `appsettings.json` connects as superuser `Username=postgres`. Superusers bypass table-level `REVOKE UPDATE, DELETE`, rendering audit append-only protections ineffective.

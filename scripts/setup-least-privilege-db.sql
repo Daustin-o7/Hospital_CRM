@@ -41,3 +41,7 @@ GRANT INSERT, SELECT ON TABLE "PriorityLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "ImpersonationLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "AppointmentHistories" TO app_user;
 GRANT INSERT, SELECT ON TABLE "ControlledSubstanceRegisters" TO app_user;
+
+-- 6. Invalidate Legacy Sessions on Key Rotation
+UPDATE "RefreshTokens" SET "RevokedAt" = NOW() WHERE "RevokedAt" IS NULL;
+

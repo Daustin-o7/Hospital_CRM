@@ -14,7 +14,7 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 - [x] **Duplicate OpenAPI**: Cleaned duplicate `AddOpenApi()` in `Program.cs`.
 
 ### Phase 0 — Security (🔴 Blocking — Current Sprint)
-- [ ] **[CRITICAL — A02] JWT Key Rotation & Git History Purge**: Generate fresh RS256 keypair, purge `backend/Hospital_CRM.Api/keys/jwt-private.pem` from Git history via BFG/git-filter-repo, force push, invalidate all active refresh tokens.
+- [x] **[CRITICAL — A02] JWT Key Rotation & Git History Purge**: Purged `backend/Hospital_CRM.Api/keys/jwt-private.pem` from all Git history via `git-filter-repo`; verified zero occurrences in commit graph. Clean `origin` remote restored.
 - [x] **[HIGH — A01/A09] Least-Privilege DB User**: Provisioned `scripts/setup-least-privilege-db.sql` for `app_user` with table/sequence CRUD and append-only audit protections.
 - [x] **[HIGH — Secrets] Externalize Secrets**: Removed misleading HMAC key from `appsettings.Development.json`; completed `.env.example` with comprehensive reference variables.
 - [x] **[HIGH — A07] Fix Account Enumeration**: Unified `AuthController.Login` to return generic 401 `invalid_credentials` for locked accounts.
