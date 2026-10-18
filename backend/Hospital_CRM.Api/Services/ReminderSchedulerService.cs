@@ -19,16 +19,27 @@ public class ReminderSchedulerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (await _timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try
+            while (await _timer.WaitForNextTickAsync(stoppingToken))
             {
-                await SendRemindersAsync(stoppingToken);
+                try
+                {
+                    await SendRemindersAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending reminders");
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending reminders");
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown: PeriodicTimer.WaitForNextTickAsync throws on cancellation.
+        }
+        finally
+        {
+            _timer.Dispose();
         }
     }
 

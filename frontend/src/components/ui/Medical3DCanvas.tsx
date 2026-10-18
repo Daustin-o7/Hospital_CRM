@@ -8,20 +8,30 @@ export function Medical3DCanvas() {
     const container = containerRef.current
     if (!container) return
 
-    // ── Scene setup ──────────────────────────────────────────────────────────
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    )
-    camera.position.z = 18
+    let renderer: THREE.WebGLRenderer | null = null
+    let animationFrameId = 0
+    let mouseX = 0
+    let mouseY = 0
+    let onMouseMove: (e: MouseEvent) => void = () => {}
+    let handleResize = () => {}
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setSize(container.clientWidth, container.clientHeight)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    container.appendChild(renderer.domElement)
+    try {
+      // ── Scene setup ──────────────────────────────────────────────────────────
+      const scene = new THREE.Scene()
+      const width = container.clientWidth || 400
+      const height = container.clientHeight || 600
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        width / height,
+        0.1,
+        1000
+      )
+      camera.position.z = 18
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      renderer.setSize(width, height)
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      container.appendChild(renderer.domElement)
 
     // ── Group container for rotation ──────────────────────────────────────────
     const helixGroup = new THREE.Group()
@@ -127,26 +137,23 @@ export function Medical3DCanvas() {
     scene.add(cyanLight)
 
     // ── Mouse Interactivity ─────────────────────────────────────────────────
-    let mouseX = 0
-    let mouseY = 0
-    const handleMouseMove = (e: MouseEvent) => {
+    onMouseMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect()
-      mouseX = ((e.clientX - rect.left) / container.clientWidth - 0.5) * 0.8
-      mouseY = ((e.clientY - rect.top) / container.clientHeight - 0.5) * 0.8
+      mouseX = ((e.clientX - rect.left) / (container.clientWidth || 1) - 0.5) * 0.8
+      mouseY = ((e.clientY - rect.top) / (container.clientHeight || 1) - 0.5) * 0.8
     }
-    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mousemove', onMouseMove)
 
     // ── Resize Handler ──────────────────────────────────────────────────────
-    const handleResize = () => {
-      if (!container) return
-      camera.aspect = container.clientWidth / container.clientHeight
+    handleResize = () => {
+      if (!container || !renderer) return
+      camera.aspect = (container.clientWidth || 1) / (container.clientHeight || 1)
       camera.updateProjectionMatrix()
-      renderer.setSize(container.clientWidth, container.clientHeight)
+      renderer.setSize(container.clientWidth || 400, container.clientHeight || 600)
     }
     window.addEventListener('resize', handleResize)
 
     // ── Animation Loop ──────────────────────────────────────────────────────
-    let animationFrameId: number
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate)
 
@@ -159,19 +166,24 @@ export function Medical3DCanvas() {
       ring2.rotation.z -= 0.003
       particles.rotation.y += 0.001
 
-      renderer.render(scene, camera)
+      if (renderer) {
+        renderer.render(scene, camera)
+      }
     }
     animate()
+    } catch (err) {
+      console.warn('WebGL is unavailable or failed to initialize, rendering graceful CSS backdrop:', err)
+    }
 
     // ── Cleanup ─────────────────────────────────────────────────────────────
     return () => {
-      cancelAnimationFrame(animationFrameId)
-      window.removeEventListener('mousemove', handleMouseMove)
+      if (animationFrameId) cancelAnimationFrame(animationFrameId)
+      window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('resize', handleResize)
-      if (container.contains(renderer.domElement)) {
+      if (renderer && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
       }
-      renderer.dispose()
+      if (renderer) renderer.dispose()
     }
   }, [])
 

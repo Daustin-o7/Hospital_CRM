@@ -1,0 +1,14 @@
+{
+  "name": "hospital-crm-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hospital_CRM Doctor & Clinic CRM Workspace",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "lint": "npm --prefix frontend run lint",
+    "backend": "dotnet run --project backend/Hospital_CRM.Api"
+  }
+}

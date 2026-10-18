@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
-import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
 import { BrandLogo } from '../components/ui/BrandLogo'
+import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
 
-const IS_DEV = import.meta.env.DEV
 
 export default function Login() {
   const [email, setEmail]         = useState('')
@@ -65,7 +64,6 @@ export default function Login() {
       >
         {/* 3D Interactive Medical Canvas */}
         <Medical3DCanvas />
-
         {/* Subtle background pattern overlay */}
         <div
           style={{
@@ -308,38 +306,37 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Dev role presets — visible in development only */}
-          {IS_DEV && (
-            <div
-              className="card"
-              style={{
-                marginTop: 20,
-                padding: '16px 18px',
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text)]">
-                  Select Role Persona
-                </span>
-                <span className="badge badge-brand text-[10px]">
-                  Instant Auto-fill
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {DEV_PRESETS.map(p => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm flex items-center justify-start gap-1.5 px-2.5 py-2 min-h-[42px] text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap overflow-hidden hover:border-teal-500/50"
-                  >
-                    <span className="text-sm shrink-0">{p.icon}</span>
-                    <span className="truncate">{p.label}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Role Persona Presets */}
+          <div
+            className="card"
+            style={{
+              marginTop: 20,
+              padding: '16px 18px',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text)]">
+                Select Role Persona
+              </span>
+              <span className="badge badge-brand text-[10px]">
+                Instant Auto-fill
+              </span>
             </div>
-          )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DEV_PRESETS.map(p => (
+                <button
+                  key={p.label}
+                  type="button"
+                  aria-label={p.label}
+                  onClick={() => preset(p.email, p.pass)}
+                  className="btn btn-secondary btn-sm flex items-center justify-start gap-1.5 px-2.5 py-2 min-h-[42px] text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap overflow-hidden hover:border-teal-500/50"
+                >
+                  <span className="text-sm shrink-0">{p.icon}</span>
+                  <span className="truncate">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

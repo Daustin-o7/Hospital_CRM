@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
-import { ThemeToggle } from './ui/ThemeToggle'
 import { BrandLogo } from './ui/BrandLogo'
+import { ThemeToggle } from './ui/ThemeToggle'
+import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone'
 
 // ── Categorized Healthcare Navigation ──────────────────────────────────────────
 export interface NavItem {
@@ -18,6 +19,53 @@ export interface NavItem {
 export interface NavSection {
   category: string
   items: NavItem[]
+}
+
+export type WorkspaceDomain = 'all' | 'clinical' | 'pharmacy' | 'admin'
+
+export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | 'admin' | null {
+  if (pathname.startsWith('/dashboard/pharmacy')) return 'pharmacy'
+  if (
+    pathname.startsWith('/dashboard/billing') ||
+    pathname.startsWith('/dashboard/inventory') ||
+    pathname.startsWith('/dashboard/wishlist') ||
+    pathname.startsWith('/dashboard/reports') ||
+    pathname.startsWith('/dashboard/messages') ||
+    pathname.startsWith('/dashboard/staff') ||
+    pathname.startsWith('/dashboard/roster') ||
+    pathname.startsWith('/dashboard/platform-admin')
+  ) {
+    return 'admin'
+  }
+  if (
+    pathname.startsWith('/dashboard/appointments') ||
+    pathname.startsWith('/dashboard/patients') ||
+    pathname.startsWith('/dashboard/queue') ||
+    pathname.startsWith('/dashboard/consultations') ||
+    pathname.startsWith('/dashboard/lab-orders')
+  ) {
+    return 'clinical'
+  }
+  return null
+}
+
+/**
+ * Single source of truth for the active workspace: the URL only (path, or the
+ * `?domain=` override on /dashboard). Never persisted, so it cannot go stale,
+ * and both the sidebar and the launchpad pages agree on the result.
+ */
+export function resolveWorkspace(pathname: string, search: string, role: string): WorkspaceDomain {
+  const rawRole = role.toLowerCase()
+  if (rawRole !== 'doctor' && rawRole !== 'clinicadmin') return 'all'
+  const param = new URLSearchParams(search).get('domain')
+  if (param === 'all' || param === 'clinical' || param === 'pharmacy' || param === 'admin') return param
+  return getDomainFromPath(pathname) ?? (rawRole === 'doctor' ? 'clinical' : 'admin')
+}
+
+const CATEGORY_TO_DOMAIN: Record<string, WorkspaceDomain> = {
+  Clinical: 'clinical',
+  Pharmacy: 'pharmacy',
+  Administration: 'admin',
 }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -138,12 +186,6 @@ const NAV_SECTIONS: NavSection[] = [
         roles: ['platformadmin'],
         icon: GlobeIcon,
       },
-      {
-        name: 'Settings',
-        href: '/dashboard/settings',
-        roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist'],
-        icon: SettingsIcon,
-      },
     ],
   },
 ]
@@ -168,6 +210,22 @@ export default function DashboardLayout() {
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
   const displayRole = ROLE_LABEL[rawRole] ?? (user?.role || 'Staff')
+  const isMultiDomainRole = rawRole === 'doctor' || rawRole === 'clinicadmin'
+
+  const activeWorkspace = resolveWorkspace(location.pathname, location.search, rawRole)
+
+  // Selecting a domain navigates into it, so the URL stays the single source of truth.
+  const handleDomainChange = (domain: WorkspaceDomain) => {
+    if (domain === 'all') {
+      navigate('/dashboard?domain=all')
+    } else if (domain === 'clinical') {
+      navigate(rawRole === 'clinicadmin' ? '/dashboard/queue' : '/dashboard')
+    } else if (domain === 'pharmacy') {
+      navigate('/dashboard/pharmacy/pos')
+    } else {
+      navigate('/dashboard/billing')
+    }
+  }
 
   useEffect(() => { setSidebarOpen(false); setShowNotifications(false) }, [location.pathname])
 
@@ -190,11 +248,17 @@ export default function DashboardLayout() {
     }
   }
 
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const effectiveTimezone = branding.timezone || undefined
+  const todayFormatted = formatLocalDate(currentDate, effectiveTimezone)
+  const timeFormatted = formatLocalTime(currentDate, effectiveTimezone)
+  const timezoneBadge = getTimezoneLabel(effectiveTimezone)
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex text-[var(--color-text)] font-sans antialiased selection:bg-teal-500 selection:text-white transition-colors duration-200">
@@ -235,10 +299,48 @@ export default function DashboardLayout() {
           )}
         </div>
 
+        {/* Workspace Domain Selector for Multi-Domain Roles */}
+        {isMultiDomainRole && (
+          <div className="px-3 pt-3 pb-2.5 border-b border-slate-800 bg-[#0c1424]">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="workspace-domain-select" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                Workspace Domain
+              </label>
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-teal-500/10 text-teal-400 font-mono font-bold border border-teal-500/20">
+                {activeWorkspace === 'clinical' ? 'Clinical' : activeWorkspace === 'pharmacy' ? 'Pharmacy' : activeWorkspace === 'admin' ? 'Operations' : 'All'}
+              </span>
+            </div>
+            <div className="relative">
+              <select
+                id="workspace-domain-select"
+                value={activeWorkspace}
+                onChange={(e) => handleDomainChange(e.target.value as WorkspaceDomain)}
+                aria-label="Select workspace domain"
+                className="w-full appearance-none bg-slate-900/90 text-slate-200 text-xs font-semibold px-2.5 py-1.5 pr-7 rounded-lg border border-slate-700 hover:border-teal-500/70 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 transition-colors cursor-pointer"
+              >
+                <option value="clinical">Clinical Care</option>
+                <option value="pharmacy">Pharmacy Services</option>
+                <option value="admin">Clinic Operations</option>
+                <option value="all">All Modules</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Categorized Navigation items */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
           {NAV_SECTIONS.map((section) => {
-            const visibleItems = section.items.filter(item => item.roles.includes(rawRole))
+            const sectionDomain = CATEGORY_TO_DOMAIN[section.category]
+            // The Home item (end) stays visible in every workspace so there is always a way back to the hub.
+            const visibleItems = section.items.filter(item =>
+              item.roles.includes(rawRole) &&
+              (activeWorkspace === 'all' || item.end || !sectionDomain || sectionDomain === activeWorkspace)
+            )
             if (visibleItems.length === 0) return null
 
             return (
@@ -282,15 +384,34 @@ export default function DashboardLayout() {
               </div>
             )
           })}
-
-          {/* Mobile Theme Switcher inside Drawer */}
-          <div className="lg:hidden pt-2 border-t border-slate-800 px-2 mt-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono mb-2">
-              Appearance Theme
-            </div>
-            <ThemeToggle variant="segmented" className="w-full justify-between" />
-          </div>
         </nav>
+
+        {/* Persistent Settings Link for Authorized Roles */}
+        {['clinicadmin', 'doctor', 'receptionist', 'pharmacist'].includes(rawRole) && (
+          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-[#0b1322]/50">
+            <NavLink
+              to="/dashboard/settings"
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
+                  isActive
+                    ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <SettingsIcon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-200'
+                    }`}
+                  />
+                  <span className="truncate">Settings</span>
+                </>
+              )}
+            </NavLink>
+          </div>
+        )}
 
         {/* Refined User Footer Card */}
         <div className="p-3 border-t border-slate-800 bg-[#0b1322]/80">
@@ -360,15 +481,23 @@ export default function DashboardLayout() {
 
           {/* Right Area: Date, Theme Toggle, Notifications, User */}
           <div className="flex items-center gap-2.5 relative">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]">
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]"
+              title={`Operating Timezone: ${timezoneBadge}`}
+            >
               <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{todayFormatted}</span>
+              <span className="text-[11px] font-mono text-teal-600 dark:text-teal-400 font-bold">{timeFormatted}</span>
+              <span className="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-teal-50 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-mono border border-teal-200/50 dark:border-teal-800/50">
+                {effectiveTimezone || 'Auto'}
+              </span>
             </div>
 
-            {/* Theme Toggle (Light / Dark / Mobile OS Auto) */}
+            {/* Dark Mode Theme Toggle */}
             <ThemeToggle variant="compact" />
+
 
             {/* Notification Bell with interactive popover */}
             <div className="relative">
@@ -411,7 +540,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
 
-        {/* ── Dedicated Mobile Bottom Navigation Bar ── */}
+        {/* ── Dedicated Mobile Bottom Navigation Bar (Role-Aware) ── */}
         <nav
           aria-label="Mobile Navigation"
           className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border)] px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg transition-colors"
@@ -431,47 +560,139 @@ export default function DashboardLayout() {
             <span>Home</span>
           </NavLink>
 
-          <NavLink
-            to="/dashboard/patients"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
-                isActive
-                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
-                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
-              }`
-            }
-          >
-            <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
-            <span>Patients</span>
-          </NavLink>
+          {rawRole === 'pharmacist' ? (
+            <>
+              <NavLink
+                to="/dashboard/pharmacy/pos"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <ShoppingBagIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>POS</span>
+              </NavLink>
 
-          <NavLink
-            to="/dashboard/appointments"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
-                isActive
-                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
-                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
-              }`
-            }
-          >
-            <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
-            <span>Appts</span>
-          </NavLink>
+              <NavLink
+                to="/dashboard/pharmacy/batches"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <PillIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Batches</span>
+              </NavLink>
 
-          <NavLink
-            to="/dashboard/queue"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
-                isActive
-                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
-                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
-              }`
-            }
-          >
-            <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
-            <span>Queue</span>
-          </NavLink>
+              <NavLink
+                to="/dashboard/pharmacy/compliance"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <ShieldCheckIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Compliance</span>
+              </NavLink>
+            </>
+          ) : rawRole === 'nurse' ? (
+            <>
+              <NavLink
+                to="/dashboard/patients"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Patients</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/queue"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Queue</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/roster"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Roster</span>
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/dashboard/patients"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Patients</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/appointments"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Appts</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/queue"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Queue</span>
+              </NavLink>
+            </>
+          )}
 
           <button
             type="button"

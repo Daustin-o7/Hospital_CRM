@@ -144,6 +144,99 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* ── Role Workspace Launchpad (Domain Selector Cards) ── */}
+      {String(user?.role || '').toLowerCase() === 'clinicadmin' && (
+      <div className="card p-4 space-y-3 bg-[var(--color-surface)] border-[var(--color-border)]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] font-mono">
+              Operational Workspace Launchpad
+            </span>
+          </div>
+          <span className="text-[10.5px] font-mono text-slate-400">Direct Domain Access</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Card 1: Clinic Operations */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/billing')}
+            aria-label="Open Clinic Operations workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">🏛️</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Open &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Clinic Operations</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              Billing Invoices, Inventory, Reports &amp; Staff
+            </div>
+          </button>
+
+          {/* Card 2: Clinical Care */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/appointments')}
+            aria-label="Open Clinical Care workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">🩺</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Open &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Clinical Care</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              Appointments, Patient Directory &amp; OPD Queue
+            </div>
+          </button>
+
+          {/* Card 3: Pharmacy Services */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/pharmacy/pos')}
+            aria-label="Launch Pharmacy Services workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">💊</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Launch &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Pharmacy Services</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              POS Counter, Drug Batches &amp; Schedule H1
+            </div>
+          </button>
+
+          {/* Card 4: Nurse Duty Roster */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/roster')}
+            aria-label="View Nurse Duty Roster workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">💉</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                View &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Nurse Duty Roster</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              Ward duty rosters &amp; staff schedules
+            </div>
+          </button>
+        </div>
+      </div>
+      )}
+
       {/* ── 4 Top Executive Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Gross Revenue Today */}

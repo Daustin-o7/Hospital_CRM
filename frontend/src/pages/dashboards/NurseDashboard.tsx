@@ -288,9 +288,8 @@ export default function NurseDashboard() {
                     <td className="text-right">
                       <button
                         onClick={() => handleOpenVitalsModal(p)}
-                        className={`btn btn-sm text-[11px] py-1 px-2.5 font-semibold ${
-                          p.vitalsRecorded ? 'btn-secondary' : 'btn-primary'
-                        }`}
+                        className={`btn btn-sm text-[11px] py-1 px-2.5 font-semibold ${p.vitalsRecorded ? 'btn-secondary' : 'btn-primary'
+                          }`}
                       >
                         {p.vitalsRecorded ? 'Edit Vitals' : '+ Record Vitals'}
                       </button>

@@ -14,7 +14,10 @@ import { useAuth } from '../context/AuthContext'
 
 const patientSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number (starting with 6-9)'),
+  phone: z.string().refine(val => {
+    const clean = (val || '').replace(/[\s\-()]/g, '').replace(/^\+?91/, '')
+    return /^[6-9]\d{9}$/.test(clean)
+  }, 'Enter a valid 10-digit Indian mobile number (starting with 6-9)'),
   dob: z.string().optional(),
   approxAge: z.string().optional(),
   gender: z.string().optional(),
@@ -113,7 +116,6 @@ export default function Patients() {
   }
 
   const fetchPatients = useCallback(async (query = '') => {
-    setLoading(true)
     try {
       // Blank query lists everything; /patients/search treats blank as "no results"
       const url = query.trim()
@@ -213,12 +215,11 @@ export default function Patients() {
   // Search dropdown effect - debounced
   useEffect(() => {
     if (!deferredSearchQuery.trim()) {
-      setSearchResults([])
       setShowSearchDropdown(false)
       return
     }
-    setSearchLoading(true)
     const t = setTimeout(async () => {
+      setSearchLoading(true)
       try {
         const res = await api.get(`/patients/search?q=${encodeURIComponent(deferredSearchQuery)}`)
         setSearchResults(Array.isArray(res.data) ? res.data : [])
@@ -902,7 +903,6 @@ function NursingCareSection({ patientId }: { patientId: string }) {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    setError('')
     try {
       const ho = await api.get('/handovers', { params: { patientId } })
       setHandovers(ho.data)

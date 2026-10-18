@@ -646,13 +646,30 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
           />
         </div>
         <div>
-          <label className="form-label">Timezone</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="form-label" style={{ margin: 0 }}>Timezone</label>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+                    if (detected) update('timezone', detected)
+                  } catch {}
+                }}
+                className="text-[11px] text-teal-600 dark:text-teal-400 hover:text-teal-700 font-semibold cursor-pointer"
+                title="Detect local device timezone"
+              >
+                📍 Auto-detect
+              </button>
+            )}
+          </div>
           <input
             value={profile.timezone}
             onChange={e => update('timezone', e.target.value)}
             disabled={!isAdmin}
             className="form-input mono disabled:bg-[var(--color-surface-hover)]"
-            placeholder="Asia/Kolkata"
+            placeholder="e.g. Asia/Kolkata, Asia/Dubai, Europe/London"
           />
         </div>
         <div>

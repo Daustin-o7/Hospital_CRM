@@ -55,6 +55,7 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<ControlledSubstanceRegister> ControlledSubstanceRegisters => Set<ControlledSubstanceRegister>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<Department> Departments => Set<Department>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,7 +74,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.PasswordHash).HasMaxLength(255);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Clinic).WithMany(c => c.Users).HasForeignKey(x => x.ClinicId);
             e.HasOne(x => x.NurseProfile).WithOne(n => n.User).HasForeignKey<NurseProfile>(x => x.UserId);
         });
@@ -124,10 +125,25 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.DocumentsJson).HasMaxLength(5000);
             e.Property(x => x.ShiftPreferencesJson).HasMaxLength(2000);
             e.Property(x => x.WorkRestrictionsJson).HasMaxLength(2000);
+            e.Property(x => x.DepartmentId).IsRequired(false);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.User).WithOne(u => u.NurseProfile).HasForeignKey<NurseProfile>(x => x.UserId);
+            e.HasOne(x => x.Department).WithMany(d => d.Nurses).HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Department>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Code }).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(255);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
+            e.HasOne(x => x.Clinic).WithMany(c => c.Departments).HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<NurseAvailability>(e =>
@@ -285,6 +301,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Phone).HasMaxLength(50);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.CreatedByUser).WithMany(u => u.CreatedPatients).HasForeignKey(x => x.CreatedBy);
         });
 
@@ -316,6 +333,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.TimeSlot).HasMaxLength(10);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Patient).WithMany(p => p.Appointments).HasForeignKey(x => x.PatientId);
             e.HasOne(x => x.Doctor).WithMany(u => u.AppointmentsAsDoctor).HasForeignKey(x => x.DoctorId);
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId);
@@ -367,6 +385,7 @@ public class HospitalCrmDbContext : DbContext
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Appointment).WithMany().HasForeignKey(x => x.AppointmentId);
         });
 
@@ -545,6 +564,8 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
             e.Property(x => x.Mrp).HasColumnType("decimal(18,2)");
             e.Property(x => x.PurchaseRate).HasColumnType("decimal(18,2)");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Drug).WithMany(d => d.Batches).HasForeignKey(x => x.DrugId);
             e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
         });
@@ -616,5 +637,37 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Text).HasMaxLength(1000).IsRequired();
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
         });
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        EnforceAppendOnlyAuditLogs();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        EnforceAppendOnlyAuditLogs();
+        return base.SaveChanges();
+    }
+
+    private void EnforceAppendOnlyAuditLogs()
+    {
+        var forbiddenEntries = ChangeTracker.Entries()
+            .Where(e => (e.State == EntityState.Modified || e.State == EntityState.Deleted) &&
+                        (e.Entity is PatientAuditLog ||
+                         e.Entity is NurseAuditLog ||
+                         e.Entity is AppointmentHistory ||
+                         e.Entity is NotificationLog ||
+                         e.Entity is PriorityLog ||
+                         e.Entity is ImpersonationLog ||
+                         e.Entity is ControlledSubstanceRegister))
+            .ToList();
+
+        if (forbiddenEntries.Count != 0)
+        {
+            var entityNames = string.Join(", ", forbiddenEntries.Select(e => e.Entity.GetType().Name));
+            throw new InvalidOperationException($"Audit records are append-only. Modification and deletion of [{entityNames}] are prohibited per FR-08.");
+        }
     }
 }

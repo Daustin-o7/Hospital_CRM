@@ -5,6 +5,7 @@ using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using static Hangfire.Cron;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Middlewares;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Api.Services.Typesense;
@@ -39,36 +40,58 @@ builder.Services.AddMemoryCache();
 // Rate limiting (per IP + per user)
 builder.Services.AddRateLimiter(options =>
 {
+    var globalLimit = builder.Configuration.GetValue<int>("RateLimiting:GlobalPermitLimit", 100);
+    var authLimit = builder.Configuration.GetValue<int>("RateLimiting:AuthPermitLimit", 30);
+    var precheckLimit = builder.Configuration.GetValue<int>("RateLimiting:PrecheckPermitLimit", 5);
+
+    // Loopback bypass is a development/test convenience only. In production it would
+    // disable throttling for everything arriving via a local reverse proxy.
+    var isDev = builder.Environment.IsDevelopment();
+
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    {
+        var ip = ctx.Connection.RemoteIpAddress;
+        if (isDev && ip != null && System.Net.IPAddress.IsLoopback(ip))
+        {
+            return RateLimitPartition.GetNoLimiter("loopback");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = globalLimit,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 5
-            }));
+                QueueLimit = 0
+            });
+    });
 
-    // Stricter limits for auth endpoints
+    // Stricter limits for auth endpoints (configurable, default 30/min; loopback bypassed in dev/test only)
     options.AddPolicy("auth", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    {
+        var ip = httpContext.Connection.RemoteIpAddress;
+        if (isDev && ip != null && System.Net.IPAddress.IsLoopback(ip))
+        {
+            return RateLimitPartition.GetNoLimiter("loopback");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = authLimit,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 2
-            }));
+                QueueLimit = 0
+            });
+    });
 
-    // Precheck submission limit
+    // Precheck submission limit (configurable, default 5 per 5 mins)
     options.AddPolicy("precheck", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = precheckLimit,
                 Window = TimeSpan.FromMinutes(5),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 1
@@ -85,21 +108,15 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
     ?? (builder.Environment.IsDevelopment() ? "Hospital_CRM"
         : throw new InvalidOperationException("Jwt:Audience configuration is missing."));
 
-// Register IPersistentKeyService — chosen by Jwt:KeySource config.
-// PemFileKeyService: auto-generates a key on first run in Development,
-//                    fails fast in non-Development environments.
-// AzureKeyVaultKeyService: loads from Key Vault; private key never leaves vault.
-var keySource = builder.Configuration["Jwt:KeySource"] ?? (builder.Environment.IsDevelopment() ? "PemFile" : throw new InvalidOperationException("Jwt:KeySource configuration is missing."));
-builder.Services.AddSingleton<IPersistentKeyService>(sp =>
-{
-    var env = sp.GetRequiredService<IWebHostEnvironment>();
-    return keySource.ToLowerInvariant() switch
+// Register IPersistentKeyService — PemFileKeyService reads PKCS#8 PEM private key from disk
+// (auto-generated in Development, configured via Jwt:PemFilePath in production).
+builder.Services.AddSingleton<IPersistentKeyService, PemFileKeyService>();
+
+builder.Services.AddHealthChecks()
+    .AddAsyncCheck("database", async () =>
     {
-        "pemfile" => new PemFileKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<PemFileKeyService>>()),
-        "azurekeyvault" => new AzureKeyVaultKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<AzureKeyVaultKeyService>>()),
-        _ => throw new InvalidOperationException($"Unknown Jwt:KeySource '{keySource}'. Supported: PemFile, AzureKeyVault.")
-    };
-});
+        return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Service is operational.");
+    });
 
 // JWT Bearer auth — IssuerSigningKey is resolved per-request from the
 // already-loaded IPersistentKeyService via OnCreatingTicket. This avoids
@@ -127,21 +144,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // are registered. This injects the RS256 public key without BuildServiceProvider().
 builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Hospital_CRM.Api.JwtBearerOptionsConfig>();
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOrDoctor", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor")));
-    options.AddPolicy("AdminOrReceptionist", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Receptionist")));
-    options.AddPolicy("PharmacyAccess", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Pharmacist", "Doctor", "Receptionist", "Nurse")));
-    options.AddPolicy("PharmacistOnly", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Pharmacist")));
-    options.AddPolicy("AllRoles", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor", "Receptionist", "Pharmacist", "Nurse")));
-});
-
-builder.Services.AddSingleton<IAuthorizationHandler, RbacHandler>();
+builder.Services.AddAuthorization();
 
 // CORS for React frontend (supports dev defaults + configured origins)
 var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]
@@ -218,6 +221,12 @@ builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.IPatientSearchSer
                            Hospital_CRM.Api.Services.Typesense.PatientSearchService>();
 builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs,
                            Hospital_CRM.Api.Services.Typesense.TypesenseHangfireJobs>();
+
+// Health checks registration for /healthz endpoint
+builder.Services.AddHealthChecks();
+
+// International timezone & midnight boundary service
+builder.Services.AddSingleton<ITimezoneService, TimezoneService>();
 
 // FR-20/21: Notification services
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
@@ -303,7 +312,7 @@ if (autoMigrate)
                         {
                             Id = Guid.NewGuid(),
                             Email = "pharmacist@samstack.ai",
-                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
+                            PasswordHash = "PharmacistPass123!".HashPassword(),
                             Name = "Pharmacist Alex",
                             Role = UserRole.Pharmacist,
                             ClinicId = clinic.Id,
@@ -315,7 +324,7 @@ if (autoMigrate)
                         {
                             Id = Guid.NewGuid(),
                             Email = "nurse@samstack.ai",
-                            PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
+                            PasswordHash = "NursePass123!".HashPassword(),
                             Name = "Nurse Joy",
                             Role = UserRole.Nurse,
                             ClinicId = clinic.Id,
@@ -337,7 +346,7 @@ if (autoMigrate)
                         Id = Guid.NewGuid(),
                         UserId = seededNurse.Id,
                         TenantId = Guid.Empty,
-                        DepartmentId = Guid.Empty,
+                        DepartmentId = null,
                         Designation = "Staff Nurse",
                         EmploymentType = EmploymentType.FullTime,
                         JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),
@@ -388,6 +397,7 @@ app.UseCors("AllowFrontend");
 
 app.UseRateLimiter();
 app.UseSecurityHeaders();
+app.UseMiddleware<IdempotencyMiddleware>();
 
 
 // MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
@@ -437,8 +447,31 @@ RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJ
     Cron.Daily(3));
 
 app.MapControllers();
+app.MapHealthChecks("/healthz");
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+// Production health checks (Kubernetes liveness and readiness probes)
+app.MapGet("/health", async (HospitalCrmDbContext db, CancellationToken ct) =>
+{
+    var canConnect = await db.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTimeOffset.UtcNow })
+        : Results.Json(new { status = "unhealthy", database = "disconnected" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
+app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTimeOffset.UtcNow }));
+
+app.MapGet("/health/ready", async (HospitalCrmDbContext db, CancellationToken ct) =>
+{
+    var canConnect = await db.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "ready", database = "connected", timestamp = DateTimeOffset.UtcNow })
+        : Results.Json(new { status = "unready", database = "disconnected" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.Run();
 
@@ -453,11 +486,49 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     };
     db.Clinics.Add(clinic);
 
+    var opdDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Outpatient Department",
+        Code = "OPD",
+        Description = "General OPD Consultation & Triage",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    var emergDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Emergency & Trauma",
+        Code = "EMERG",
+        Description = "24x7 Casualty & Acute Care",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    var icuDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Intensive Care Unit",
+        Code = "ICU",
+        Description = "Critical Care & Ventilator Monitoring",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Departments.AddRange(opdDept, emergDept, icuDept);
+
     var admin = new User
     {
         Id = Guid.NewGuid(),
         Email = "admin@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminPass123!"),
+        PasswordHash = "AdminPass123!".HashPassword(),
         Name = "Dr. Admin",
         Role = UserRole.ClinicAdmin,
         ClinicId = clinic.Id,
@@ -471,7 +542,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "doctor@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("DoctorPass123!"),
+        PasswordHash = "DoctorPass123!".HashPassword(),
         Name = "Dr. Sharma",
         Role = UserRole.Doctor,
         ClinicId = clinic.Id,
@@ -485,7 +556,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "reception@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("ReceptPass123!"),
+        PasswordHash = "ReceptPass123!".HashPassword(),
         Name = "Ms. Reception",
         Role = UserRole.Receptionist,
         ClinicId = clinic.Id,
@@ -501,7 +572,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "platform-admin@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PlatformAdminPass123!"),
+        PasswordHash = "PlatformAdminPass123!".HashPassword(),
         Name = "SAMSTACK Platform Admin",
         Role = UserRole.PlatformAdmin,
         ClinicId = null,
@@ -515,7 +586,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "pharmacist@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PharmacistPass123!"),
+        PasswordHash = "PharmacistPass123!".HashPassword(),
         Name = "Pharmacist Alex",
         Role = UserRole.Pharmacist,
         ClinicId = clinic.Id,
@@ -529,7 +600,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "nurse@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("NursePass123!"),
+        PasswordHash = "NursePass123!".HashPassword(),
         Name = "Nurse Joy",
         Role = UserRole.Nurse,
         ClinicId = clinic.Id,
@@ -545,7 +616,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Id = Guid.NewGuid(),
         UserId = nurse.Id,
         TenantId = Guid.Empty,
-        DepartmentId = Guid.Empty,
+        DepartmentId = opdDept.Id,
         Designation = "Staff Nurse",
         EmploymentType = EmploymentType.FullTime,
         JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),

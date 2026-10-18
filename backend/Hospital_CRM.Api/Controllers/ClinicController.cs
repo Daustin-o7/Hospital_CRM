@@ -40,11 +40,22 @@ public class ClinicController : ControllerBase
             return NotFound(new { error = "clinic_not_found" });
 
         clinic.Name = request.Name;
+        if (!string.IsNullOrWhiteSpace(request.Timezone)) clinic.Timezone = request.Timezone.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Currency)) clinic.Currency = request.Currency.Trim();
+        if (!string.IsNullOrWhiteSpace(request.OrganizationType)) clinic.OrganizationType = request.OrganizationType.Trim();
+        if (!string.IsNullOrWhiteSpace(request.LegalName)) clinic.LegalName = request.LegalName.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Address)) clinic.Address = request.Address.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Phone)) clinic.Phone = request.Phone.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Email)) clinic.Email = request.Email.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Website)) clinic.Website = request.Website.Trim();
+        if (!string.IsNullOrWhiteSpace(request.DateFormat)) clinic.DateFormat = request.DateFormat.Trim();
+        if (!string.IsNullOrWhiteSpace(request.TimeFormat)) clinic.TimeFormat = request.TimeFormat.Trim();
+        if (!string.IsNullOrWhiteSpace(request.Language)) clinic.Language = request.Language.Trim();
         clinic.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { clinicId = clinic.Id, name = clinic.Name });
+        return Ok(new { clinicId = clinic.Id, name = clinic.Name, timezone = clinic.Timezone, currency = clinic.Currency });
     }
 
     [HttpGet("profile")]
@@ -332,7 +343,18 @@ public class ClinicController : ControllerBase
 
 public record ClinicProfileRequest(
     [Required(ErrorMessage = "Clinic Name is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Clinic Name must be between 2 and 150 characters")]
-    string Name);
+    string Name,
+    string? Timezone = null,
+    string? Currency = null,
+    string? OrganizationType = null,
+    string? LegalName = null,
+    string? Address = null,
+    string? Phone = null,
+    string? Email = null,
+    string? Website = null,
+    string? DateFormat = null,
+    string? TimeFormat = null,
+    string? Language = null);
 
 public record WorkingHoursRequest(
     [Required(ErrorMessage = "Day is required")]

@@ -223,6 +223,97 @@ export default function DoctorDashboard() {
         </div>
       )}
 
+      {/* ── Role Workspace Launchpad (Domain Selector Cards) ── */}
+      <div className="card p-4 space-y-3 bg-[var(--color-surface)] border-[var(--color-border)]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] font-mono">
+              Operational Workspace Launchpad
+            </span>
+          </div>
+          <span className="text-[10.5px] font-mono text-slate-400">Direct Domain Access</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Card 1: Clinical */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            aria-label="Open Doctor Clinical Desk workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">🩺</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Open &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Doctor Clinical Desk</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              OPD Queue, Consultations EMR &amp; Lab Orders
+            </div>
+          </button>
+
+          {/* Card 2: Pharmacy Services */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/pharmacy/pos')}
+            aria-label="Launch Pharmacy Services workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">💊</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Launch &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Pharmacy Services</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              POS Counter, Drug Batches &amp; Schedule H1
+            </div>
+          </button>
+
+          {/* Card 3: Clinic Administration */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/billing')}
+            aria-label="Open Clinic Operations workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">🏛️</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                Open &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Clinic Administration</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              Billing Invoices, Inventory, Wishlist &amp; Reports
+            </div>
+          </button>
+
+          {/* Card 4: Nurse Duty Roster */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/roster')}
+            aria-label="View Nurse Duty Roster workspace"
+            className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">💉</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform">
+                View &rarr;
+              </span>
+            </div>
+            <div className="text-xs font-bold text-[var(--color-text)] mt-2">Nurse Duty Roster</div>
+            <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-snug">
+              Inpatient nursing duty shifts &amp; schedules
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* ── 4 Clinical KPI Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Waiting for This Doctor */}

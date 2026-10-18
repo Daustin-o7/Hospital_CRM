@@ -1,3 +1,4 @@
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -35,7 +36,7 @@ public class PasswordResetController : ControllerBase
             return Ok(new { message = "If the email exists, a reset token has been issued." });
 
         var rawToken = Guid.NewGuid().ToString("N");
-        var tokenHash = BCrypt.Net.BCrypt.HashPassword(rawToken);
+        var tokenHash = rawToken.HashPassword();
 
         var resetToken = new PasswordResetToken
         {
@@ -70,7 +71,7 @@ public class PasswordResetController : ControllerBase
             .Take(50)
             .ToListAsync(ct);
 
-        var tokenRecord = validTokens.FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.ResetToken, t.TokenHash));
+        var tokenRecord = validTokens.FirstOrDefault(t => request.ResetToken.VerifyPassword(t.TokenHash));
         if (tokenRecord is null)
             return BadRequest(new { error = "invalid_or_expired_token" });
 
@@ -78,7 +79,7 @@ public class PasswordResetController : ControllerBase
         if (user is null)
             return BadRequest(new { error = "user_not_found" });
 
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.PasswordHash = request.NewPassword.HashPassword();
         user.UpdatedAt = DateTimeOffset.UtcNow;
         tokenRecord.UsedAt = DateTimeOffset.UtcNow;
 

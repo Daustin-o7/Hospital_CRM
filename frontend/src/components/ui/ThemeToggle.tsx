@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTheme } from '../../context/ThemeContext'
 
 interface ThemeToggleProps {
-  variant?: 'compact' | 'segmented' | 'dropdown'
+  variant?: 'compact' | 'segmented'
   className?: string
 }
 
@@ -82,7 +82,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
       <button
         type="button"
         onClick={() => setDropdownOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-700/70 transition-colors shadow-2xs"
+        className="flex items-center gap-1.5 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-700/70 transition-colors shadow-2xs cursor-pointer"
         aria-label="Toggle theme mode"
         aria-expanded={dropdownOpen}
         title={`Theme: ${theme === 'system' ? `Auto (${resolvedTheme})` : theme}`}
@@ -111,7 +111,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               setTheme('light')
               setDropdownOpen(false)
             }}
-            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left ${
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left cursor-pointer ${
               theme === 'light'
                 ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -121,7 +121,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               <SunIcon className="w-4 h-4 text-amber-500" />
               <span>Light Mode</span>
             </div>
-            {theme === 'light' && <span className="text-teal-600 dark:text-teal-400">✓</span>}
+            {theme === 'light' && <span className="text-teal-600 dark:text-teal-400 font-bold">✓</span>}
           </button>
 
           <button
@@ -130,7 +130,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               setTheme('dark')
               setDropdownOpen(false)
             }}
-            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left ${
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left cursor-pointer ${
               theme === 'dark'
                 ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -140,7 +140,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               <MoonIcon className="w-4 h-4 text-teal-400" />
               <span>Dark Mode</span>
             </div>
-            {theme === 'dark' && <span className="text-teal-600 dark:text-teal-400">✓</span>}
+            {theme === 'dark' && <span className="text-teal-600 dark:text-teal-400 font-bold">✓</span>}
           </button>
 
           <button
@@ -149,7 +149,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               setTheme('system')
               setDropdownOpen(false)
             }}
-            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left ${
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left cursor-pointer ${
               theme === 'system'
                 ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -162,7 +162,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
                 <p className="text-[9px] text-slate-400 font-normal">Matches device theme</p>
               </div>
             </div>
-            {theme === 'system' && <span className="text-teal-600 dark:text-teal-400">✓</span>}
+            {theme === 'system' && <span className="text-teal-600 dark:text-teal-400 font-bold">✓</span>}
           </button>
         </div>
       )}
@@ -208,3 +208,5 @@ function DeviceIcon({ className = 'w-4 h-4' }: { className?: string }) {
     </svg>
   )
 }
+
+export default ThemeToggle

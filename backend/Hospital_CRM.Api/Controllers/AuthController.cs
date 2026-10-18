@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
@@ -37,11 +38,26 @@ public class AuthController : ControllerBase
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user == null)
             return Unauthorized(new { error = "invalid_credentials" });
 
         if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTimeOffset.UtcNow)
             return StatusCode(423, new { error = "account_locked", retryAfterSeconds = (int)(user.LockedUntil.Value - DateTimeOffset.UtcNow).TotalSeconds });
+
+        if (!request.Password.VerifyPassword(user.PasswordHash))
+        {
+            // Brute-force lockout: count failures and lock the account past the threshold.
+            var maxAttempts = _config.GetValue<int>("Auth:MaxFailedAttempts", 5);
+            var lockMinutes = _config.GetValue<int>("Auth:LockoutMinutes", 15);
+
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= maxAttempts)
+                user.LockedUntil = DateTimeOffset.UtcNow.AddMinutes(lockMinutes);
+            user.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
+            return Unauthorized(new { error = "invalid_credentials" });
+        }
 
         if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
             tokenExpiry = 15;
@@ -56,7 +72,7 @@ public class AuthController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            TokenHash = BCrypt.Net.BCrypt.HashPassword(refreshToken),
+            TokenHash = refreshToken.HashPassword(),
             IssuedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
             LastUsedAt = DateTimeOffset.UtcNow
@@ -66,6 +82,15 @@ public class AuthController : ControllerBase
         user.LockedUntil = null;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps,
+            Path = "/",
+            Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
+        });
 
         return Ok(new
         {
@@ -77,9 +102,13 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        var rawToken = !string.IsNullOrWhiteSpace(request?.RefreshToken)
+            ? request.RefreshToken
+            : Request.Cookies["refreshToken"];
+
+        if (string.IsNullOrWhiteSpace(rawToken))
             return Unauthorized(new { error = "invalid_refresh_token" });
 
         var candidateTokens = await _db.RefreshTokens
@@ -88,7 +117,7 @@ public class AuthController : ControllerBase
             .Take(100)
             .ToListAsync(ct);
 
-        var storedToken = candidateTokens.FirstOrDefault(t => BCrypt.Net.BCrypt.Verify(request.RefreshToken, t.TokenHash));
+        var storedToken = candidateTokens.FirstOrDefault(t => rawToken.VerifyPassword(t.TokenHash));
 
         if (storedToken is null)
             return Unauthorized(new { error = "invalid_refresh_token" });
@@ -112,13 +141,22 @@ public class AuthController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            TokenHash = BCrypt.Net.BCrypt.HashPassword(newRefreshToken),
+            TokenHash = newRefreshToken.HashPassword(),
             IssuedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
             LastUsedAt = DateTimeOffset.UtcNow
         });
 
         await _db.SaveChangesAsync(ct);
+
+        Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps,
+            Path = "/",
+            Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
+        });
 
         return Ok(new
         {
@@ -127,6 +165,40 @@ public class AuthController : ControllerBase
             expiresIn = tokenExpiry * 60,
             user = new { id = user.Id, name = user.Name, email = user.Email, role = user.Role.ToString().ToLower() }
         });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshRequest? request, CancellationToken ct)
+    {
+        var rawToken = !string.IsNullOrWhiteSpace(request?.RefreshToken)
+            ? request.RefreshToken
+            : Request.Cookies["refreshToken"];
+
+        if (!string.IsNullOrWhiteSpace(rawToken))
+        {
+            var candidateTokens = await _db.RefreshTokens
+                .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow && t.RevokedAt == null)
+                .OrderByDescending(t => t.IssuedAt)
+                .Take(100)
+                .ToListAsync(ct);
+
+            var storedToken = candidateTokens.FirstOrDefault(t => rawToken.VerifyPassword(t.TokenHash));
+            if (storedToken != null)
+            {
+                storedToken.RevokedAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+        }
+
+        Response.Cookies.Delete("refreshToken", new CookieOptions
+        {
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = Request.IsHttps,
+            Path = "/"
+        });
+
+        return Ok(new { message = "logged_out" });
     }
 
     [HttpGet(".well-known/jwks.json")]
@@ -180,5 +252,4 @@ public record LoginRequest(
     string Password);
 
 public record RefreshRequest(
-    [Required(ErrorMessage = "RefreshToken is required")]
-    string RefreshToken);
+    string? RefreshToken = null);

@@ -41,6 +41,51 @@ async function login(page: import('@playwright/test').Page, preset: 'Admin' | 'N
 
 test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
 
+  test.beforeAll(async () => {
+    try {
+      const loginRes = await fetch('http://localhost:5000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@samstack.ai', password: 'AdminPass123!' })
+      })
+      if (!loginRes.ok) return
+      const { accessToken } = await loginRes.json()
+      const d = shiftDate()
+      const shiftsRes = await fetch(`http://localhost:5000/api/v1/shifts?from=${d}&to=${d}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (shiftsRes.ok) {
+        const shifts = await shiftsRes.json()
+        for (const s of shifts) {
+          if (s.status !== 'Cancelled') {
+            await fetch(`http://localhost:5000/api/v1/shifts/${s.id}`, {
+              method: 'PUT',
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cancel: true })
+            })
+          }
+        }
+      }
+      const leavesRes = await fetch('http://localhost:5000/api/v1/staff/leave-requests', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (leavesRes.ok) {
+        const leaves = await leavesRes.json()
+        for (const l of leaves) {
+          if (l.startDate <= d && l.endDate >= d && l.status !== 'Rejected') {
+            await fetch(`http://localhost:5000/api/v1/staff/leave-requests/${l.id}/review`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'Rejected', note: 'cleanup' })
+            })
+          }
+        }
+      }
+    } catch {
+      // Best-effort cleanup
+    }
+  })
+
   // Login retry may wait out rate-limit windows — allow up to 2.5 min per test
   test.beforeEach(() => test.setTimeout(150_000))
 
@@ -86,7 +131,7 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
     await expect(page.getByText(/Application withdrawn/i)).toBeVisible({ timeout: 8000 })
 
     await row.getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect(page.getByText(/Application sent/i)).toBeVisible({ timeout: 8000 })
+    await expect(row.getByText('Applied', { exact: true })).toBeVisible({ timeout: 8000 })
 
     // Request leave covering the shift date (admin approves it in test 4)
     await page.getByRole('button', { name: /Request leave/i }).click()
@@ -103,7 +148,9 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
 
     await page.getByRole('link', { name: /^Patients$/i }).click()
     await expect(page).toHaveURL(/.*patients/)
-    await page.locator('tbody tr').first().click()
+    const patientRow = page.locator('table[aria-label="Patient registry"] tbody tr').first()
+    await expect(patientRow).toBeVisible({ timeout: 10000 })
+    await patientRow.click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByText('Nursing care')).toBeVisible({ timeout: 8000 })

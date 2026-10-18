@@ -1,4 +1,5 @@
 using Hospital_CRM.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Hospital_CRM.Domain.Entities;
@@ -28,6 +29,8 @@ public class Invoice
     public string? IdempotencyKey { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    [ConcurrencyCheck]
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     
     // Navigation
     public virtual Appointment? Appointment { get; set; }

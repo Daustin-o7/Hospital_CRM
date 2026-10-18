@@ -19,6 +19,8 @@ public class Appointment
     public int? QueueToken { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; }
+    [ConcurrencyCheck]
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     
     // Constraints via unique index: (doctor_id, date, time_slot) where status != cancelled
     // Navigation

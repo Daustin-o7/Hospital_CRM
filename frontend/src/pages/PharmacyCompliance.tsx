@@ -6,6 +6,7 @@ interface ComplianceRecord {
   id: string
   scheduleClass: string
   drugName: string
+  genericName?: string
   batchNumber: string
   quantity: number
   patientName: string
@@ -36,7 +37,8 @@ export default function PharmacyCompliance() {
             endDate: endDate || undefined
           }
         })
-        setRecords(res.data || [])
+        const items = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+        setRecords(items)
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load statutory compliance register')
       } finally {
@@ -206,6 +208,9 @@ export default function PharmacyCompliance() {
 
                     <td>
                       <div className="font-bold text-[var(--color-text)]">{r.drugName}</div>
+                      {r.genericName && (
+                        <div className="text-xs text-[var(--color-text-secondary)]">{r.genericName}</div>
+                      )}
                       <div className="text-[10px] mono text-[var(--color-text-muted)]">Batch: {r.batchNumber}</div>
                     </td>
 

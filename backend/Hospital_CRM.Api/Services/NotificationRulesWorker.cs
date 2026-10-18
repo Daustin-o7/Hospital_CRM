@@ -31,10 +31,21 @@ public class NotificationRulesWorker : BackgroundService
     {
         _logger.LogInformation("Notification rules worker started");
 
-        while (await _timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            try { await EvaluateAsync(stoppingToken); }
-            catch (Exception ex) { _logger.LogError(ex, "Error evaluating notification rules"); }
+            while (await _timer.WaitForNextTickAsync(stoppingToken))
+            {
+                try { await EvaluateAsync(stoppingToken); }
+                catch (Exception ex) { _logger.LogError(ex, "Error evaluating notification rules"); }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown: PeriodicTimer.WaitForNextTickAsync throws on cancellation.
+        }
+        finally
+        {
+            _timer.Dispose();
         }
     }
 

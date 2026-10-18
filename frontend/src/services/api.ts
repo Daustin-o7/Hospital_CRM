@@ -50,6 +50,7 @@ export function clearTokens() {
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -58,6 +59,7 @@ const api = axios.create({
 export const refreshClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -67,6 +69,14 @@ api.interceptors.request.use(
   (config) => {
     if (inMemoryAccessToken) {
       config.headers.Authorization = `Bearer ${inMemoryAccessToken}`
+    }
+    try {
+      const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (clientTz) {
+        config.headers['X-Timezone'] = clientTz
+      }
+    } catch {
+      // Fallback in environments without Intl
     }
     return config
   },
@@ -83,13 +93,14 @@ api.interceptors.response.use(
       originalRequest._retry = true
       try {
         const refreshToken = getRefreshToken()
-        if (!refreshToken) throw new Error('No refresh token available')
-
-        const res = await refreshClient.post('/auth/refresh', { refreshToken })
+        // Send body token if present; HttpOnly cookie will automatically be sent via withCredentials
+        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data
 
         setAccessToken(newAccessToken)
-        setRefreshToken(newRefreshToken)
+        if (newRefreshToken) {
+          setRefreshToken(newRefreshToken)
+        }
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return api(originalRequest)

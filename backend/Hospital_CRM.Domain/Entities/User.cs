@@ -30,6 +30,7 @@ public class User
     public DateTimeOffset? LockedUntil { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+    [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; }
 
     // Validation helper

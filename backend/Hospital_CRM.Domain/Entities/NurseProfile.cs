@@ -10,7 +10,7 @@ public class NurseProfile
     public Guid TenantId { get; set; }
 
     // Employment
-    public Guid DepartmentId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public Guid? WardId { get; set; }
     public string Designation { get; set; } = string.Empty;
     public EmploymentType EmploymentType { get; set; }
@@ -43,11 +43,13 @@ public class NurseProfile
 
     // Audit
     public DateTimeOffset CreatedAt { get; set; }
+    [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CreatedBy { get; set; }
     public Guid UpdatedBy { get; set; }
 
     // Navigation
     public virtual User User { get; set; } = null!;
+    public virtual Department? Department { get; set; }
     public virtual ICollection<NurseAvailability> Availabilities { get; set; } = [];
 }

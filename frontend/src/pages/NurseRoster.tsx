@@ -222,7 +222,7 @@ export default function NurseRoster() {
     setSaving(true)
     try {
       const res = await api.post(`/staff/leave-requests/${leaveId}/review`, { status, note: reviewNote || null })
-      const conflicts = res.data.rosterConflicts?.length ?? 0
+      const conflicts = res.data.rosterConflicts?.length || (res.data.hasRosterConflict ? 1 : 0)
       showToast(status === 'Approved' && conflicts > 0
         ? `Leave approved — ${conflicts} roster shift(s) clash, review the roster`
         : `Leave ${status.toLowerCase()}`)

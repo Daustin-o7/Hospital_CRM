@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Hospital_CRM.Domain.Entities;
 
 public class DrugBatch
@@ -14,6 +16,8 @@ public class DrugBatch
     public decimal PurchaseRate { get; set; }
     public Guid? SupplierId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    [ConcurrencyCheck]
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public Drug? Drug { get; set; }
     public Supplier? Supplier { get; set; }

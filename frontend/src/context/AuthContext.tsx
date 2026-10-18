@@ -35,6 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout', {})
+    } catch {
+      // Non-blocking logout call
+    }
     clearTokens()
     setUser(null)
     if (isEntraConfigured && userManager) {
@@ -54,13 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(async () => {
       try {
         const refreshToken = getRefreshToken()
-        if (refreshToken) {
-          const res = await refreshClient.post('/auth/refresh', { refreshToken })
-          const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
-          setAccessToken(accessToken)
+        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
+        setAccessToken(accessToken)
+        if (newRefreshToken) {
           setRefreshToken(newRefreshToken)
-          scheduleProactiveRefresh(expiresIn || 900)
         }
+        scheduleProactiveRefresh(expiresIn || 900)
       } catch {
         // Fall back to reactive interceptor or logout
       }
@@ -118,20 +123,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Standard refresh token flow
+      // 2. Standard refresh token flow (storage or HttpOnly cookie)
       const refreshToken = getRefreshToken()
-      if (refreshToken) {
-        try {
-          const res = await refreshClient.post('/auth/refresh', { refreshToken })
-          const { accessToken, refreshToken: newRefreshToken, expiresIn, user: userData } = res.data
-          setAccessToken(accessToken)
+      try {
+        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        const { accessToken, refreshToken: newRefreshToken, expiresIn, user: userData } = res.data
+        setAccessToken(accessToken)
+        if (newRefreshToken) {
           setRefreshToken(newRefreshToken)
-          setUser(userData)
-          scheduleProactiveRefresh(expiresIn || 900)
-        } catch {
-          clearTokens()
-          setUser(null)
         }
+        setUser(userData)
+        scheduleProactiveRefresh(expiresIn || 900)
+      } catch {
+        clearTokens()
+        setUser(null)
       }
       setLoading(false)
     }
