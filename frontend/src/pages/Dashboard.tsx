@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ReceptionistDashboard from './dashboards/ReceptionistDashboard'
 import DoctorDashboard from './dashboards/DoctorDashboard'
@@ -10,6 +11,7 @@ export type AppRole = 'receptionist' | 'doctor' | 'clinicadmin' | 'pharmacist' |
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   
   // Base role from authenticated session
   const userActualRole: AppRole = useMemo(() => {
@@ -22,15 +24,31 @@ export default function Dashboard() {
     return 'clinicadmin'
   }, [user])
 
-  // Admin or testing preview switcher state
-  const [previewRole, setPreviewRole] = useState<AppRole>(userActualRole)
+  const canSwitchPreview = userActualRole === 'clinicadmin' || userActualRole === 'platformadmin'
 
-  // Use the previewRole if admin, otherwise strictly enforce actual session role
-  const activeRole: AppRole = (userActualRole === 'clinicadmin' || userActualRole === 'platformadmin')
-    ? previewRole
+  // Admin or testing preview switcher state derived from URL
+  const previewParam = canSwitchPreview ? (searchParams.get('previewRole') as AppRole | null) : null
+  const activeRole: AppRole = (previewParam && ['clinicadmin', 'doctor', 'receptionist', 'pharmacist', 'nurse'].includes(previewParam))
+    ? previewParam
     : userActualRole
 
-  const canSwitchPreview = userActualRole === 'clinicadmin' || userActualRole === 'platformadmin'
+  const handleRoleSelect = (rId: AppRole) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (rId === userActualRole) {
+      nextParams.delete('previewRole')
+      nextParams.delete('domain')
+    } else {
+      nextParams.set('previewRole', rId)
+      if (rId === 'doctor') {
+        nextParams.set('domain', 'clinical')
+      } else if (rId === 'clinicadmin') {
+        nextParams.set('domain', 'admin')
+      } else {
+        nextParams.delete('domain')
+      }
+    }
+    setSearchParams(nextParams, { replace: true })
+  }
 
   return (
     <div className="space-y-4">
@@ -60,7 +78,7 @@ export default function Dashboard() {
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => setPreviewRole(r.id)}
+                  onClick={() => handleRoleSelect(r.id)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-teal-500 text-white shadow-xs'

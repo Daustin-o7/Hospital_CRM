@@ -21,12 +21,14 @@ public class AuthController : ControllerBase
     private readonly HospitalCrmDbContext _db;
     private readonly IConfiguration _config;
     private readonly IPersistentKeyService _keyService;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(HospitalCrmDbContext db, IConfiguration config, IPersistentKeyService keyService)
+    public AuthController(HospitalCrmDbContext db, IConfiguration config, IPersistentKeyService keyService, IWebHostEnvironment env)
     {
         _db = db;
         _config = config;
         _keyService = keyService;
+        _env = env;
     }
 
     [HttpPost("login")]
@@ -42,7 +44,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "invalid_credentials" });
 
         if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTimeOffset.UtcNow)
-            return StatusCode(423, new { error = "account_locked", retryAfterSeconds = (int)(user.LockedUntil.Value - DateTimeOffset.UtcNow).TotalSeconds });
+            return Unauthorized(new { error = "invalid_credentials" });
 
         if (!request.Password.VerifyPassword(user.PasswordHash))
         {
@@ -87,7 +89,7 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Secure = Request.IsHttps,
+            Secure = !_env.IsDevelopment() || Request.IsHttps,
             Path = "/",
             Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
         });
@@ -153,7 +155,7 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Secure = Request.IsHttps,
+            Secure = !_env.IsDevelopment() || Request.IsHttps,
             Path = "/",
             Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
         });
@@ -194,7 +196,7 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
-            Secure = Request.IsHttps,
+            Secure = !_env.IsDevelopment() || Request.IsHttps,
             Path = "/"
         });
 

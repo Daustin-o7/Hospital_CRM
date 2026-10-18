@@ -209,17 +209,27 @@ export default function DashboardLayout() {
   const { user, logout } = useAuth()
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
-  const displayRole = ROLE_LABEL[rawRole] ?? (user?.role || 'Staff')
-  const isMultiDomainRole = rawRole === 'doctor' || rawRole === 'clinicadmin'
+  const searchParams = new URLSearchParams(location.search)
+  const canPreview = rawRole === 'clinicadmin' || rawRole === 'platformadmin'
+  const previewParam = canPreview ? searchParams.get('previewRole') : null
+  const effectiveRole = (previewParam && ['clinicadmin', 'doctor', 'receptionist', 'pharmacist', 'nurse', 'platformadmin'].includes(previewParam))
+    ? previewParam
+    : rawRole
 
-  const activeWorkspace = resolveWorkspace(location.pathname, location.search, rawRole)
+  const displayRole = previewParam
+    ? `${ROLE_LABEL[effectiveRole] ?? effectiveRole} (Preview)`
+    : (ROLE_LABEL[rawRole] ?? (user?.role || 'Staff'))
+  const isMultiDomainRole = effectiveRole === 'doctor' || effectiveRole === 'clinicadmin'
+
+  const activeWorkspace = resolveWorkspace(location.pathname, location.search, effectiveRole)
 
   // Selecting a domain navigates into it, so the URL stays the single source of truth.
   const handleDomainChange = (domain: WorkspaceDomain) => {
+    const previewSuffix = previewParam ? `&previewRole=${previewParam}` : ''
     if (domain === 'all') {
-      navigate('/dashboard?domain=all')
+      navigate(`/dashboard?domain=all${previewSuffix}`)
     } else if (domain === 'clinical') {
-      navigate(rawRole === 'clinicadmin' ? '/dashboard/queue' : '/dashboard')
+      navigate(effectiveRole === 'clinicadmin' ? '/dashboard/queue' : `/dashboard?domain=clinical${previewSuffix}`)
     } else if (domain === 'pharmacy') {
       navigate('/dashboard/pharmacy/pos')
     } else {
@@ -338,7 +348,7 @@ export default function DashboardLayout() {
             const sectionDomain = CATEGORY_TO_DOMAIN[section.category]
             // The Home item (end) stays visible in every workspace so there is always a way back to the hub.
             const visibleItems = section.items.filter(item =>
-              item.roles.includes(rawRole) &&
+              item.roles.includes(effectiveRole) &&
               (activeWorkspace === 'all' || item.end || !sectionDomain || sectionDomain === activeWorkspace)
             )
             if (visibleItems.length === 0) return null
@@ -387,7 +397,7 @@ export default function DashboardLayout() {
         </nav>
 
         {/* Persistent Settings Link for Authorized Roles */}
-        {['clinicadmin', 'doctor', 'receptionist', 'pharmacist'].includes(rawRole) && (
+        {['clinicadmin', 'doctor', 'receptionist', 'pharmacist'].includes(effectiveRole) && (
           <div className="px-3 py-1.5 border-t border-slate-800/80 bg-[#0b1322]/50">
             <NavLink
               to="/dashboard/settings"
@@ -560,7 +570,7 @@ export default function DashboardLayout() {
             <span>Home</span>
           </NavLink>
 
-          {rawRole === 'pharmacist' ? (
+          {effectiveRole === 'pharmacist' ? (
             <>
               <NavLink
                 to="/dashboard/pharmacy/pos"
@@ -604,7 +614,7 @@ export default function DashboardLayout() {
                 <span>Compliance</span>
               </NavLink>
             </>
-          ) : rawRole === 'nurse' ? (
+          ) : effectiveRole === 'nurse' ? (
             <>
               <NavLink
                 to="/dashboard/patients"

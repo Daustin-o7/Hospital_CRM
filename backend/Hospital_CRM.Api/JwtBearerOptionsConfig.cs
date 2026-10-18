@@ -11,5 +11,6 @@ public sealed class JwtBearerOptionsConfig(IPersistentKeyService keyService) : I
     {
         options.TokenValidationParameters ??= new TokenValidationParameters();
         options.TokenValidationParameters.IssuerSigningKey ??= keyService.GetPublicKey();
+        options.TokenValidationParameters.ValidAlgorithms ??= new[] { SecurityAlgorithms.RsaSha256 };
     }
 }

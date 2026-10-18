@@ -2,6 +2,25 @@
 
 Single consolidated backlog. Anything not listed here is either shipped or explicitly out of scope (FRD §5.2).
 
+> **Master Roadmap & Detailed Checklist:** See [`TODO.md`](TODO.md) for full task-by-task breakdown and implementation details across Phase 0 (Security Hardening), Phase 1 (E2E Verification), Phase 2 (FRD Completion), and Phase 3 (Release Readiness).
+
+---
+
+## 0. Security Hardening & Pre-Release Checklist (Branch: `feat/security-hardening`)
+
+### Recently Fixed (`ce53300`)
+- [x] **Rate limiting bypass**: Loopback no-limiter is now strictly conditioned on `IsDevelopment()`, preventing throttling bypass behind reverse proxies.
+- [x] **Brute-force lockout**: `AuthController.Login` increments `FailedLoginCount` and enforces 15-minute lock after 5 consecutive failures before password validation.
+- [x] **Duplicate OpenAPI**: Cleaned duplicate `AddOpenApi()` in `Program.cs`.
+
+### Phase 0 — Security (🔴 Blocking — Current Sprint)
+- [ ] **[CRITICAL — A02] JWT Key Rotation & Git History Purge**: Generate fresh RS256 keypair, purge `backend/Hospital_CRM.Api/keys/jwt-private.pem` from Git history via BFG/git-filter-repo, force push, invalidate all active refresh tokens.
+- [x] **[HIGH — A01/A09] Least-Privilege DB User**: Provisioned `scripts/setup-least-privilege-db.sql` for `app_user` with table/sequence CRUD and append-only audit protections.
+- [x] **[HIGH — Secrets] Externalize Secrets**: Removed misleading HMAC key from `appsettings.Development.json`; completed `.env.example` with comprehensive reference variables.
+- [x] **[HIGH — A07] Fix Account Enumeration**: Unified `AuthController.Login` to return generic 401 `invalid_credentials` for locked accounts.
+- [x] **[MEDIUM — A06] Vulnerability Patching**: Upgraded `System.Security.Cryptography.Pkcs` and `System.Security.Cryptography.Xml` to `10.0.13` (GHSA-2fmv-rv2c-59x7 resolved).
+- [x] **[MEDIUM — A02/A05] JWT Algorithm Pinning & Cookie Security**: Pinned `ValidAlgorithms = ["RS256"]`; configured `UseForwardedHeaders`; enforced `Secure` cookies.
+
 ---
 
 ## 1. Pilot launch configuration (not code — vendor/portal setup)

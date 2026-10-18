@@ -14,6 +14,7 @@ using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -136,7 +137,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtAudience,
             ClockSkew = TimeSpan.Zero,
             RoleClaimType = "role",
-            NameClaimType = "sub"
+            NameClaimType = "sub",
+            ValidAlgorithms = new[] { SecurityAlgorithms.RsaSha256 }
         };
     });
 
@@ -391,6 +393,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
