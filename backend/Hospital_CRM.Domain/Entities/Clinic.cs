@@ -108,4 +108,5 @@ public class Clinic
     public virtual ICollection<ClinicSpecialHour> SpecialHours { get; set; } = [];
     public virtual ICollection<StaffInvite> StaffInvites { get; set; } = [];
     public virtual ICollection<User> Users { get; set; } = [];
+    public virtual ICollection<Department> Departments { get; set; } = [];
 }

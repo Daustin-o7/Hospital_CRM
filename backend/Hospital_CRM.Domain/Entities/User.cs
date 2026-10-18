@@ -30,13 +30,14 @@ public class User
     public DateTimeOffset? LockedUntil { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+    [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; }
 
     // Validation helper
     public bool IsClinicAssociationValid()
     {
-        // ClinicAdmin, Doctor, and Receptionist must have a ClinicId assigned
-        if (Role is UserRole.Doctor or UserRole.Receptionist or UserRole.ClinicAdmin)
+        // ClinicAdmin, Doctor, Receptionist, Nurse, and Pharmacist must have a ClinicId assigned
+        if (Role is UserRole.Doctor or UserRole.Receptionist or UserRole.ClinicAdmin or UserRole.Nurse or UserRole.Pharmacist)
         {
             return ClinicId.HasValue && ClinicId.Value != Guid.Empty;
         }
@@ -45,6 +46,7 @@ public class User
 
     // Navigation properties
     public virtual Clinic? Clinic { get; set; }
+    public virtual NurseProfile? NurseProfile { get; set; }
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = [];
     public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = [];
     public virtual ICollection<Patient> CreatedPatients { get; set; } = [];

@@ -1,12 +1,20 @@
 using System.Text;
+using System.Threading.RateLimiting;
+using Hangfire;
+using Hangfire.Dashboard;
+using Hangfire.PostgreSql;
+using static Hangfire.Cron;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Middlewares;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -29,6 +37,69 @@ builder.Services.AddDbContext<HospitalCrmDbContext>(options =>
 
 builder.Services.AddMemoryCache();
 
+// Rate limiting (per IP + per user)
+builder.Services.AddRateLimiter(options =>
+{
+    var globalLimit = builder.Configuration.GetValue<int>("RateLimiting:GlobalPermitLimit", 100);
+    var authLimit = builder.Configuration.GetValue<int>("RateLimiting:AuthPermitLimit", 30);
+    var precheckLimit = builder.Configuration.GetValue<int>("RateLimiting:PrecheckPermitLimit", 5);
+
+    // Loopback bypass is a development/test convenience only. In production it would
+    // disable throttling for everything arriving via a local reverse proxy.
+    var isDev = builder.Environment.IsDevelopment();
+
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+    {
+        var ip = ctx.Connection.RemoteIpAddress;
+        if (isDev && ip != null && System.Net.IPAddress.IsLoopback(ip))
+        {
+            return RateLimitPartition.GetNoLimiter("loopback");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = globalLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Stricter limits for auth endpoints (configurable, default 30/min; loopback bypassed in dev/test only)
+    options.AddPolicy("auth", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress;
+        if (isDev && ip != null && System.Net.IPAddress.IsLoopback(ip))
+        {
+            return RateLimitPartition.GetNoLimiter("loopback");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = authLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    // Precheck submission limit (configurable, default 5 per 5 mins)
+    options.AddPolicy("precheck", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = precheckLimit,
+                Window = TimeSpan.FromMinutes(5),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 1
+            }));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 // JWT static config validation
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]
     ?? (builder.Environment.IsDevelopment() ? "Hospital_CRM"
@@ -37,21 +108,15 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
     ?? (builder.Environment.IsDevelopment() ? "Hospital_CRM"
         : throw new InvalidOperationException("Jwt:Audience configuration is missing."));
 
-// Register IPersistentKeyService — chosen by Jwt:KeySource config.
-// PemFileKeyService: auto-generates a key on first run in Development,
-//                    fails fast in non-Development environments.
-// AzureKeyVaultKeyService: loads from Key Vault; private key never leaves vault.
-var keySource = builder.Configuration["Jwt:KeySource"] ?? (builder.Environment.IsDevelopment() ? "PemFile" : throw new InvalidOperationException("Jwt:KeySource configuration is missing."));
-builder.Services.AddSingleton<IPersistentKeyService>(sp =>
-{
-    var env = sp.GetRequiredService<IWebHostEnvironment>();
-    return keySource.ToLowerInvariant() switch
+// Register IPersistentKeyService — PemFileKeyService reads PKCS#8 PEM private key from disk
+// (auto-generated in Development, configured via Jwt:PemFilePath in production).
+builder.Services.AddSingleton<IPersistentKeyService, PemFileKeyService>();
+
+builder.Services.AddHealthChecks()
+    .AddAsyncCheck("database", async () =>
     {
-        "pemfile" => new PemFileKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<PemFileKeyService>>()),
-        "azurekeyvault" => new AzureKeyVaultKeyService(builder.Configuration, env, sp.GetRequiredService<ILogger<AzureKeyVaultKeyService>>()),
-        _ => throw new InvalidOperationException($"Unknown Jwt:KeySource '{keySource}'. Supported: PemFile, AzureKeyVault.")
-    };
-});
+        return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("Service is operational.");
+    });
 
 // JWT Bearer auth — IssuerSigningKey is resolved per-request from the
 // already-loaded IPersistentKeyService via OnCreatingTicket. This avoids
@@ -60,6 +125,7 @@ builder.Services.AddSingleton<IPersistentKeyService>(sp =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -68,7 +134,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+            RoleClaimType = "role",
+            NameClaimType = "sub"
         };
     });
 
@@ -76,32 +144,89 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // are registered. This injects the RS256 public key without BuildServiceProvider().
 builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Hospital_CRM.Api.JwtBearerOptionsConfig>();
 
-builder.Services.AddAuthorization(options =>
+builder.Services.AddAuthorization();
+
+// CORS for React frontend (supports dev defaults + configured origins)
+var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+var allowedOrigins = new HashSet<string>(configuredOrigins, StringComparer.OrdinalIgnoreCase)
 {
-    options.AddPolicy("AdminOrDoctor", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor")));
-    options.AddPolicy("AdminOrReceptionist", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Receptionist")));
-    options.AddPolicy("AllRoles", p =>
-        p.Requirements.Add(new RbacRequirement("ClinicAdmin", "Doctor", "Receptionist")));
-});
+    "http://localhost:5173",
+    "https://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:80",
+    "http://localhost",
+    "https://localhost",
+    "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://10.0.2.2:5000",
+    "https://10.0.2.2:7001",
+    "http://10.0.2.2:5173"
+};
 
-builder.Services.AddSingleton<IAuthorizationHandler, RbacHandler>();
-
-// CORS for React frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin)) return false;
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return uri.Host == "localhost"
+                        || uri.Host == "127.0.0.1"
+                        || uri.Host == "10.0.2.2"
+                        || uri.Scheme.Equals("capacitor", StringComparison.OrdinalIgnoreCase)
+                        || uri.Scheme.Equals("ionic", StringComparison.OrdinalIgnoreCase)
+                        || allowedOrigins.Contains(origin);
+                }
+                return false;
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins.ToArray())
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
     });
 });
 
-builder.Services.AddControllers();
+// String enums in JSON both ways (e.g. employmentStatus: "Active") — numbers still bind
+builder.Services.AddControllers().AddJsonOptions(o =>
+    o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Typesense self-hosted search — proxy only, never exposed to the frontend.
+builder.Services.Configure<Hospital_CRM.Api.Services.Typesense.TypesenseOptions>(
+    builder.Configuration.GetSection(Hospital_CRM.Api.Services.Typesense.TypesenseOptions.SectionName));
+builder.Services.AddHttpClient("typesense", c => c.Timeout = TimeSpan.FromSeconds(2));
+builder.Services.AddSingleton<Hospital_CRM.Api.Services.Typesense.ITypesenseClientFactory,
+                              Hospital_CRM.Api.Services.Typesense.TypesenseClientFactory>();
+builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.IPatientSearchService,
+                           Hospital_CRM.Api.Services.Typesense.PatientSearchService>();
+builder.Services.AddScoped<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs,
+                           Hospital_CRM.Api.Services.Typesense.TypesenseHangfireJobs>();
+
+// Health checks registration for /healthz endpoint
+builder.Services.AddHealthChecks();
+
+// International timezone & midnight boundary service
+builder.Services.AddSingleton<ITimezoneService, TimezoneService>();
 
 // FR-20/21: Notification services
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
@@ -116,6 +241,26 @@ builder.Services.AddHostedService<RazorpayReconciliationWorker>();
 // MOD-13 (Phase 2): notification rules engine worker (FR-13-03)
 builder.Services.AddHostedService<NotificationRulesWorker>();
 
+// Hangfire (Phase 2 TRD §2 background jobs).
+// Reuses the existing Postgres instance — strategy-v0.5 §6 chose Postgres
+// over SQL Server specifically to avoid per-core licensing. Connection
+// string is read from config (Hangfire:PostgreSql:Connection) which is
+// fed by Hangfire__PostgreSql__Connection in docker-compose.
+var hangfireConn = builder.Configuration["Hangfire:PostgreSql:Connection"]
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(hangfireConn))
+{
+    throw new InvalidOperationException("Hangfire connection string is missing. Set Hangfire:PostgreSql:Connection or ConnectionStrings:DefaultConnection.");
+}
+builder.Services.AddHangfire(config => config
+    .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(hangfireConn))
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings());
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2;
+});
+
 var app = builder.Build();
 
 // Load the persistent RS256 key BEFORE serving any traffic.
@@ -129,46 +274,204 @@ using (var scope = app.Services.CreateScope())
     Log.Information("JWT signing key loaded (source: {Source})", keyService.KeySource);
 }
 
-if (app.Environment.IsDevelopment())
+// Database migrations and startup seeding
+var autoMigrate = app.Configuration.GetValue<bool?>("Database:AutoMigrate") ?? true;
+if (autoMigrate)
 {
-    var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
+    var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
 
-    if (eraseOnStartup)
+    if (eraseOnStartup && app.Environment.IsDevelopment())
     {
         Log.Information("Erasing development database...");
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
         await SeedDevelopmentDataAsync(db);
     }
-    else if (!await db.Users.AnyAsync())
+    else
     {
-        Log.Information("Seeding initial development data...");
+        Log.Information("Applying database migrations...");
         await db.Database.MigrateAsync();
-        await SeedDevelopmentDataAsync(db);
+
+        if (app.Environment.IsDevelopment())
+        {
+            if (!await db.Users.AnyAsync())
+            {
+                Log.Information("Seeding initial development data...");
+                await SeedDevelopmentDataAsync(db);
+            }
+            else
+            {
+                if (!await db.Users.AnyAsync(u => u.Role == UserRole.Pharmacist))
+                {
+                    var clinic = await db.Clinics.FirstOrDefaultAsync();
+                    if (clinic != null)
+                    {
+                        db.Users.Add(new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = "pharmacist@samstack.ai",
+                            PasswordHash = "PharmacistPass123!".HashPassword(),
+                            Name = "Pharmacist Alex",
+                            Role = UserRole.Pharmacist,
+                            ClinicId = clinic.Id,
+                            TenantId = Guid.Empty,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                        db.Users.Add(new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = "nurse@samstack.ai",
+                            PasswordHash = "NursePass123!".HashPassword(),
+                            Name = "Nurse Joy",
+                            Role = UserRole.Nurse,
+                            ClinicId = clinic.Id,
+                            TenantId = Guid.Empty,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
+                // MOD-26: existing dev DBs predate NurseProfile — backfill so the
+                // seeded nurse preset can use roster/leave/handover.
+                var seededNurse = await db.Users.FirstOrDefaultAsync(u => u.Email == "nurse@samstack.ai");
+                if (seededNurse != null && !await db.NurseProfiles.AnyAsync(p => p.UserId == seededNurse.Id))
+                {
+                    var seedingAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@samstack.ai");
+                    db.NurseProfiles.Add(new NurseProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = seededNurse.Id,
+                        TenantId = Guid.Empty,
+                        DepartmentId = null,
+                        Designation = "Staff Nurse",
+                        EmploymentType = EmploymentType.FullTime,
+                        JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                        Status = EmploymentStatus.Active,
+                        LicenseNumber = "DEV-SEED-000",
+                        LicenseExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3)),
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow,
+                        CreatedBy = seedingAdmin?.Id ?? seededNurse.Id,
+                        UpdatedBy = seedingAdmin?.Id ?? seededNurse.Id
+                    });
+                    await db.SaveChangesAsync();
+                }
+                if (!await db.Drugs.AnyAsync())
+                {
+                    Log.Information("Seeding Track 2 Pharmacy Catalog...");
+                    await SeedPharmacyDataAsync(db);
+                    await db.SaveChangesAsync();
+                }
+            }
+        }
     }
+}
+
+// Typesense collection init — idempotent. If Typesense is unreachable, log and
+// continue; the API must start even if the search service is down.
+using (var tsScope = app.Services.CreateScope())
+{
+    var search = tsScope.ServiceProvider.GetRequiredService<Hospital_CRM.Api.Services.Typesense.IPatientSearchService>();
+    try
+    {
+        await search.EnsureCollectionsAsync(default);
+        Log.Information("Typesense patient and medicine collections verified");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Typesense collections init failed; search will be unavailable until Typesense is online");
+    }
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
+app.UseRateLimiter();
+app.UseSecurityHeaders();
+app.UseMiddleware<IdempotencyMiddleware>();
+
+
 // MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
 var labUploadDir = Path.Combine(builder.Environment.ContentRootPath, "lab-uploads");
 Directory.CreateDirectory(labUploadDir);
-app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(labUploadDir),
-    RequestPath = "/lab-uploads"
-});
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<InactivityMiddleware>();
-app.MapControllers();
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+// SEC-002: Lab file static middleware MUST run AFTER UseAuthentication/UseAuthorization
+// so that JWT is parsed before OnPrepareResponse fires. Also short-circuit the response
+// body to prevent the file from being served to unauthenticated users.
+app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(labUploadDir),
+    RequestPath = "/lab-uploads",
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.Context.User?.Identity?.IsAuthenticated != true)
+        {
+            ctx.Context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            ctx.Context.Response.Headers["WWW-Authenticate"] = "Bearer";
+            ctx.Context.Response.ContentLength = 0;
+            ctx.Context.Response.Body = Stream.Null;
+        }
+    }
+});
+
+app.UseMiddleware<InactivityMiddleware>();
+
+// Hangfire dashboard - gated to ClinicAdmin role.
+// Mounted at /hangfire. Production should additionally restrict by network/IIS.
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAdminAuthorizationFilter() }
+});
+
+// Hangfire recurring jobs: nightly Typesense full reindexes at 02:00 and 03:00 local.
+RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs>(
+    "typesense-nightly-patient-reindex",
+    job => job.ReindexTypesenseAsync(CancellationToken.None),
+    Cron.Daily(2));
+
+RecurringJob.AddOrUpdate<Hospital_CRM.Api.Services.Typesense.ITypesenseHangfireJobs>(
+    "typesense-nightly-medicine-reindex",
+    job => job.ReindexMedicinesTypesenseAsync(CancellationToken.None),
+    Cron.Daily(3));
+
+app.MapControllers();
+app.MapHealthChecks("/healthz");
+
+// Production health checks (Kubernetes liveness and readiness probes)
+app.MapGet("/health", async (HospitalCrmDbContext db, CancellationToken ct) =>
+{
+    var canConnect = await db.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTimeOffset.UtcNow })
+        : Results.Json(new { status = "unhealthy", database = "disconnected" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
+app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTimeOffset.UtcNow }));
+
+app.MapGet("/health/ready", async (HospitalCrmDbContext db, CancellationToken ct) =>
+{
+    var canConnect = await db.Database.CanConnectAsync(ct);
+    return canConnect
+        ? Results.Ok(new { status = "ready", database = "connected", timestamp = DateTimeOffset.UtcNow })
+        : Results.Json(new { status = "unready", database = "disconnected" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.Run();
 
@@ -183,11 +486,49 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     };
     db.Clinics.Add(clinic);
 
+    var opdDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Outpatient Department",
+        Code = "OPD",
+        Description = "General OPD Consultation & Triage",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    var emergDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Emergency & Trauma",
+        Code = "EMERG",
+        Description = "24x7 Casualty & Acute Care",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    var icuDept = new Department
+    {
+        Id = Guid.NewGuid(),
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        Name = "Intensive Care Unit",
+        Code = "ICU",
+        Description = "Critical Care & Ventilator Monitoring",
+        IsActive = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Departments.AddRange(opdDept, emergDept, icuDept);
+
     var admin = new User
     {
         Id = Guid.NewGuid(),
         Email = "admin@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("AdminPass123!"),
+        PasswordHash = "AdminPass123!".HashPassword(),
         Name = "Dr. Admin",
         Role = UserRole.ClinicAdmin,
         ClinicId = clinic.Id,
@@ -201,7 +542,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "doctor@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("DoctorPass123!"),
+        PasswordHash = "DoctorPass123!".HashPassword(),
         Name = "Dr. Sharma",
         Role = UserRole.Doctor,
         ClinicId = clinic.Id,
@@ -215,7 +556,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "reception@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("ReceptPass123!"),
+        PasswordHash = "ReceptPass123!".HashPassword(),
         Name = "Ms. Reception",
         Role = UserRole.Receptionist,
         ClinicId = clinic.Id,
@@ -231,7 +572,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         Email = "platform-admin@samstack.ai",
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword("PlatformAdminPass123!"),
+        PasswordHash = "PlatformAdminPass123!".HashPassword(),
         Name = "SAMSTACK Platform Admin",
         Role = UserRole.PlatformAdmin,
         ClinicId = null,
@@ -240,6 +581,53 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(platformAdmin);
+
+    var pharmacist = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "pharmacist@samstack.ai",
+        PasswordHash = "PharmacistPass123!".HashPassword(),
+        Name = "Pharmacist Alex",
+        Role = UserRole.Pharmacist,
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(pharmacist);
+
+    var nurse = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "nurse@samstack.ai",
+        PasswordHash = "NursePass123!".HashPassword(),
+        Name = "Nurse Joy",
+        Role = UserRole.Nurse,
+        ClinicId = clinic.Id,
+        TenantId = Guid.Empty,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(nurse);
+
+    // MOD-26: seeded nurse needs a NurseProfile or the roster/leave endpoints 403.
+    db.NurseProfiles.Add(new NurseProfile
+    {
+        Id = Guid.NewGuid(),
+        UserId = nurse.Id,
+        TenantId = Guid.Empty,
+        DepartmentId = opdDept.Id,
+        Designation = "Staff Nurse",
+        EmploymentType = EmploymentType.FullTime,
+        JoiningDate = DateOnly.FromDateTime(DateTime.UtcNow),
+        Status = EmploymentStatus.Active,
+        LicenseNumber = "DEV-SEED-000",
+        LicenseExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(3)),
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow,
+        CreatedBy = admin.Id,
+        UpdatedBy = admin.Id
+    });
 
     // Seed: configure all 7 days (Monday=1, Tuesday=2, ..., Sunday=0).
     // Sunday is a first-class configurable day (may be open or closed per clinic).
@@ -477,5 +865,170 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     db.NotificationRules.AddRange(defaultRules);
 
     await db.SaveChangesAsync();
+
+    // Track 2: Seed Indian Essential Medicines & Batches
+    await SeedPharmacyDataAsync(db);
+
+    await db.SaveChangesAsync();
     Log.Information("Development seed data created successfully.");
+}
+
+static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db)
+{
+    if (await db.Drugs.AnyAsync()) return;
+
+    var supplier = new Supplier
+    {
+        Id = Guid.NewGuid(),
+        TenantId = Guid.Empty,
+        Name = "MedSource India Healthcare Pvt Ltd",
+        Gstin = "27AABCM8812K1Z0",
+        Phone = "+91 98201 12345",
+        Email = "orders@medsourceindia.com",
+        Address = "Plot 42, MIDC Industrial Area, Andheri East, Mumbai, Maharashtra 400093",
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+    db.Suppliers.Add(supplier);
+
+    var candidates = new[]
+    {
+        Path.Combine(AppContext.BaseDirectory, "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(Directory.GetCurrentDirectory(), "backend", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
+        Path.Combine(Directory.GetCurrentDirectory(), "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv")
+    };
+
+    string? csvPath = null;
+    foreach (var c in candidates)
+    {
+        var full = Path.GetFullPath(c);
+        if (File.Exists(full))
+        {
+            csvPath = full;
+            break;
+        }
+    }
+
+    var drugs = new List<Drug>();
+    var batches = new List<DrugBatch>();
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+    if (csvPath != null)
+    {
+        var lines = await File.ReadAllLinesAsync(csvPath);
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            var parts = ParseCsvLine(line);
+            if (parts.Count < 12) continue;
+
+            var name = parts[0].Trim();
+            var genericName = parts[1].Trim();
+            var category = parts[2].Trim();
+            var dosageForm = parts[3].Trim();
+            var strength = parts[4].Trim();
+            var schedStr = parts[5].Trim();
+            var hsn = parts[6].Trim();
+            decimal.TryParse(parts[7].Trim(), out var gstRate);
+            var nlem = parts[8].Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
+            decimal? dpco = decimal.TryParse(parts[9].Trim(), out var dVal) ? dVal : null;
+            var packSize = parts[10].Trim();
+            decimal.TryParse(parts[11].Trim(), out var indicativeMrp);
+            var commonBrands = parts.Count > 12 ? parts[12].Trim() : "";
+
+            Enum.TryParse<ScheduleClass>(schedStr, true, out var schedClass);
+
+            var drug = new Drug
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                Name = name,
+                GenericName = genericName,
+                TherapeuticCategory = category,
+                DosageForm = dosageForm,
+                Strength = strength,
+                ScheduleClass = schedClass,
+                HsnCode = hsn,
+                GstRate = gstRate > 0 ? gstRate : 12m,
+                NlemCovered = nlem,
+                DpcoCeilingPrice = dpco,
+                StandardPackSize = packSize,
+                IndicativeMrp = indicativeMrp,
+                CommonBrands = commonBrands,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            drugs.Add(drug);
+
+            var batchNumA = $"BAT-{i:D3}-A";
+            var batchNumB = $"BAT-{i:D3}-B";
+
+            batches.Add(new DrugBatch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                DrugId = drug.Id,
+                BatchNumber = batchNumA,
+                ExpiryDate = today.AddMonths(14 + (i % 12)),
+                MfgDate = today.AddMonths(-4),
+                QuantityReceived = 100,
+                QuantityRemaining = 85,
+                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
+                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
+                SupplierId = supplier.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            batches.Add(new DrugBatch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                DrugId = drug.Id,
+                BatchNumber = batchNumB,
+                ExpiryDate = today.AddMonths(28 + (i % 8)),
+                MfgDate = today.AddMonths(-1),
+                QuantityReceived = 150,
+                QuantityRemaining = 150,
+                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
+                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
+                SupplierId = supplier.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+    }
+
+    if (drugs.Count > 0)
+    {
+        db.Drugs.AddRange(drugs);
+        db.DrugBatches.AddRange(batches);
+    }
+}
+
+static List<string> ParseCsvLine(string line)
+{
+    var result = new List<string>();
+    var inQuotes = false;
+    var current = new StringBuilder();
+
+    for (int i = 0; i < line.Length; i++)
+    {
+        char c = line[i];
+        if (c == '"')
+        {
+            inQuotes = !inQuotes;
+        }
+        else if (c == ',' && !inQuotes)
+        {
+            result.Add(current.ToString());
+            current.Clear();
+        }
+        else
+        {
+            current.Append(c);
+        }
+    }
+    result.Add(current.ToString());
+    return result;
 }

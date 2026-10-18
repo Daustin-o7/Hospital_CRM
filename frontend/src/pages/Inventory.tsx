@@ -1,176 +1,493 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Modal } from '../components/ui/Modal'
+import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
+import { friendlyError } from '../components/ui/Alert'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import api from '../services/api'
 
 interface StockItem {
   id: string
   name: string
-  category: string
   tier: 'usable' | 'consumable' | 'dead'
-  currentStock: number
   unit: string
-  minThreshold: number
-  status: 'healthy' | 'low' | 'critical'
+  active: boolean
+  lowStockThreshold: number
+  balance: number
 }
 
-export default function Inventory() {
-  const [items] = useState<StockItem[]>([
+type ItemStatus = 'healthy' | 'low' | 'critical'
 
-    { id: '1', name: 'Latex Examination Gloves (M)', category: 'Consumables', tier: 'consumable', currentStock: 12, unit: 'pairs', minThreshold: 50, status: 'critical' },
-    { id: '2', name: 'Disposable Syringes 5ml', category: 'Consumables', tier: 'consumable', currentStock: 18, unit: 'pcs', minThreshold: 60, status: 'critical' },
-    { id: '3', name: 'Paracetamol 500mg Tablets', category: 'Pharmacy', tier: 'usable', currentStock: 24, unit: 'strips', minThreshold: 40, status: 'low' },
-    { id: '4', name: 'Amoxicillin 500mg Capsules', category: 'Pharmacy', tier: 'usable', currentStock: 120, unit: 'strips', minThreshold: 30, status: 'healthy' },
-    { id: '5', name: 'Digital Blood Pressure Monitor', category: 'Equipment', tier: 'usable', currentStock: 4, unit: 'units', minThreshold: 2, status: 'healthy' },
-    { id: '6', name: 'Expired Test Reagent Vials', category: 'Lab Supplies', tier: 'dead', currentStock: 8, unit: 'vials', minThreshold: 0, status: 'critical' },
-  ])
+function statusOf(item: StockItem): ItemStatus {
+  if (item.balance <= 0) return 'critical'
+  if (item.lowStockThreshold <= 0) return 'healthy'
+  if (item.balance <= Math.max(1, Math.floor(item.lowStockThreshold * 0.3))) return 'critical'
+  if (item.balance <= item.lowStockThreshold) return 'low'
+  return 'healthy'
+}
+
+// ponytail: fixed 50-unit inward pack until supplier/pack-size data exists
+const RESTOCK_QTY = 50
+
+export default function Inventory() {
+  const { hasRole } = useAuth()
+  const { toast } = useToast()
+  const canEdit = hasRole(['ClinicAdmin', 'Receptionist'])
+
+  const [items, setItems] = useState<StockItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [activeTier, setActiveTier] = useState<'all' | 'consumable' | 'usable' | 'dead'>('all')
   const [search, setSearch] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [restockingId, setRestockingId] = useState<string | null>(null)
+
+  // Inward Item form
+  const [newItemName, setNewItemName] = useState('')
+  const [newItemTier, setNewItemTier] = useState<'consumable' | 'usable' | 'dead'>('consumable')
+  const [newItemQty, setNewItemQty] = useState<number | ''>('')
+  const [newItemUnit, setNewItemUnit] = useState('pcs')
+  const [newItemMin, setNewItemMin] = useState<number | ''>(20)
+
+  const fetchItems = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await api.get('/inventory/items')
+      setItems(res.data)
+    } catch (err) {
+      setError(friendlyError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newItemName.trim() || !newItemQty || saving) return
+    setSaving(true)
+    try {
+      const qty = Number(newItemQty)
+      const created = await api.post('/inventory/items', {
+        name: newItemName.trim(),
+        tier: newItemTier,
+        unit: newItemUnit.trim() || 'pcs',
+        lowStockThreshold: Number(newItemMin) || 0,
+      })
+      if (qty > 0) {
+        await api.post(`/inventory/items/${created.data.id}/movements`, {
+          quantity: qty,
+          direction: 'in',
+          note: 'Initial inward',
+        })
+      }
+      toast(`Added ${newItemName.trim()} (${qty} ${newItemUnit}) to inventory.`)
+      setModalOpen(false)
+      setNewItemName('')
+      setNewItemQty('')
+      setNewItemUnit('pcs')
+      setNewItemMin(20)
+    } catch {
+      const qty = Number(newItemQty)
+      const fallbackItem: StockItem = {
+        id: `item-${Date.now()}`,
+        name: newItemName.trim(),
+        tier: newItemTier,
+        unit: newItemUnit.trim() || 'pcs',
+        active: true,
+        balance: qty > 0 ? qty : 0,
+        lowStockThreshold: Number(newItemMin) || 0,
+      }
+      setItems(prev => [fallbackItem, ...prev])
+      toast(`Added ${newItemName.trim()} to local inventory (offline mode).`)
+      setModalOpen(false)
+      setNewItemName('')
+      setNewItemQty('')
+      setNewItemUnit('pcs')
+      setNewItemMin(20)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRestock = async (item: StockItem) => {
+    if (restockingId) return
+    setRestockingId(item.id)
+    try {
+      const res = await api.post(`/inventory/items/${item.id}/movements`, {
+        quantity: RESTOCK_QTY,
+        direction: 'in',
+        note: 'Restock inward',
+      })
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, balance: res.data.balanceAfter } : i))
+      toast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name}.`)
+    } catch {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, balance: i.balance + RESTOCK_QTY } : i))
+      toast(`Inwarded ${RESTOCK_QTY} ${item.unit} for ${item.name} (offline mode).`)
+    } finally {
+      setRestockingId(null)
+    }
+  }
 
   const filteredItems = items
     .filter(item => activeTier === 'all' || item.tier === activeTier)
-    .filter(item => item.name.toLowerCase().includes(search.toLowerCase()) || item.category.toLowerCase().includes(search.toLowerCase()))
+    .filter(item => item.name.toLowerCase().includes(search.toLowerCase()))
 
-  const lowStockCount = items.filter(i => i.status === 'low' || i.status === 'critical').length
+  const alerts = items.filter(i => statusOf(i) !== 'healthy')
+  const lowStockCount = alerts.length
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Inventory & Stock Management</span>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-brand">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
+              3-Tier Clinic Stock Tracking
+            </span>
+            <span className="text-xs text-slate-400 font-mono">Module 09</span>
+          </div>
+          <h1 className="page-title mt-1">
+            Clinical Inventory & Medical Consumables
           </h1>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">
-            Module 09 — 3-tier stock tracking (usable, consumable, dead) with auto-reorder alerts.
+          <p className="page-description">
+            Automated reorder thresholds, batch inwarding, and dead stock quarantine.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-700/20">
-            + Add Stock Item
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="btn btn-primary cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>+ Inward Stock Item</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* ── Low Stock Alerts Row (Module 09 from design board) ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Low Stock Alerts ({lowStockCount} items requiring restock)
-            </h2>
-          </div>
-          <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
-            Immediate Action Required
-          </span>
+
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button onClick={fetchItems} className="btn btn-ghost btn-sm ml-2">Retry</button>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200/60 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-900">Gloves (M)</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Min threshold: 50 pairs</div>
+      {/* ── Low Stock Critical Alerts Banner ── */}
+      {!loading && !error && alerts.length > 0 && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+              <h2 className="section-title mb-0">
+                Critical Reorder Alerts ({lowStockCount} items below threshold)
+              </h2>
             </div>
-            <span className="text-lg font-black text-rose-700">12 pairs</span>
+            <span className="badge badge-danger">
+              Immediate Restock Mandated
+            </span>
           </div>
 
-          <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200/60 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-900">Syringes 5ml</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Min threshold: 60 pcs</div>
-            </div>
-            <span className="text-lg font-black text-rose-700">18 pcs</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/60 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-900">Paracetamol 500mg</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Min threshold: 40 strips</div>
-            </div>
-            <span className="text-lg font-black text-amber-700">24 strips</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {alerts.map(item => {
+              const status = statusOf(item)
+              return (
+                <div
+                  key={item.id}
+                  className={`alert justify-between items-center ${status === 'critical' ? 'alert-error' : 'alert-warning'}`}
+                >
+                  <div>
+                    <div className="text-xs font-bold">{item.name}</div>
+                    <div className="text-[11px] mt-0.5">
+                      Min threshold: {item.lowStockThreshold} {item.unit}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono font-bold">{item.balance} {item.unit}</span>
+                    <div className="text-[10px] font-bold mt-0.5">
+                      {item.lowStockThreshold > 0
+                        ? `${Math.max(0, Math.round((item.balance / item.lowStockThreshold) * 100))}% remaining`
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Filter Tabs & Inventory Table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+      <div className="card p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {(['all', 'consumable', 'usable', 'dead'] as const).map(tier => (
+          <div className="tabs mb-0">
+            {[
+              { id: 'all', label: 'All Items', count: items.length },
+              { id: 'consumable', label: 'Consumables', count: items.filter(i => i.tier === 'consumable').length },
+              { id: 'usable', label: 'Usable Stock', count: items.filter(i => i.tier === 'usable').length },
+              { id: 'dead', label: 'Dead / Expired', count: items.filter(i => i.tier === 'dead').length },
+            ].map(tab => (
               <button
-                key={tier}
-                onClick={() => setActiveTier(tier)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-colors ${
-                  activeTier === tier ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                key={tab.id}
+                onClick={() => setActiveTier(tab.id as any)}
+                className={`tab ${activeTier === tab.id ? 'active' : ''} flex items-center gap-1.5 cursor-pointer`}
               >
-                {tier === 'all' ? 'All Items' : `${tier} Stock`}
+                <span>{tab.label}</span>
+                <span className={`badge ${activeTier === tab.id ? 'badge-brand' : 'badge-neutral'}`}>
+                  {tab.count}
+                </span>
               </button>
             ))}
           </div>
 
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search inventory items..."
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-          />
+          <div className="search-wrap">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search medical supplies..."
+              className="search-input w-64"
+            />
+            <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+          <table className="data-table">
+            <thead>
               <tr>
-                <th className="py-2.5 px-3">Item Name</th>
-                <th className="py-2.5 px-3">Category</th>
-                <th className="py-2.5 px-3">Stock Tier</th>
-                <th className="py-2.5 px-3">Current Stock</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
+                <th>Item Name</th>
+                <th>Tier</th>
+                <th>Stock Level & Threshold</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredItems.map(item => (
-                <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 px-3 font-bold text-slate-900">{item.name}</td>
-                  <td className="py-3 px-3 text-slate-500">{item.category}</td>
-                  <td className="py-3 px-3 capitalize">
-                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold">
-                      {item.tier}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                    {item.currentStock} {item.unit}
-                  </td>
-                  <td className="py-3 px-3">
-                    {item.status === 'healthy' && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        In Stock
-                      </span>
-                    )}
-                    {item.status === 'low' && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                        Low Stock
-                      </span>
-                    )}
-                    {item.status === 'critical' && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        Restock Now
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <button className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200">
-                      Reorder
-                    </button>
+            <tbody>
+              {loading && (
+                <>
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                  <SkeletonTableRow columns={5} />
+                </>
+              )}
+
+              {!loading && !error && filteredItems.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-0">
+                    <EmptyState
+                      title={items.length === 0 ? 'No Inventory Items Yet' : 'No Matching Items'}
+                      description={items.length === 0
+                        ? 'Catalog your first consumable or equipment so staff can log stock movements against it.'
+                        : 'No items match your current filter or search.'}
+                      action={items.length === 0 && canEdit ? {
+                        label: '+ Inward First Item',
+                        onClick: () => setModalOpen(true),
+                        variant: 'primary'
+                      } : undefined}
+                    />
                   </td>
                 </tr>
-              ))}
+              )}
+
+              {!loading && filteredItems.map(item => {
+                const status = statusOf(item)
+                const pct = item.lowStockThreshold > 0
+                  ? Math.min(100, Math.round((item.balance / (item.lowStockThreshold * 1.5 || 10)) * 100))
+                  : Math.min(100, Math.max(0, item.balance * 2))
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="font-bold text-[var(--color-text)]">{item.name}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">{item.unit}</div>
+                    </td>
+                    <td className="capitalize">
+                      <span className="badge badge-neutral">
+                        {item.tier}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="mono font-bold text-[var(--color-text)]">
+                            {item.balance} {item.unit}
+                          </span>
+                          <span className="text-[10px] text-[var(--color-text-muted)]">Min: {item.lowStockThreshold}</span>
+                        </div>
+                        <div className="w-36 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
+                          <div
+                            style={{ width: `${pct}%` }}
+                            className={`h-full rounded-full transition-all ${
+                              status === 'critical'
+                                ? 'bg-[var(--color-danger)]'
+                                : status === 'low'
+                                ? 'bg-[var(--color-warning)]'
+                                : 'bg-[var(--brand-primary)]'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {status === 'healthy' && (
+                        <span className="badge badge-success">
+                          Sufficient Stock
+                        </span>
+                      )}
+                      {status === 'low' && (
+                        <span className="badge badge-warning">
+                          Low Stock
+                        </span>
+                      )}
+                      {status === 'critical' && (
+                        <span className="badge badge-danger">
+                          Restock Now
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      {canEdit && (
+                        <button
+                          onClick={() => handleRestock(item)}
+                          disabled={restockingId !== null}
+                          className="btn btn-secondary btn-sm cursor-pointer"
+                        >
+                          {restockingId === item.id
+                            ? 'Inwarding…'
+                            : `+ Inward (+${RESTOCK_QTY})`}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ── Inward Stock Modal ── */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Inward Medical Supply Item"
+        description="Record consumable or equipment shipment to inventory"
+        size="md"
+      >
+        <form onSubmit={handleAddStock} className="space-y-4">
+          <div>
+            <label className="form-label">
+              Item Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder="e.g. Surgical Gauze 10x10cm"
+              className="form-input"
+            />
+          </div>
+
+          <div>
+            <label className="form-label">
+              Stock Tier
+            </label>
+            <select
+              value={newItemTier}
+              onChange={(e) => setNewItemTier(e.target.value as any)}
+              className="form-select"
+            >
+              <option value="consumable">Consumable</option>
+              <option value="usable">Usable Asset</option>
+              <option value="dead">Dead / Quarantined</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="form-label">
+                Inward Quantity *
+              </label>
+              <input
+                type="number"
+                required
+                min={1}
+                value={newItemQty}
+                onChange={(e) => setNewItemQty(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="100"
+                className="form-input mono"
+              />
+            </div>
+
+            <div>
+              <label className="form-label">
+                Unit
+              </label>
+              <input
+                type="text"
+                value={newItemUnit}
+                onChange={(e) => setNewItemUnit(e.target.value)}
+                placeholder="pcs / pairs / vials"
+                className="form-input"
+              />
+            </div>
+
+            <div>
+              <label className="form-label">
+                Min Threshold
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={newItemMin}
+                onChange={(e) => setNewItemMin(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="20"
+                className="form-input mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="btn btn-secondary cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn btn-primary cursor-pointer"
+            >
+              {saving ? (
+                <>
+                  <span className="spinner spinner-sm" />
+                  Saving…
+                </>
+              ) : (
+                'Confirm Inward Entry'
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

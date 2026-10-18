@@ -1,0 +1,7 @@
+import type { FC, SVGProps } from 'react';
+
+export const CheckIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);

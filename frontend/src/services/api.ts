@@ -1,6 +1,24 @@
 import axios from 'axios'
 
-const API_BASE_URL = '/api/v1'
+const isCapacitorOrWebView = typeof window !== 'undefined' && (
+  !!(window as any).Capacitor ||
+  (window.location.hostname === 'localhost' && window.location.port === '')
+)
+
+const resolveApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  if (isCapacitorOrWebView) {
+    // In Android Emulator WebView, match protocol to prevent Mixed Content security blocking
+    return window.location.protocol === 'https:'
+      ? 'https://10.0.2.2:7001/api/v1'
+      : 'http://10.0.2.2:5000/api/v1'
+  }
+  return '/api/v1'
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 
 let inMemoryAccessToken: string | null = null
 
@@ -32,6 +50,7 @@ export function clearTokens() {
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,6 +59,7 @@ const api = axios.create({
 export const refreshClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -49,6 +69,14 @@ api.interceptors.request.use(
   (config) => {
     if (inMemoryAccessToken) {
       config.headers.Authorization = `Bearer ${inMemoryAccessToken}`
+    }
+    try {
+      const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (clientTz) {
+        config.headers['X-Timezone'] = clientTz
+      }
+    } catch {
+      // Fallback in environments without Intl
     }
     return config
   },
@@ -65,13 +93,14 @@ api.interceptors.response.use(
       originalRequest._retry = true
       try {
         const refreshToken = getRefreshToken()
-        if (!refreshToken) throw new Error('No refresh token available')
-
-        const res = await refreshClient.post('/auth/refresh', { refreshToken })
+        // Send body token if present; HttpOnly cookie will automatically be sent via withCredentials
+        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data
 
         setAccessToken(newAccessToken)
-        setRefreshToken(newRefreshToken)
+        if (newRefreshToken) {
+          setRefreshToken(newRefreshToken)
+        }
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return api(originalRequest)

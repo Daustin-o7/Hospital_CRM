@@ -48,18 +48,32 @@ public class RazorpayReconciliationWorker : BackgroundService
         if (string.IsNullOrEmpty(_keyId) || string.IsNullOrEmpty(_keySecret))
         {
             _logger.LogWarning("Razorpay reconciliation worker disabled: Razorpay:KeyId or KeySecret not configured.");
-            await Task.Delay(Timeout.Infinite, stoppingToken);
+            try
+            {
+                await Task.Delay(Timeout.Infinite, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown.
+            }
             return;
         }
 
         _logger.LogInformation("Razorpay reconciliation worker started. Interval: {Interval}", _interval);
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try { await ReconcileAsync(stoppingToken); }
-            catch (Exception ex) { _logger.LogError(ex, "Error during Razorpay reconciliation cycle"); }
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try { await ReconcileAsync(stoppingToken); }
+                catch (Exception ex) { _logger.LogError(ex, "Error during Razorpay reconciliation cycle"); }
 
-            await Task.Delay(_interval, stoppingToken);
+                await Task.Delay(_interval, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown: Task.Delay throws on cancellation.
         }
     }
 

@@ -67,8 +67,8 @@ Covers PWA web deployment, single-tenant SaaS instance setup (Shared SaaS Tier 1
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=664-683) — Non-Functional Requirements (NFR) table
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Host tooling instructions
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Non-Functional Requirements (NFR) table
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md) — Host tooling instructions
 
 ---
 
@@ -108,5 +108,5 @@ Covers PWA web deployment, single-tenant SaaS instance setup (Shared SaaS Tier 1
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md#line=664-683)
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md)

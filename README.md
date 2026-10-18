@@ -3,11 +3,11 @@
 Everything needed to start Phase 1 tonight. Files at the top level are meant to land directly in your repo root — unzip straight into it and `.claude/` / `.opencode/` skills are already at the right paths for both tools.
 
 ## Start here, in order
-1. **`samstack-ai-frd-phase1-FINAL.md`** — the spec. Every requirement (FR-01–22) work happens against this.
+1. **`docs/product/FRD_FINAL.md`** — the spec. Every requirement (FR-01–22) work happens against this.
 2. **`AGENTS.md`** — project context, auto-loaded by OpenCode (and several other tools).
 3. **`CLAUDE.md`** — Claude Code's entry point, points back to AGENTS.md, no duplicate content.
-4. **`TOOLING-SETUP.md`** — install ponytail here, exact commands for whichever tool you land on.
-5. **`samstack-implementation-reference.md`** — Razorpay/WhatsApp/JWT/offline-sync specifics, tied directly to FRD sections.
+4. **`docs/technical/TOOLING-SETUP.md`** — install ponytail here, exact commands for whichever tool you land on.
+5. ~~`samstack-implementation-reference.md`~~ — never created; Razorpay/WhatsApp/JWT patterns live in the code (`InvoicesController.cs`, notification services, `PemFileKeyService.cs`).
 6. **`.claude/skills/new-fr/SKILL.md`** and **`.opencode/skills/new-fr/SKILL.md`** — same content, already placed for both tools. Use this sequence for every FR-XX.
 
 ## `docs/` — planning and evidence trail

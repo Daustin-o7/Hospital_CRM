@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
+import { BrandLogo } from '../components/ui/BrandLogo'
 import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
 
-const IS_DEV = import.meta.env.DEV
 
 export default function Login() {
   const [email, setEmail]         = useState('')
@@ -11,14 +12,22 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
-  const { login }                 = useAuth()
+  const { login, loginWithEntra, isEntraEnabled } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!email.trim()) {
+      setError('Please enter your email address.')
+      return
+    }
+    if (!password) {
+      setError('Please enter your password.')
+      return
+    }
     setLoading(true)
     try {
-      await login(email, password)
+      await login(email.trim(), password)
     } catch (err: any) {
       setError(friendlyError(err))
     } finally {
@@ -26,16 +35,25 @@ export default function Login() {
     }
   }
 
+  const handleEntraLogin = async () => {
+    setError('')
+    try {
+      await loginWithEntra()
+    } catch (err: any) {
+      setError(err.message || 'Failed to initialize Microsoft Entra sign in')
+    }
+  }
+
   const preset = (e: string, p: string) => { setEmail(e); setPassword(p); setError('') }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', background: '#f4f6f9' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', background: 'var(--color-bg)' }}>
       {/* ── Left panel — branding with 3D canvas ────────────────────── */}
       <div
         aria-hidden="true"
         style={{
           flex: '0 0 44%',
-          background: 'linear-gradient(160deg, #0f172a 0%, #134e4a 60%, #0d9488 100%)',
+          background: 'linear-gradient(160deg, #09131d 0%, #0d3b43 55%, #0d9488 100%)',
           display: 'flex',
           flexDirection: 'column',
           padding: '48px 40px',
@@ -46,15 +64,14 @@ export default function Login() {
       >
         {/* 3D Interactive Medical Canvas */}
         <Medical3DCanvas />
-
         {/* Subtle background pattern overlay */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage: `
-              radial-gradient(circle at 20% 80%, rgba(13,148,136,0.25) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(8,145,178,0.15) 0%, transparent 50%)
+              radial-gradient(circle at 20% 80%, rgba(13,148,136,0.3) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(6,182,212,0.2) 0%, transparent 50%)
             `,
             pointerEvents: 'none',
             zIndex: 1,
@@ -63,51 +80,25 @@ export default function Login() {
 
         {/* Brand mark */}
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(8px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 14H11v-4H7v-2h4V6h2v4h4v2h-4v4z"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em' }}>
-                SAMSTACK AI
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Healthcare Platform
-              </div>
-            </div>
-          </div>
+          <BrandLogo size="lg" theme="dark" organizationName="SAMSTACK AI" tagline="Clinical Operating System" />
         </div>
 
         {/* Main message */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
           <h1
             style={{
-              fontSize: 36,
-              fontWeight: 700,
+              fontSize: 34,
+              fontWeight: 800,
               color: '#fff',
               letterSpacing: '-0.04em',
-              lineHeight: 1.15,
+              lineHeight: 1.18,
               marginBottom: 16,
             }}
           >
-            The operating system for modern healthcare.
+            The Operating System for Modern Healthcare.
           </h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, maxWidth: 320 }}>
-            Manage patients, appointments, consultations, and billing — from a single, secure workspace.
+          <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: 360 }}>
+            Unified patient registry, sequential queue triage, clinical consultations, and statutory DPDP compliance — built for high-tempo clinic workflows.
           </p>
 
           {/* Trust indicators */}
@@ -155,30 +146,9 @@ export default function Login() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 420 }}>
-          {/* Mobile brand (hidden on desktop) */}
-          <div
-            className="show-mobile-only"
-            style={{ display: 'none', marginBottom: 32, textAlign: 'center' }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: 'linear-gradient(135deg, #0d9488, #0891b2)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 12,
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 14H11v-4H7v-2h4V6h2v4h4v2h-4v4z"/>
-              </svg>
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.03em' }}>
-              SAMSTACK AI
-            </div>
+          {/* Mobile brand (visible on mobile only) */}
+          <div className="block md:hidden mb-6 text-center">
+            <BrandLogo size="lg" theme="auto" organizationName="SAMSTACK AI" tagline="Clinical Operating System" className="justify-center" />
           </div>
 
           {/* Form header */}
@@ -213,6 +183,30 @@ export default function Login() {
               </div>
             )}
 
+            {isEntraEnabled && (
+              <div style={{ marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={handleEntraLogin}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', gap: 10, fontSize: 13 }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                  Sign in with Microsoft / Entra ID
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>or sign in with credentials</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} noValidate>
               {/* Email */}
               <div style={{ marginBottom: 16 }}>
@@ -232,7 +226,12 @@ export default function Login() {
 
               {/* Password */}
               <div style={{ marginBottom: 24 }}>
-                <label htmlFor="login-password" className="form-label">Password</label>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <label htmlFor="login-password" className="form-label">Password</label>
+                  <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--color-accent)', fontWeight: 600 }}>
+                    Forgot password?
+                  </Link>
+                </div>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="login-password"
@@ -307,44 +306,37 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Dev role presets — visible in development only */}
-          {IS_DEV && (
-            <div
-              style={{
-                marginTop: 20,
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--color-border)',
-                background: 'var(--color-surface)',
-              }}
-            >
-              <p
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-text-muted)',
-                  marginBottom: 10,
-                  textAlign: 'center',
-                }}
-              >
-                Dev — Quick access
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-                {DEV_PRESETS.map(p => (
-                  <button
-                    key={p.label}
-                    onClick={() => preset(p.email, p.pass)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: 11.5, justifyContent: 'center' }}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+          {/* Role Persona Presets */}
+          <div
+            className="card"
+            style={{
+              marginTop: 20,
+              padding: '16px 18px',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text)]">
+                Select Role Persona
+              </span>
+              <span className="badge badge-brand text-[10px]">
+                Instant Auto-fill
+              </span>
             </div>
-          )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DEV_PRESETS.map(p => (
+                <button
+                  key={p.label}
+                  type="button"
+                  aria-label={p.label}
+                  onClick={() => preset(p.email, p.pass)}
+                  className="btn btn-secondary btn-sm flex items-center justify-start gap-1.5 px-2.5 py-2 min-h-[42px] text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap overflow-hidden hover:border-teal-500/50"
+                >
+                  <span className="text-sm shrink-0">{p.icon}</span>
+                  <span className="truncate">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -354,27 +346,27 @@ export default function Login() {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TRUST_BADGES = [
   {
-    label: 'Role-based access control',
+    label: 'DPDP Consent Capture on Registration',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
   },
   {
-    label: 'End-to-end encrypted patient data',
+    label: 'TLS-Secured API with Role-Based Access Control',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
   },
   {
-    label: 'Audit trails on all clinical records',
+    label: 'Append-Only Audit Trail & Version Control',
     icon: (
-      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.8)" viewBox="0 0 24 24">
+      <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.9)" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
@@ -383,9 +375,12 @@ const TRUST_BADGES = [
 ]
 
 const DEV_PRESETS = [
-  { label: 'Admin',     email: 'admin@samstack.ai',     pass: 'AdminPass123!' },
-  { label: 'Doctor',    email: 'doctor@samstack.ai',    pass: 'DoctorPass123!' },
-  { label: 'Reception', email: 'reception@samstack.ai', pass: 'ReceptPass123!' },
+  { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!',         icon: '🩺' },
+  { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!',      icon: '📋' },
+  { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!',     icon: '💊' },
+  { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!',          icon: '⚙️' },
+  { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!',          icon: '💉' },
+  { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!', icon: '🛡️' },
 ]
 
 // ── Inline icons ──────────────────────────────────────────────────────────────

@@ -45,8 +45,8 @@ Covers backend unit tests, API integration tests, offline sync testing (FR-22), 
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — Acceptance Criteria per FR
-- [`.claude/skills/new-fr/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/new-fr/SKILL.md#line=20) — Acceptance criteria testing step
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — Acceptance Criteria per FR
+- [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md) — Acceptance criteria testing step
 
 ---
 
@@ -85,5 +85,5 @@ Covers backend unit tests, API integration tests, offline sync testing (FR-22), 
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
-- [`.claude/skills/new-fr/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/new-fr/SKILL.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)
+- [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md)

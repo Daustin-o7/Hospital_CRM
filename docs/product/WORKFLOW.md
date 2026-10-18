@@ -626,6 +626,22 @@ OPERATIONS (parallel to clinical)
     POST /wishlist-items { text, category: "equipment" }
 ```
 
+## Frontend Navigation & Role Workspaces
+
+The frontend uses a URL-derived workspace domain filter (`DashboardLayout.tsx`) to eliminate sidebar clutter while strictly preserving all 18 routes and permissions:
+
+| Workspace Domain | Primary Route | Filtered Sidebar Modules | Default Roles on Login |
+| :--- | :--- | :--- | :--- |
+| **Clinical Care** (`clinical`) | `/dashboard` | Dashboard, Appointments, Patients, Queue, Consultations, Lab Orders | **Doctor** |
+| **Pharmacy Services** (`pharmacy`) | `/dashboard/pharmacy/pos` | Pharmacy POS, Drug Batches, Drug Compliance | — |
+| **Clinic Operations** (`admin`) | `/dashboard/billing` | Billing, Inventory, Wishlist, Reports, Messages, Staff, Nurse Roster, Platform Admin | **ClinicAdmin** |
+| **All Modules** (`all`) | `/dashboard` | All role-permitted modules rendered | **Pharmacist, Nurse, Receptionist** |
+
+- **Multi-Domain Roles** (`Doctor`, `ClinicAdmin`) have an in-sidebar Workspace Domain dropdown selector and a 4-card Launchpad on their dashboard for instant cross-domain access.
+- **Single-Domain Roles** (`Pharmacist`, `Nurse`, `Receptionist`) land directly on their full workspace with zero-click overhead.
+- **Mobile Navigation** is role-aware: Pharmacists receive `Home`, `POS`, `Batches`, `Compliance`, `Menu`; Nurses receive `Home`, `Patients`, `Queue`, `Roster`, `Menu`; Doctors/Admins/Receptionists receive `Home`, `Patients`, `Appts`, `Queue`, `Menu`.
+- **Settings** is pinned in the persistent sidebar footer utility section, ensuring authorized roles can access settings without mutating their active operational domain.
+
 ---
 
 ## Endpoint Map (Complete)

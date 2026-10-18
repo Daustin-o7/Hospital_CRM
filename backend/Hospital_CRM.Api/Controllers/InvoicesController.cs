@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
@@ -127,6 +128,7 @@ public class InvoicesController : ControllerBase
                 Method = PaymentMethod.Cash,
                 Amount = request.Amount,
                 Status = PaymentStatus.Completed,
+                PaidAt = DateTimeOffset.UtcNow,
                 IdempotencyKey = request.IdempotencyKey,
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -167,7 +169,17 @@ public class InvoicesController : ControllerBase
         if (!Request.Headers.TryGetValue("X-Razorpay-Signature", out var signatureHeader) || string.IsNullOrWhiteSpace(signatureHeader))
             return BadRequest(new { error = "missing_webhook_signature" });
 
-        var secret = _config["Razorpay:WebhookSecret"] ?? "dev_webhook_secret_key";
+        // SEC-013: Never fall back to a hardcoded webhook secret in production.
+        // An attacker who knows the default can forge webhook signatures.
+        var secret = _config["Razorpay:WebhookSecret"];
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            var env = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            if (env.IsDevelopment())
+                secret = "dev_webhook_secret_key";
+            else
+                return StatusCode(503, new { error = "webhook_not_configured" });
+        }
         
         using var reader = new StreamReader(Request.Body);
         var bodyText = await reader.ReadToEndAsync(ct);
@@ -243,16 +255,17 @@ public class InvoicesController : ControllerBase
             .AsQueryable();
 
         // Doctor sees only their invoices; Receptionist & Admin can view list (FR-17/18/19)
+        // Note: Pharmacy invoices have AppointmentId = null, filter them out for doctor-scoped queries
         if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(i => i.Appointment.DoctorId == userId.Value);
+            query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == userId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))
             query = query.Where(i => i.Status == statusEnum);
 
         if (doctorId.HasValue)
-            query = query.Where(i => i.Appointment.DoctorId == doctorId.Value);
+            query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == doctorId.Value);
 
         var invoices = await query
             .OrderByDescending(i => i.CreatedAt)
@@ -260,7 +273,7 @@ public class InvoicesController : ControllerBase
             {
                 invoiceId = i.Id,
                 invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                patientName = i.Appointment.Patient.Name,
+                patientName = i.Appointment != null ? i.Appointment.Patient.Name : (i.WalkInCustomerName ?? "Walk-in Customer"),
                 total = i.Total,
                 status = i.Status.ToString().ToLower(),
                 createdAt = i.CreatedAt
@@ -272,15 +285,28 @@ public class InvoicesController : ControllerBase
 }
 
 public record GenerateInvoiceRequest(
+    [Required(ErrorMessage = "Appointment ID is required")]
     Guid AppointmentId,
+
+    [Required(ErrorMessage = "LineItems are required"), MinLength(1, ErrorMessage = "At least one line item is required"), MaxLength(50, ErrorMessage = "Maximum 50 line items per invoice")]
     List<InvoiceLineItemRequest> LineItems,
+
+    [RegularExpression(@"^IDEMP-INV-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-INV-{UUID}")]
     string? IdempotencyKey);
 
 public record InvoiceLineItemRequest(
+    [Required(ErrorMessage = "Description is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Description must be between 2 and 150 characters")]
     string Description,
+
+    [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
     decimal Amount);
 
 public record CollectPaymentRequest(
+    [Required(ErrorMessage = "Payment Method is required"), RegularExpression("(?i)^(cash|razorpay)$", ErrorMessage = "Method must be cash or razorpay")]
     string Method,
+
+    [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
     decimal Amount,
+
+    [RegularExpression(@"^IDEMP-PAY-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-PAY-{UUID}")]
     string? IdempotencyKey);

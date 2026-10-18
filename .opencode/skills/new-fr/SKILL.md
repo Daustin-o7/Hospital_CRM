@@ -1,6 +1,6 @@
 ---
 name: new-fr
-description: Use when implementing any FR-XX from samstack-ai-frd-phase1-FINAL.md. Ensures every requirement gets the same consistent build sequence — migration, endpoint, role check, audit hook, UI — rather than each one being designed from scratch.
+description: Use when implementing any FR-XX from docs/product/FRD_FINAL.md. Ensures every requirement gets the same consistent build sequence — migration, endpoint, role check, audit hook, UI — rather than each one being designed from scratch.
 ---
 
 # Implementing an FR from the FRD
@@ -16,7 +16,7 @@ Read the specific FR-XX section in full: description, user story, workflow, edge
 3. **Role enforcement** — apply the role check from the FR's Roles line and cross-check against §8 of the FRD. Server-side only; never trust a client-supplied role (FR-02).
 4. **Edge cases from the FR** — implement each one listed, not just the happy path. If an edge case implies a design decision the FR doesn't fully specify, check the FRD's §18 Validation Checklist and §9 Contradictions sections first — it may already be resolved there.
 5. **Audit/notification hooks** — if the FR is one of FR-08/09/14/15 (audit-relevant) or triggers FR-20/21 (notification-relevant), wire that now, not as an afterthought.
-6. **UI** — build to the FR's workflow steps. Mobile-first (React 19 PWA). If the FR is one Ponytail would flag as over-buildable (a form with no real complexity, a list view), let the ladder run — see TOOLING-SETUP.md.
+6. **UI** — build to the FR's workflow steps. Mobile-first (React 19 PWA). If the FR is one Ponytail would flag as over-buildable (a form with no real complexity, a list view), let the ladder run — see docs/technical/TOOLING-SETUP.md.
 7. **Test against acceptance criteria** — each checkbox in the FR's "Acceptance Criteria" list is a test case, not a suggestion. If a criterion can't be verified by a test, that's worth flagging, not skipping.
 
 ## Before marking done

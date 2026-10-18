@@ -2,82 +2,207 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
+import { BrandLogo } from './ui/BrandLogo'
+import { ThemeToggle } from './ui/ThemeToggle'
+import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone'
 
-// ── Navigation definition ────────────────────────────────────────────────────
-const NAV_ITEMS = [
+// ── Categorized Healthcare Navigation ──────────────────────────────────────────
+export interface NavItem {
+  name: string
+  href: string
+  end?: boolean
+  roles: string[]
+  icon: (props: { className?: string }) => React.JSX.Element
+  liveIndicator?: boolean
+}
+
+export interface NavSection {
+  category: string
+  items: NavItem[]
+}
+
+export type WorkspaceDomain = 'all' | 'clinical' | 'pharmacy' | 'admin'
+
+export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | 'admin' | null {
+  if (pathname.startsWith('/dashboard/pharmacy')) return 'pharmacy'
+  if (
+    pathname.startsWith('/dashboard/billing') ||
+    pathname.startsWith('/dashboard/inventory') ||
+    pathname.startsWith('/dashboard/wishlist') ||
+    pathname.startsWith('/dashboard/reports') ||
+    pathname.startsWith('/dashboard/messages') ||
+    pathname.startsWith('/dashboard/staff') ||
+    pathname.startsWith('/dashboard/roster') ||
+    pathname.startsWith('/dashboard/platform-admin')
+  ) {
+    return 'admin'
+  }
+  if (
+    pathname.startsWith('/dashboard/appointments') ||
+    pathname.startsWith('/dashboard/patients') ||
+    pathname.startsWith('/dashboard/queue') ||
+    pathname.startsWith('/dashboard/consultations') ||
+    pathname.startsWith('/dashboard/lab-orders')
+  ) {
+    return 'clinical'
+  }
+  return null
+}
+
+/**
+ * Single source of truth for the active workspace: the URL only (path, or the
+ * `?domain=` override on /dashboard). Never persisted, so it cannot go stale,
+ * and both the sidebar and the launchpad pages agree on the result.
+ */
+export function resolveWorkspace(pathname: string, search: string, role: string): WorkspaceDomain {
+  const rawRole = role.toLowerCase()
+  if (rawRole !== 'doctor' && rawRole !== 'clinicadmin') return 'all'
+  const param = new URLSearchParams(search).get('domain')
+  if (param === 'all' || param === 'clinical' || param === 'pharmacy' || param === 'admin') return param
+  return getDomainFromPath(pathname) ?? (rawRole === 'doctor' ? 'clinical' : 'admin')
+}
+
+const CATEGORY_TO_DOMAIN: Record<string, WorkspaceDomain> = {
+  Clinical: 'clinical',
+  Pharmacy: 'pharmacy',
+  Administration: 'admin',
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    name: 'Dashboard',
-    href: '/dashboard',
-    end: true,
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: HomeIcon,
+    category: 'Clinical',
+    items: [
+      {
+        name: 'Dashboard',
+        href: '/dashboard',
+        end: true,
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'pharmacist', 'nurse', 'platformadmin'],
+        icon: HomeIcon,
+      },
+      {
+        name: 'Appointments',
+        href: '/dashboard/appointments',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
+        icon: CalendarIcon,
+      },
+      {
+        name: 'Patients',
+        href: '/dashboard/patients',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
+        icon: UsersIcon,
+      },
+      {
+        name: 'Queue',
+        href: '/dashboard/queue',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
+        icon: QueueIcon,
+        liveIndicator: true,
+      },
+      {
+        name: 'Consultations',
+        href: '/dashboard/consultations',
+        roles: ['doctor', 'clinicadmin'],
+        icon: FileTextIcon,
+      },
+      {
+        name: 'Lab Orders',
+        href: '/dashboard/lab-orders',
+        roles: ['doctor', 'clinicadmin', 'nurse'],
+        icon: FlaskIcon,
+      },
+    ],
   },
   {
-    name: 'Appointments',
-    href: '/dashboard/appointments',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: CalendarIcon,
+    category: 'Pharmacy',
+    items: [
+      {
+        name: 'Pharmacy POS',
+        href: '/dashboard/pharmacy/pos',
+        roles: ['clinicadmin', 'pharmacist', 'doctor', 'receptionist'],
+        icon: ShoppingBagIcon,
+      },
+      {
+        name: 'Drug Batches',
+        href: '/dashboard/pharmacy/batches',
+        roles: ['clinicadmin', 'pharmacist', 'doctor'],
+        icon: PillIcon,
+      },
+      {
+        name: 'Drug Compliance',
+        href: '/dashboard/pharmacy/compliance',
+        roles: ['clinicadmin', 'pharmacist', 'doctor'],
+        icon: ShieldCheckIcon,
+      },
+    ],
   },
   {
-    name: 'Patients',
-    href: '/dashboard/patients',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: UsersIcon,
-  },
-  {
-    name: 'Queue',
-    href: '/dashboard/queue',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: QueueIcon,
-  },
-  {
-    name: 'Consultations',
-    href: '/dashboard/consultations',
-    roles: ['doctor', 'clinicadmin'],
-    icon: FileTextIcon,
-  },
-  {
-    name: 'Billing',
-    href: '/dashboard/billing',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: CreditCardIcon,
-  },
-  {
-    name: 'Inventory',
-    href: '/dashboard/inventory',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: BoxIcon,
-  },
-  {
-    name: 'Reports',
-    href: '/dashboard/reports',
-    roles: ['clinicadmin', 'doctor'],
-    icon: BarChartIcon,
-  },
-  {
-    name: 'Messages',
-    href: '/dashboard/messages',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: MailIcon,
-  },
-  {
-    name: 'Settings',
-    href: '/dashboard/settings',
-    roles: ['clinicadmin', 'doctor', 'receptionist'],
-    icon: SettingsIcon,
+    category: 'Administration',
+    items: [
+      {
+        name: 'Billing',
+        href: '/dashboard/billing',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: CreditCardIcon,
+      },
+      {
+        name: 'Inventory',
+        href: '/dashboard/inventory',
+        roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
+        icon: BoxIcon,
+      },
+      {
+        name: 'Wishlist',
+        href: '/dashboard/wishlist',
+        roles: ['clinicadmin', 'doctor'],
+        icon: ClipboardListIcon,
+      },
+      {
+        name: 'Reports',
+        href: '/dashboard/reports',
+        roles: ['clinicadmin', 'doctor', 'pharmacist'],
+        icon: BarChartIcon,
+      },
+      {
+        name: 'Messages',
+        href: '/dashboard/messages',
+        roles: ['clinicadmin', 'doctor', 'receptionist'],
+        icon: MailIcon,
+      },
+      {
+        name: 'Staff',
+        href: '/dashboard/staff',
+        roles: ['clinicadmin'],
+        icon: UsersIcon,
+      },
+      {
+        name: 'Nurse Roster',
+        href: '/dashboard/roster',
+        roles: ['clinicadmin', 'nurse'],
+        icon: CalendarIcon,
+      },
+      {
+        name: 'Platform Admin',
+        href: '/dashboard/platform-admin',
+        roles: ['platformadmin'],
+        icon: GlobeIcon,
+      },
+    ],
   },
 ]
 
 const ROLE_LABEL: Record<string, string> = {
-  clinicadmin:  'Administrator',
-  doctor:       'Doctor',
-  receptionist: 'Receptionist',
+  clinicadmin:   'Administrator',
+  doctor:        'Doctor',
+  receptionist:  'Receptionist',
+  pharmacist:    'Pharmacist',
+  nurse:         'Nurse',
+  platformadmin: 'Platform Admin',
 }
 
 export default function DashboardLayout() {
-
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showNotifications, setShowNotifications] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { branding } = useBranding()
@@ -85,23 +210,62 @@ export default function DashboardLayout() {
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
   const displayRole = ROLE_LABEL[rawRole] ?? (user?.role || 'Staff')
-  const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(rawRole))
+  const isMultiDomainRole = rawRole === 'doctor' || rawRole === 'clinicadmin'
 
-  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+  const activeWorkspace = resolveWorkspace(location.pathname, location.search, rawRole)
 
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  })
+  // Selecting a domain navigates into it, so the URL stays the single source of truth.
+  const handleDomainChange = (domain: WorkspaceDomain) => {
+    if (domain === 'all') {
+      navigate('/dashboard?domain=all')
+    } else if (domain === 'clinical') {
+      navigate(rawRole === 'clinicadmin' ? '/dashboard/queue' : '/dashboard')
+    } else if (domain === 'pharmacy') {
+      navigate('/dashboard/pharmacy/pos')
+    } else {
+      navigate('/dashboard/billing')
+    }
+  }
+
+  useEffect(() => { setSidebarOpen(false); setShowNotifications(false) }, [location.pathname])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        const el = document.getElementById('global-search-input') as HTMLInputElement | null
+        el?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/dashboard/patients?q=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const effectiveTimezone = branding.timezone || undefined
+  const todayFormatted = formatLocalDate(currentDate, effectiveTimezone)
+  const timeFormatted = formatLocalTime(currentDate, effectiveTimezone)
+  const timezoneBadge = getTimezoneLabel(effectiveTimezone)
 
   return (
-    <div className="min-h-screen bg-slate-50 flex text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-[var(--color-bg)] flex text-[var(--color-text)] font-sans antialiased selection:bg-teal-500 selection:text-white transition-colors duration-200">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -109,39 +273,23 @@ export default function DashboardLayout() {
 
       {/* Desktop & Mobile Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-950 text-slate-300 flex flex-col border-r border-slate-800/80 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0f172a] text-slate-200 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            {branding.logoUrl ? (
-              <img
-                src={branding.logoUrl}
-                alt={branding.organizationName}
-                className="w-9 h-9 rounded-lg object-cover ring-1 ring-emerald-500/30"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/40">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-4H7v-2h4V7h2v4h4v2h-4v4z"/>
-                </svg>
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-sm font-bold text-white tracking-tight truncate">
-                {branding.organizationName || 'SAMSTACK AI'}
-              </h1>
-              <p className="text-[10px] uppercase font-semibold tracking-wider text-emerald-400/90 truncate">
-                Healthcare OS
-              </p>
-            </div>
-          </div>
+        <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-[#0b1322]/80 backdrop-blur-md">
+          <BrandLogo
+            size="md"
+            theme="dark"
+            organizationName={branding.organizationName || 'SAMSTACK AI'}
+            tagline="Clinical Operating System"
+            className="flex-1 min-w-0"
+          />
           {sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white p-1"
+              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
               aria-label="Close sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,78 +299,139 @@ export default function DashboardLayout() {
           )}
         </div>
 
-        {/* Navigation items */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-          <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Main Menu
+        {/* Workspace Domain Selector for Multi-Domain Roles */}
+        {isMultiDomainRole && (
+          <div className="px-3 pt-3 pb-2.5 border-b border-slate-800 bg-[#0c1424]">
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="workspace-domain-select" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                Workspace Domain
+              </label>
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-teal-500/10 text-teal-400 font-mono font-bold border border-teal-500/20">
+                {activeWorkspace === 'clinical' ? 'Clinical' : activeWorkspace === 'pharmacy' ? 'Pharmacy' : activeWorkspace === 'admin' ? 'Operations' : 'All'}
+              </span>
+            </div>
+            <div className="relative">
+              <select
+                id="workspace-domain-select"
+                value={activeWorkspace}
+                onChange={(e) => handleDomainChange(e.target.value as WorkspaceDomain)}
+                aria-label="Select workspace domain"
+                className="w-full appearance-none bg-slate-900/90 text-slate-200 text-xs font-semibold px-2.5 py-1.5 pr-7 rounded-lg border border-slate-700 hover:border-teal-500/70 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 transition-colors cursor-pointer"
+              >
+                <option value="clinical">Clinical Care</option>
+                <option value="pharmacy">Pharmacy Services</option>
+                <option value="admin">Clinic Operations</option>
+                <option value="all">All Modules</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
-          {filteredNav.map((item) => (
+        )}
+
+        {/* Categorized Navigation items */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+          {NAV_SECTIONS.map((section) => {
+            const sectionDomain = CATEGORY_TO_DOMAIN[section.category]
+            // The Home item (end) stays visible in every workspace so there is always a way back to the hub.
+            const visibleItems = section.items.filter(item =>
+              item.roles.includes(rawRole) &&
+              (activeWorkspace === 'all' || item.end || !sectionDomain || sectionDomain === activeWorkspace)
+            )
+            if (visibleItems.length === 0) return null
+
+            return (
+              <div key={section.category} className="space-y-1">
+                <div className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+                  {section.category}
+                </div>
+                {visibleItems.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    end={item.end}
+                    className={({ isActive }) =>
+                      `relative flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
+                        isActive
+                          ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <item.icon
+                            className={`w-4 h-4 shrink-0 transition-colors ${
+                              isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-200'
+                            }`}
+                          />
+                          <span className="truncate">{item.name}</span>
+                        </div>
+                        {item.liveIndicator && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399] shrink-0"
+                            title="Live queue"
+                          />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            )
+          })}
+        </nav>
+
+        {/* Persistent Settings Link for Authorized Roles */}
+        {['clinicadmin', 'doctor', 'receptionist', 'pharmacist'].includes(rawRole) && (
+          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-[#0b1322]/50">
             <NavLink
-              key={item.name}
-              to={item.href}
-              end={item.end}
+              to="/dashboard/settings"
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
+                `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
                   isActive
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-900/80'
+                    ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`
               }
             >
-              <item.icon className="w-4 h-4 transition-transform group-hover:scale-110" />
-              <span>{item.name}</span>
+              {({ isActive }) => (
+                <>
+                  <SettingsIcon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-200'
+                    }`}
+                  />
+                  <span className="truncate">Settings</span>
+                </>
+              )}
             </NavLink>
-          ))}
-
-          {/* Shortcuts Section from design */}
-          <div className="pt-4 mt-4 border-t border-slate-800/80">
-            <div className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Shortcuts
-            </div>
-            <div className="space-y-1 mt-1">
-              <button
-                onClick={() => navigate('/dashboard/appointments')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-900/60 transition-colors text-left"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>Today's Appointments</span>
-              </button>
-              <button
-                onClick={() => navigate('/dashboard/patients')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-900/60 transition-colors text-left"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                <span>Add Patient</span>
-              </button>
-              <button
-                onClick={() => navigate('/dashboard/billing')}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-900/60 transition-colors text-left"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                <span>New Invoice</span>
-              </button>
-            </div>
           </div>
-        </nav>
+        )}
 
-        {/* User Footer Card */}
-        <div className="p-3 border-t border-slate-800/80">
-          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-bold text-sm">
+        {/* Refined User Footer Card */}
+        <div className="p-3 border-t border-slate-800 bg-[#0b1322]/80">
+          <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-slate-800/80">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-white truncate">
-                {user?.name || 'Dr. Arjun Mehta'}
+              <div className="text-xs font-semibold text-slate-200 truncate">
+                {user?.name || 'Staff Member'}
               </div>
-              <div className="text-[11px] text-slate-400 capitalize truncate">
+              <div className="text-[10px] text-slate-400 capitalize truncate">
                 {displayRole}
               </div>
             </div>
             <button
               onClick={logout}
               title="Sign out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors cursor-pointer"
+              aria-label="Sign out"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -234,12 +443,12 @@ export default function DashboardLayout() {
 
       {/* Main Layout Area */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0 min-h-screen">
-        {/* Modern Topbar */}
-        <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 lg:px-8 flex items-center justify-between gap-4">
+        {/* Modern Theme-Aware Topbar */}
+        <header className="sticky top-0 z-30 h-16 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] px-4 lg:px-8 flex items-center justify-between gap-4 shadow-xs transition-colors">
           <div className="flex items-center gap-3 flex-1 max-w-lg">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+              className="lg:hidden p-2 rounded-lg text-teal-700 dark:text-teal-400 hover:bg-[var(--color-surface-hover)]"
               aria-label="Open sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,61 +457,266 @@ export default function DashboardLayout() {
             </button>
 
             {/* Global Search Bar */}
-            <div className="relative w-full">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-teal-600 dark:text-teal-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
               <input
+                id="global-search-input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search patients, appointments, invoices..."
-                className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                placeholder="Search patient records, tokens, or bills (Ctrl+K)…"
+                className="w-full pl-9 pr-14 py-2 text-xs bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)] focus:bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-[var(--brand-primary)] transition-all font-medium"
               />
-            </div>
+              <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-secondary)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xs font-semibold">
+                  Ctrl K
+                </kbd>
+              </span>
+            </form>
           </div>
 
-          {/* Right Area: Date, Notifications, User */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-medium text-slate-600 border border-slate-200/60">
-              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          {/* Right Area: Date, Theme Toggle, Notifications, User */}
+          <div className="flex items-center gap-2.5 relative">
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]"
+              title={`Operating Timezone: ${timezoneBadge}`}
+            >
+              <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{todayFormatted}</span>
+              <span className="text-[11px] font-mono text-teal-600 dark:text-teal-400 font-bold">{timeFormatted}</span>
+              <span className="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-teal-50 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-mono border border-teal-200/50 dark:border-teal-800/50">
+                {effectiveTimezone || 'Auto'}
+              </span>
             </div>
 
-            {/* Notification Bell */}
-            <button
-              title="Notifications"
-              className="relative p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white"></span>
-            </button>
+            {/* Dark Mode Theme Toggle */}
+            <ThemeToggle variant="compact" />
+
+
+            {/* Notification Bell with interactive popover */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                title="Notifications"
+                className="relative p-2 rounded-xl text-teal-700 dark:text-teal-400 hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] border border-[var(--color-border)] transition-colors"
+                aria-expanded={showNotifications}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[var(--color-surface)]"></span>
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] p-3 z-50 text-xs animate-fadein">
+                  <div className="flex items-center justify-between font-bold text-[var(--color-text)] pb-2 border-b border-[var(--color-border)] mb-2">
+                    <span>Notifications</span>
+                    <span className="badge badge-success text-[10px]">All caught up</span>
+                  </div>
+                  <div className="py-2 text-[var(--color-text-secondary)] text-center font-medium">
+                    No unread clinical alerts or appointment requests.
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Quick Profile Chip */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-semibold text-xs shadow-sm">
+            <div className="flex items-center gap-2 pl-2 border-l border-[var(--color-border)]">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-600 to-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-sm">
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page Main Content */}
-        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page Main Content with Mobile Bottom Padding */}
+        <main className="flex-1 p-3.5 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">
           <Outlet />
         </main>
+
+        {/* ── Dedicated Mobile Bottom Navigation Bar (Role-Aware) ── */}
+        <nav
+          aria-label="Mobile Navigation"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border)] px-1 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg transition-colors"
+        >
+          <NavLink
+            to="/dashboard"
+            end
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                isActive
+                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+              }`
+            }
+          >
+            <HomeIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+            <span>Home</span>
+          </NavLink>
+
+          {rawRole === 'pharmacist' ? (
+            <>
+              <NavLink
+                to="/dashboard/pharmacy/pos"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <ShoppingBagIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>POS</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/pharmacy/batches"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <PillIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Batches</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/pharmacy/compliance"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <ShieldCheckIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Compliance</span>
+              </NavLink>
+            </>
+          ) : rawRole === 'nurse' ? (
+            <>
+              <NavLink
+                to="/dashboard/patients"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Patients</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/queue"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Queue</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/roster"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Roster</span>
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/dashboard/patients"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <UsersIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Patients</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/appointments"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <CalendarIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Appts</span>
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/queue"
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
+                    isActive
+                      ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                      : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
+                  }`
+                }
+              >
+                <QueueIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+                <span>Queue</span>
+              </NavLink>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600 transition-all min-w-[54px] min-h-[44px]"
+            aria-label="Open full workspace menu"
+          >
+            <MenuIcon className="w-5 h-5 mb-0.5 text-teal-700 dark:text-teal-400" />
+            <span>Menu</span>
+          </button>
+        </nav>
       </div>
     </div>
   )
 }
 
-// ── SVG Icon Helpers ──────────────────────────────────────────────────────────
+function MenuIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+    </svg>
+  )
+}
+
 function HomeIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,18 +725,18 @@ function HomeIcon(props: { className?: string }) {
   )
 }
 
-function UsersIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-  )
-}
-
 function CalendarIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+function UsersIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     </svg>
   )
 }
@@ -347,6 +761,30 @@ function CreditCardIcon(props: { className?: string }) {
   return (
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  )
+}
+
+function ShoppingBagIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  )
+}
+
+function PillIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+    </svg>
+  )
+}
+
+function ShieldCheckIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   )
 }
@@ -380,6 +818,31 @@ function SettingsIcon(props: { className?: string }) {
     <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function FlaskIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v6.5L4.7 16.6A2.5 2.5 0 006.9 20.5h10.2a2.5 2.5 0 002.2-3.9L15 9.5V3M8 3h8M7.8 14h8.4" />
+    </svg>
+  )
+}
+
+
+function GlobeIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18zM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 000 18M12 3a15 15 0 010 18" />
+    </svg>
+  )
+}
+
+function ClipboardListIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
     </svg>
   )
 }

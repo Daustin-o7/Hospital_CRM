@@ -86,8 +86,8 @@ public class RegisterPatientDtoValidator : AbstractValidator<RegisterPatientDto>
 
 ## Important Files
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md) — API status codes and error responses
-- [`samstack-implementation-reference.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-implementation-reference.md) — Security and error guidelines
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md) — API status codes and error responses
+- `samstack-implementation-reference.md` — Security and error guidelines
 
 ---
 
@@ -125,4 +125,4 @@ public class RegisterPatientDtoValidator : AbstractValidator<RegisterPatientDto>
 
 ## Verification Source
 
-- [`samstack-ai-frd-phase1-FINAL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/samstack-ai-frd-phase1-FINAL.md)
+- [`samstack-ai-frd-phase1-FINAL.md`](../../docs/product/FRD_FINAL.md)

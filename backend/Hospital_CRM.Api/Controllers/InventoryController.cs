@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
@@ -28,19 +29,30 @@ public class InventoryController : ControllerBase
 
         var items = await query
             .OrderBy(i => i.Name)
-            .Select(i => new
-            {
-                id = i.Id,
-                name = i.Name,
-                tier = i.Tier.ToString().ToLower(),
-                unit = i.Unit,
-                active = i.Active,
-                lowStockThreshold = i.LowStockThreshold,
-                createdAt = i.CreatedAt
-            })
             .ToListAsync(ct);
 
-        return Ok(items);
+        // Aggregate every movement in SQL (one row per item) — a Contains/ANY
+        // filter crashes Npgsql's SqlNullabilityProcessor (PgAnyExpression).
+        var balances = await _db.StockMovements
+            .GroupBy(m => m.ItemId)
+            .Select(g => new
+            {
+                ItemId = g.Key,
+                Total = g.Sum(m => m.Direction == MovementDirection.In ? m.Quantity : -m.Quantity)
+            })
+            .ToDictionaryAsync(x => x.ItemId, x => x.Total, ct);
+
+        return Ok(items.Select(i => new
+        {
+            id = i.Id,
+            name = i.Name,
+            tier = i.Tier.ToString().ToLower(),
+            unit = i.Unit,
+            active = i.Active,
+            lowStockThreshold = i.LowStockThreshold,
+            balance = balances.GetValueOrDefault(i.Id, 0),
+            createdAt = i.CreatedAt
+        }));
     }
 
     [HttpPost("items")]
@@ -232,6 +244,37 @@ public class InventoryController : ControllerBase
     }
 }
 
-public record CreateInventoryItemRequest(string Name, string Tier, string Unit, int? LowStockThreshold);
-public record UpdateInventoryItemRequest(string? Name, string? Unit, int? LowStockThreshold, bool? Active);
-public record RecordMovementRequest(int Quantity, string Direction, string? Note);
+public record CreateInventoryItemRequest(
+    [Required(ErrorMessage = "Item Name is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Item Name must be between 2 and 150 characters")]
+    string Name,
+
+    [Required(ErrorMessage = "Tier is required")]
+    string Tier,
+
+    [Required(ErrorMessage = "Unit is required"), StringLength(50, MinimumLength = 1)]
+    string Unit,
+
+    [Range(0, 1000000, ErrorMessage = "LowStockThreshold must be >= 0")]
+    int? LowStockThreshold);
+
+public record UpdateInventoryItemRequest(
+    [StringLength(150, MinimumLength = 2, ErrorMessage = "Item Name must be between 2 and 150 characters")]
+    string? Name,
+
+    [StringLength(50, MinimumLength = 1)]
+    string? Unit,
+
+    [Range(0, 1000000, ErrorMessage = "LowStockThreshold must be >= 0")]
+    int? LowStockThreshold,
+
+    bool? Active);
+
+public record RecordMovementRequest(
+    [Range(1, 1000000, ErrorMessage = "Movement Quantity must be at least 1")]
+    int Quantity,
+
+    [Required(ErrorMessage = "Direction is required"), RegularExpression("(?i)^(in|out)$", ErrorMessage = "Direction must be 'in' or 'out'")]
+    string Direction,
+
+    [StringLength(500, ErrorMessage = "Note cannot exceed 500 characters")]
+    string? Note);

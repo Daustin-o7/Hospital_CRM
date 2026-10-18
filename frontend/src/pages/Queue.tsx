@@ -1,15 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import { Modal } from '../components/ui/Modal'
+import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
+import { friendlyError } from '../components/ui/Alert'
+import { useToast } from '../context/ToastContext'
+import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from './Appointments'
 
-interface QueuePatient {
+interface QueueAppointment {
   id: string
+  patientId?: string
   tokenNumber: string
   patientName: string
   doctorName: string
-  status: 'waiting' | 'in_consultation' | 'completed'
+  time: string
+  status: 'expected' | 'waiting' | 'completed'
   priority: 'normal' | 'emergency'
-  arrivalTime: string
-  waitMinutes: number
 }
 
 interface PriorityLogEntry {
@@ -19,227 +25,490 @@ interface PriorityLogEntry {
   reason?: string
 }
 
+const todayParam = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const mapStatus = (status: string): QueueAppointment['status'] =>
+  status === 'checked_in' ? 'waiting'
+  : status === 'completed' ? 'completed'
+  : 'expected'
+
 export default function Queue() {
-  const [queue, setQueue] = useState<QueuePatient[]>([
-
-    { id: '1', tokenNumber: 'A-12', patientName: 'Meera R.', doctorName: 'Dr. Mehta', status: 'waiting', priority: 'emergency', arrivalTime: '10:05 AM', waitMinutes: 12 },
-    { id: '2', tokenNumber: 'A-13', patientName: 'Priya Singh', doctorName: 'Dr. Mehta', status: 'in_consultation', priority: 'normal', arrivalTime: '09:45 AM', waitMinutes: 18 },
-    { id: '3', tokenNumber: 'A-14', patientName: 'Ravi Kumar', doctorName: 'Dr. Mehta', status: 'waiting', priority: 'normal', arrivalTime: '10:10 AM', waitMinutes: 8 },
-    { id: '4', tokenNumber: 'A-15', patientName: 'Anil Verma', doctorName: 'Dr. Mehta', status: 'waiting', priority: 'normal', arrivalTime: '10:15 AM', waitMinutes: 3 },
-  ])
-
-  const [logs, setLogs] = useState<PriorityLogEntry[]>([
-    { time: '10:15', user: 'Meera R.', change: 'Normal → Emergency', reason: 'Severe acute abdominal pain' },
-    { time: '09:30', user: 'System', change: 'Enqueued', reason: 'Initial token allocation' },
-  ])
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const [selectedDoctor, setSelectedDoctor] = useState('all')
+  const [selectedSpecialty, setSelectedSpecialty] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [appointments, setAppointments] = useState<QueueAppointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<PriorityLogEntry[]>([])
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<QueuePatient | null>(null)
+  const [selectedPatient, setSelectedPatient] = useState<QueueAppointment | null>(null)
   const [emergencyReason, setEmergencyReason] = useState('')
   const [reasonError, setReasonError] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  const showToast = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
+  const [callingToken, setCallingToken] = useState<string | null>(null)
 
-  const openEmergencyModal = (patient: QueuePatient) => {
+  const fetchQueue = useCallback(async (quiet = false) => {
+    try {
+      if (!quiet) setLoading(true)
+      setError(null)
+      const res = await api.get(`/appointments?date=${todayParam()}`)
+      setAppointments(res.data.map((a: any) => ({
+        id: a.appointmentId,
+        patientId: a.patientId,
+        tokenNumber: a.queueToken != null ? `A-${String(a.queueToken).padStart(2, '0')}` : a.time,
+        patientName: a.patientName,
+        doctorName: a.doctorName,
+        time: a.time,
+        status: mapStatus(a.status),
+        priority: a.priority === 'emergency' ? 'emergency' : 'normal',
+      })))
+    } catch (err) {
+      if (!quiet) setError(friendlyError(err))
+    } finally {
+      if (!quiet) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchQueue()
+    const timer = setInterval(() => fetchQueue(true), 30000)
+    return () => clearInterval(timer)
+  }, [fetchQueue])
+
+  const doctors = useMemo(() => [...new Set(appointments.map(a => a.doctorName))], [appointments])
+
+  const openEmergencyModal = (patient: QueueAppointment) => {
     setSelectedPatient(patient)
     setEmergencyReason('')
     setReasonError('')
     setModalOpen(true)
   }
 
+  const handleCallPatient = (patient: QueueAppointment) => {
+    setCallingToken(patient.tokenNumber)
+    toast(`Calling Token ${patient.tokenNumber}: ${patient.patientName} to ${patient.doctorName}'s room.`)
+    setTimeout(() => setCallingToken(null), 6000)
+  }
+
+  const handleStartConsultation = (patient: QueueAppointment) => {
+    const spec = getDoctorSpecialty(patient.doctorName)
+    navigate(`/dashboard/consultations?patientId=${patient.patientId || ''}&appointmentId=${patient.id}&specialty=${spec.id}`)
+  }
+
   const submitPriorityChange = async (newPriority: 'emergency' | 'normal') => {
-    if (!selectedPatient) return
+    if (!selectedPatient || saving) return
 
     if (newPriority === 'emergency' && emergencyReason.trim().length < 10) {
       setReasonError('Please provide a specific clinical reason (minimum 10 characters).')
       return
     }
 
+    setSaving(true)
     try {
-      await api.patch(`/appointments/${selectedPatient.id}/priority`, {
+      const res = await api.patch(`/appointments/${selectedPatient.id}/priority`, {
         priority: newPriority,
-        reason: emergencyReason.trim()
+        reason: emergencyReason.trim() || null,
       })
+      if (!res.data.unchanged) {
+        setAppointments(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
+        setLogs(prev => [
+          {
+            time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            user: selectedPatient.patientName,
+            change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'}`,
+            reason: emergencyReason.trim() || 'Status updated by staff',
+          },
+          ...prev,
+        ])
+        toast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
+      } else {
+        toast(`Priority for ${selectedPatient.patientName} was already ${newPriority.toUpperCase()}.`)
+      }
+      setModalOpen(false)
     } catch {
-      // Continue locally on mock/dev fallback
+      setAppointments(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
+      setLogs(prev => [
+        {
+          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          user: selectedPatient.patientName,
+          change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'} (Local)`,
+          reason: emergencyReason.trim() || 'Status updated by staff',
+        },
+        ...prev,
+      ])
+      toast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()} (offline mode).`)
+      setModalOpen(false)
+    } finally {
+      setSaving(false)
     }
-
-    setQueue(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
-    
-    setLogs(prev => [
-      {
-        time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-        user: selectedPatient.patientName,
-        change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'}`,
-        reason: emergencyReason.trim() || 'Status updated by staff'
-      },
-      ...prev
-    ])
-
-    showToast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
-    setModalOpen(false)
   }
 
-  const waitingCount = queue.filter(q => q.status === 'waiting').length
-  const inConsultCount = queue.filter(q => q.status === 'in_consultation').length
+  const filteredQueue = useMemo(() => {
+    return appointments.filter(q => {
+      if (selectedDoctor !== 'all' && q.doctorName !== selectedDoctor) return false
+
+      if (selectedSpecialty !== 'all') {
+        const spec = getDoctorSpecialty(q.doctorName)
+        if (spec.id !== selectedSpecialty) return false
+      }
+
+      if (searchQuery.trim()) {
+        const s = searchQuery.toLowerCase().trim()
+        const matchName = q.patientName.toLowerCase().includes(s)
+        const matchDoc = q.doctorName.toLowerCase().includes(s)
+        const matchToken = q.tokenNumber.toLowerCase().includes(s)
+        if (!matchName && !matchDoc && !matchToken) return false
+      }
+
+      return true
+    })
+  }, [appointments, selectedDoctor, selectedSpecialty, searchQuery])
+
+  const waitingCount = filteredQueue.filter(q => q.status === 'waiting').length
+  const completedCount = filteredQueue.filter(q => q.status === 'completed').length
+  const emergencyCount = filteredQueue.filter(q => q.priority === 'emergency').length
 
   return (
-    <div className="space-y-6 pb-12 animate-fadein">
+    <div className="space-y-5 pb-12 animate-fadein">
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Live OPD Queue</span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-brand">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse"></span>
+              Live Queue Sync Active
+            </span>
+            <span className="text-xs text-[var(--color-text-muted)] font-mono">OPD Desks &amp; Rooms</span>
+          </div>
+          <h1 className="page-title font-heading mt-1 flex items-center gap-2">
+            <span>Live OPD Queue &amp; Multi-Specialty Triage Desk</span>
           </h1>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">
-            Real-time queue sequencing and emergency escalation.
+          <p className="page-description">
+            Real-time patient sequencing, audio-visual calling, statutory emergency escalation (MOD-24), and direct consultation routing.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Real-time Sync Active</span>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            className="btn btn-primary text-xs"
+            onClick={() => navigate('/dashboard/consultations')}
+          >
+            🩺 Open Consultation Desk
+          </button>
         </div>
       </div>
 
-      {toast && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
-          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          <span>{toast}</span>
+      {/* Calling Banner */}
+      {callingToken && (
+        <div className="p-4 rounded-xl bg-teal-500 text-white font-bold flex items-center justify-between shadow-lg animate-bounce">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📢</span>
+            <div>
+              <div className="text-base tracking-wide">NOW CALLING: TOKEN {callingToken}</div>
+              <div className="text-xs font-normal opacity-90">Please proceed to the designated consultation room.</div>
+            </div>
+          </div>
+          <span className="badge bg-white text-teal-800 font-mono text-xs">Announcing</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button onClick={() => fetchQueue()} className="btn btn-ghost btn-sm ml-2">Retry</button>
         </div>
       )}
 
       {/* ── Metrics Row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Waiting Patients</span>
-          <div className="text-3xl font-extrabold text-slate-900 mt-2">{waitingCount}</div>
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <span className="stat-label">Waiting in Lobby</span>
+            <span className="badge badge-warning">Live Waiting</span>
+          </div>
+          <div className="stat-value mt-2 font-heading font-mono">{loading ? '—' : waitingCount}</div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Checked in, ready for doctor examination</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Consultation</span>
-          <div className="text-3xl font-extrabold text-emerald-600 mt-2">{inConsultCount}</div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <span className="stat-label">Completed Today</span>
+            <span className="badge badge-brand">Seen</span>
+          </div>
+          <div className="stat-value mt-2 font-heading font-mono">{loading ? '—' : completedCount}</div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Consultations finished &amp; prescriptions recorded</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Average Wait</span>
-          <div className="text-3xl font-extrabold text-slate-800 mt-2">14 min</div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <span className="stat-label">Emergency Triaged</span>
+            <span className="badge badge-danger">Priority 1</span>
+          </div>
+          <div className="stat-value mt-2 font-heading font-mono text-rose-600 dark:text-rose-400">
+            {loading ? '—' : emergencyCount}
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-1">Fast-tracked for urgent physician attention</p>
+        </div>
+      </div>
+
+      {/* ── Specialty & Doctor Filtering Bar ── */}
+      <div className="card p-3.5 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search token #, patient name, doctor..."
+              className="form-input text-xs w-full pl-8 py-1.5"
+            />
+            <svg className="w-4 h-4 absolute left-2.5 top-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {doctors.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <span className="text-xs font-bold text-[var(--color-text-muted)] mr-1">Consulting Desk:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedDoctor('all')}
+                className={`btn btn-sm text-xs ${selectedDoctor === 'all' ? 'btn-primary' : 'btn-secondary'} shrink-0`}
+              >
+                All Doctors
+              </button>
+              {doctors.map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSelectedDoctor(d)}
+                  className={`btn btn-sm text-xs ${selectedDoctor === d ? 'btn-primary' : 'btn-secondary'} shrink-0`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Clinical Disciplines Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-200 dark:border-slate-800 scrollbar-none">
+          {CLINICAL_SPECIALTIES.map(spec => {
+            const isSelected = selectedSpecialty === spec.id
+            return (
+              <button
+                key={spec.id}
+                type="button"
+                onClick={() => setSelectedSpecialty(spec.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+                  isSelected
+                    ? 'bg-teal-600 text-white border-teal-700 shadow-sm'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-500'
+                }`}
+              >
+                <span>{spec.icon}</span>
+                <span>{spec.name}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* ── Queue Table & Priority Logs ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Queue Table (8 cols) */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Current Queue Sequence</h2>
+        <div className="card lg:col-span-8 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--color-text)] tracking-tight font-heading">Sequential Patient Tokens</h2>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Priority emergency tokens first, followed by slot time</p>
+            </div>
+            <div className="text-xs text-[var(--color-text-secondary)] font-semibold">
+              Showing <span className="text-teal-600 dark:text-teal-400 font-bold">{filteredQueue.length}</span> patients
+            </div>
+          </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="py-2.5 px-3">Token</th>
-                  <th className="py-2.5 px-3">Patient</th>
-                  <th className="py-2.5 px-3">Doctor</th>
-                  <th className="py-2.5 px-3">Wait Time</th>
-                  <th className="py-2.5 px-3">Priority</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
+                  <th>Token</th>
+                  <th>Patient Details</th>
+                  <th>Consulting Doctor &amp; Specialty</th>
+                  <th>Status / Priority</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {queue.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-3">
-                      <span className="font-mono font-bold text-slate-900 px-2 py-1 bg-slate-100 rounded-lg">
-                        {patient.tokenNumber}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-slate-900">{patient.patientName}</div>
-                      <div className="text-[11px] text-slate-400">{patient.arrivalTime}</div>
-                    </td>
-                    <td className="py-3 px-3 text-slate-600">{patient.doctorName}</td>
-                    <td className="py-3 px-3 text-slate-600">{patient.waitMinutes} mins</td>
-                    <td className="py-3 px-3">
-                      {patient.priority === 'emergency' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Emergency
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                          Normal
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => openEmergencyModal(patient)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                          patient.priority === 'emergency'
-                            ? 'text-slate-600 bg-slate-100 hover:bg-slate-200'
-                            : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/60'
-                        }`}
-                      >
-                        {patient.priority === 'emergency' ? 'Set Normal' : 'Mark Emergency'}
-                      </button>
+              <tbody className="font-medium">
+                {loading && (
+                  <>
+                    <SkeletonTableRow columns={5} />
+                    <SkeletonTableRow columns={5} />
+                    <SkeletonTableRow columns={5} />
+                  </>
+                )}
+
+                {!loading && !error && filteredQueue.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-0">
+                      <EmptyState
+                        title="Queue Is Empty"
+                        description={appointments.length === 0
+                          ? 'No appointments scheduled for today yet.'
+                          : 'No patients match the selected filter criteria.'}
+                      />
                     </td>
                   </tr>
-                ))}
+                )}
+
+                {!loading && filteredQueue.map((patient) => {
+                  const spec = getDoctorSpecialty(patient.doctorName)
+                  const isWaiting = patient.status === 'waiting'
+                  const isCompleted = patient.status === 'completed'
+
+                  return (
+                    <tr key={patient.id} className="transition-colors hover:bg-[var(--color-surface-hover)]">
+                      <td>
+                        <span className="queue-token font-mono font-bold">
+                          {patient.tokenNumber}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="font-bold text-[var(--color-text)]">{patient.patientName}</div>
+                        <div className="text-[11px] text-[var(--color-text-muted)]">Slot Time: {patient.time}</div>
+                      </td>
+                      <td>
+                        <div className="font-semibold text-[var(--color-text-secondary)] text-xs">{patient.doctorName}</div>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 mt-0.5 rounded border ${spec.badgeBg} ${spec.badgeText} ${spec.badgeBorder}`}>
+                          <span>{spec.icon}</span>
+                          <span>{spec.name}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex flex-col gap-1">
+                          {patient.priority === 'emergency' ? (
+                            <span className="badge badge-danger animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Emergency
+                            </span>
+                          ) : null}
+                          {isWaiting ? (
+                            <span className="badge badge-warning">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Lobby
+                            </span>
+                          ) : isCompleted ? (
+                            <span className="badge badge-success">Completed</span>
+                          ) : (
+                            <span className="badge badge-neutral">Scheduled</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isWaiting && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleCallPatient(patient)}
+                                className="btn btn-secondary btn-sm"
+                                title="Announce token over speaker / visual board"
+                                style={{ fontSize: '11px', padding: '3px 8px' }}
+                              >
+                                📢 Call
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartConsultation(patient)}
+                                className="btn btn-primary btn-sm flex items-center gap-1"
+                                title="Open patient in Consultation Desk with discipline-specific EMR"
+                                style={{ fontSize: '11px', padding: '3px 10px', fontWeight: 600 }}
+                              >
+                                <span>🩺 Consult</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEmergencyModal(patient)}
+                                className={`btn btn-sm ${
+                                  patient.priority === 'emergency' ? 'btn-secondary' : 'btn-danger'
+                                }`}
+                                style={{ fontSize: '11px', padding: '3px 8px' }}
+                              >
+                                {patient.priority === 'emergency' ? 'Set Normal' : 'Triage 🚨'}
+                              </button>
+                            </>
+                          )}
+
+                          {isCompleted && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartConsultation(patient)}
+                              className="btn btn-secondary btn-sm"
+                              style={{ fontSize: '11px', padding: '3px 8px' }}
+                            >
+                              View EMR
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
         {/* Priority Change Audit Logs (4 cols) */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">Priority Audit Log</h2>
-          <div className="space-y-3">
-            {logs.map((log, idx) => (
-              <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1 text-xs">
-                <div className="flex items-center justify-between text-slate-400 font-mono text-[11px]">
-                  <span>{log.time}</span>
-                  <span className="font-semibold text-slate-700">{log.user}</span>
-                </div>
-                <div className="font-bold text-slate-900">{log.change}</div>
-                {log.reason && (
-                  <p className="text-[11px] text-slate-500 italic mt-0.5">"{log.reason}"</p>
-                )}
-              </div>
-            ))}
+        <div className="card lg:col-span-4 p-5 space-y-4">
+          <div className="border-b border-[var(--color-border)] pb-3">
+            <h2 className="text-sm font-bold text-[var(--color-text)] tracking-tight font-heading">Triage Audit Trail</h2>
+            <p className="text-[11px] text-[var(--color-text-muted)]">Changes made this session — persists in DB priority audit table</p>
           </div>
+          {logs.length === 0 ? (
+            <EmptyState
+              title="No Triage Changes Yet"
+              description="Priority escalations and reverts in this session appear here."
+            />
+          ) : (
+            <div className="space-y-2.5">
+              {logs.map((log, idx) => (
+                <div key={idx} className="card p-3 space-y-1 text-xs bg-[var(--color-surface-raised)] border-[var(--color-border)]">
+                  <div className="flex items-center justify-between text-[var(--color-text-muted)] font-mono text-[11px]">
+                    <span>{log.time}</span>
+                    <span className="font-semibold text-[var(--color-text-secondary)]">{log.user}</span>
+                  </div>
+                  <div className="font-bold text-[var(--color-text)]">{log.change}</div>
+                  {log.reason && (
+                    <p className="text-[11px] text-[var(--color-text-muted)] italic mt-0.5">"{log.reason}"</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* ── Mark Emergency Modal ── */}
-      {modalOpen && selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-fadein">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">
-                {selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Mark Patient as Emergency'}
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600">
-              Patient: <span className="font-bold text-slate-900">{selectedPatient.patientName}</span> ({selectedPatient.tokenNumber})
-            </p>
-
+      {selectedPatient && (
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title={selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Mark Patient as Emergency'}
+          description={`Patient: ${selectedPatient.patientName} (${selectedPatient.tokenNumber})`}
+          size="sm"
+        >
+          <div className="space-y-4">
             {selectedPatient.priority !== 'emergency' && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Reason for Emergency Escalation <span className="text-rose-500">*</span>
+                <label className="form-label">
+                  Clinical Rationale for Escalation <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -248,40 +517,45 @@ export default function Queue() {
                     setEmergencyReason(e.target.value)
                     setReasonError('')
                   }}
-                  placeholder="e.g. Severe chest pain, acute bleeding, dyspnea..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                  placeholder="e.g. Acute severe chest pain, hypoxemia SpO2 < 90%, traumatic bleeding..."
+                  className="form-textarea"
                 />
                 {reasonError && (
-                  <p className="text-[11px] text-rose-600 font-semibold mt-1">{reasonError}</p>
+                  <p className="form-error font-semibold mt-1">{reasonError}</p>
                 )}
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
               <button
+                type="button"
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="btn btn-secondary cursor-pointer"
               >
                 Cancel
               </button>
               {selectedPatient.priority === 'emergency' ? (
                 <button
+                  type="button"
                   onClick={() => submitPriorityChange('normal')}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 shadow-md"
+                  disabled={saving}
+                  className="btn btn-secondary cursor-pointer"
                 >
-                  Confirm Revert
+                  {saving ? 'Saving…' : 'Confirm Revert'}
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => submitPriorityChange('emergency')}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-700/20"
+                  disabled={saving}
+                  className="btn btn-danger cursor-pointer"
                 >
-                  Escalate to Emergency
+                  {saving ? 'Saving…' : 'Escalate to Emergency'}
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

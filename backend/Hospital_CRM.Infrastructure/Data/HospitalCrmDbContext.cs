@@ -34,11 +34,28 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<NotificationRule> NotificationRules => Set<NotificationRule>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<LabOrder> LabOrders => Set<LabOrder>();
     public DbSet<LabResult> LabResults => Set<LabResult>();
     public DbSet<LedgerExpense> LedgerExpenses => Set<LedgerExpense>();
     public DbSet<ImpersonationLog> ImpersonationLogs => Set<ImpersonationLog>();
     public DbSet<TenantFeatureFlag> TenantFeatureFlags => Set<TenantFeatureFlag>();
+    public DbSet<NurseProfile> NurseProfiles => Set<NurseProfile>();
+    public DbSet<NurseAvailability> NurseAvailabilities => Set<NurseAvailability>();
+    public DbSet<NurseShift> NurseShifts => Set<NurseShift>();
+    public DbSet<NurseShiftApplication> NurseShiftApplications => Set<NurseShiftApplication>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<PatientNurseAssignment> PatientNurseAssignments => Set<PatientNurseAssignment>();
+    public DbSet<ShiftHandover> ShiftHandovers => Set<ShiftHandover>();
+    public DbSet<NurseAuditLog> NurseAuditLogs => Set<NurseAuditLog>();
+    public DbSet<Drug> Drugs => Set<Drug>();
+    public DbSet<DrugBatch> DrugBatches => Set<DrugBatch>();
+    public DbSet<DispenseRecord> DispenseRecords => Set<DispenseRecord>();
+    public DbSet<DispenseItem> DispenseItems => Set<DispenseItem>();
+    public DbSet<ControlledSubstanceRegister> ControlledSubstanceRegisters => Set<ControlledSubstanceRegister>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<Department> Departments => Set<Department>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,8 +74,9 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.PasswordHash).HasMaxLength(255);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Clinic).WithMany(c => c.Users).HasForeignKey(x => x.ClinicId);
+            e.HasOne(x => x.NurseProfile).WithOne(n => n.User).HasForeignKey<NurseProfile>(x => x.UserId);
         });
 
         modelBuilder.Entity<RefreshToken>(e =>
@@ -80,11 +98,137 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<StaffInvite>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.ClinicId, x.Email, x.AcceptedAt });
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Email, x.AcceptedAt });
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.Email).HasMaxLength(255);
             e.Property(x => x.TokenHash).HasMaxLength(512);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.HasOne(x => x.Clinic).WithMany(c => c.StaffInvites).HasForeignKey(x => x.ClinicId);
+            e.HasOne(x => x.NurseProfile).WithOne().HasForeignKey<StaffInvite>(x => x.NurseProfileId);
+        });
+
+        modelBuilder.Entity<NurseProfile>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.WardId });
+            e.Property(x => x.LicenseNumber).HasMaxLength(50);
+            e.Property(x => x.LicenseAuthority).HasMaxLength(100);
+            e.Property(x => x.NursingQualification).HasMaxLength(255);
+            e.Property(x => x.Institution).HasMaxLength(255);
+            e.Property(x => x.Specialization).HasMaxLength(100);
+            e.Property(x => x.Skills).HasMaxLength(2000);
+            e.Property(x => x.Languages).HasMaxLength(500);
+            e.Property(x => x.EmergencyContactName).HasMaxLength(255);
+            e.Property(x => x.EmergencyContactPhone).HasMaxLength(50);
+            e.Property(x => x.EmergencyContactRelation).HasMaxLength(50);
+            e.Property(x => x.DocumentsJson).HasMaxLength(5000);
+            e.Property(x => x.ShiftPreferencesJson).HasMaxLength(2000);
+            e.Property(x => x.WorkRestrictionsJson).HasMaxLength(2000);
+            e.Property(x => x.DepartmentId).IsRequired(false);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
+            e.HasOne(x => x.User).WithOne(u => u.NurseProfile).HasForeignKey<NurseProfile>(x => x.UserId);
+            e.HasOne(x => x.Department).WithMany(d => d.Nurses).HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Department>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Code }).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(255);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
+            e.HasOne(x => x.Clinic).WithMany(c => c.Departments).HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NurseAvailability>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.NurseProfileId, x.StartDate, x.EndDate });
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.NurseProfile).WithMany(n => n.Availabilities).HasForeignKey(x => x.NurseProfileId);
+        });
+
+        modelBuilder.Entity<NurseShift>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ClinicId, x.Date });
+            e.HasIndex(x => new { x.TenantId, x.NurseProfileId, x.Date, x.ShiftType })
+                .IsUnique()
+                .HasFilter("\"Status\" = 1 AND \"NurseProfileId\" IS NOT NULL"); // one assigned slot per nurse/date/type
+            e.Property(x => x.Notes).HasMaxLength(1000);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.Nurse).WithMany().HasForeignKey(x => x.NurseProfileId);
+        });
+
+        modelBuilder.Entity<NurseShiftApplication>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ShiftId, x.NurseProfileId }).IsUnique();
+            e.HasIndex(x => new { x.NurseProfileId, x.Status });
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.AppliedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.Shift).WithMany(s => s.Applications).HasForeignKey(x => x.ShiftId);
+            e.HasOne(x => x.Nurse).WithMany().HasForeignKey(x => x.NurseProfileId);
+        });
+
+        modelBuilder.Entity<LeaveRequest>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.NurseProfileId, x.StartDate, x.EndDate });
+            e.Property(x => x.Reason).HasMaxLength(1000);
+            e.Property(x => x.ReviewNote).HasMaxLength(1000);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.Nurse).WithMany().HasForeignKey(x => x.NurseProfileId);
+        });
+
+        modelBuilder.Entity<PatientNurseAssignment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.NurseProfileId, x.Status });
+            e.HasIndex(x => new { x.PatientId, x.Status });
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.AssignedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.Nurse).WithMany().HasForeignKey(x => x.NurseProfileId);
+            e.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId);
+        });
+
+        modelBuilder.Entity<ShiftHandover>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.PatientId, x.CreatedAt });
+            e.Property(x => x.Note).HasMaxLength(4000);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId);
+            e.HasOne<NurseProfile>().WithMany().HasForeignKey(x => x.AuthorNurseProfileId);
+            e.HasOne<NurseProfile>().WithMany().HasForeignKey(x => x.ToNurseProfileId);
+        });
+
+        modelBuilder.Entity<NurseAuditLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.EntityType, x.EntityId });
+            e.HasIndex(x => x.NurseProfileId);
+            e.Property(x => x.EntityType).HasMaxLength(100);
+            e.Property(x => x.Action).HasMaxLength(50);
+            e.Property(x => x.OldValue).HasMaxLength(4000);
+            e.Property(x => x.NewValue).HasMaxLength(4000);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.ChangedAt).HasDefaultValueSql("now()");
         });
 
         modelBuilder.Entity<Clinic>(e =>
@@ -157,6 +301,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Phone).HasMaxLength(50);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.CreatedByUser).WithMany(u => u.CreatedPatients).HasForeignKey(x => x.CreatedBy);
         });
 
@@ -188,6 +333,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.TimeSlot).HasMaxLength(10);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Patient).WithMany(p => p.Appointments).HasForeignKey(x => x.PatientId);
             e.HasOne(x => x.Doctor).WithMany(u => u.AppointmentsAsDoctor).HasForeignKey(x => x.DoctorId);
             e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId);
@@ -239,6 +385,7 @@ public class HospitalCrmDbContext : DbContext
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Appointment).WithMany().HasForeignKey(x => x.AppointmentId);
         });
 
@@ -247,7 +394,12 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.InvoiceId);
             e.Property(x => x.Description).HasMaxLength(500);
-            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId);
+            e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.GstRate).HasColumnType("decimal(5,2)");
+            e.Property(x => x.HsnCode).HasMaxLength(20);
+            e.HasOne(x => x.Invoice).WithMany(i => i.LineItems).HasForeignKey(x => x.InvoiceId);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId);
         });
 
         modelBuilder.Entity<Payment>(e =>
@@ -384,5 +536,138 @@ public class HospitalCrmDbContext : DbContext
             e.HasIndex(x => new { x.TenantId, x.FlagName }).IsUnique();
             e.Property(x => x.FlagName).HasMaxLength(100).IsRequired();
         });
+
+        modelBuilder.Entity<Drug>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            e.HasIndex(x => x.GenericName);
+            e.HasIndex(x => x.ScheduleClass);
+            e.Property(x => x.Name).HasMaxLength(255).IsRequired();
+            e.Property(x => x.GenericName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.TherapeuticCategory).HasMaxLength(100);
+            e.Property(x => x.DosageForm).HasMaxLength(50);
+            e.Property(x => x.Strength).HasMaxLength(50);
+            e.Property(x => x.HsnCode).HasMaxLength(20);
+            e.Property(x => x.GstRate).HasColumnType("decimal(5,2)");
+            e.Property(x => x.DpcoCeilingPrice).HasColumnType("decimal(18,2)");
+            e.Property(x => x.IndicativeMrp).HasColumnType("decimal(18,2)");
+            e.Property(x => x.StandardPackSize).HasMaxLength(50);
+            e.Property(x => x.CommonBrands).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<DrugBatch>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.DrugId, x.ExpiryDate });
+            e.HasIndex(x => x.BatchNumber);
+            e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Mrp).HasColumnType("decimal(18,2)");
+            e.Property(x => x.PurchaseRate).HasColumnType("decimal(18,2)");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
+            e.HasOne(x => x.Drug).WithMany(d => d.Batches).HasForeignKey(x => x.DrugId);
+            e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
+        });
+
+        modelBuilder.Entity<DispenseRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.DispensedAt });
+            e.HasIndex(x => x.PrescriptionId);
+            e.Property(x => x.WalkInCustomerName).HasMaxLength(255);
+            e.Property(x => x.IdempotencyKey).HasMaxLength(128);
+            e.HasOne(x => x.Prescription).WithMany().HasForeignKey(x => x.PrescriptionId);
+            e.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId);
+            e.HasOne(x => x.Dispenser).WithMany().HasForeignKey(x => x.DispensedBy);
+        });
+
+        modelBuilder.Entity<DispenseItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.DispenseRecordId);
+            e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            e.HasOne(x => x.DispenseRecord).WithMany(r => r.Items).HasForeignKey(x => x.DispenseRecordId);
+            e.HasOne(x => x.PrescriptionItem).WithMany().HasForeignKey(x => x.PrescriptionItemId);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId);
+        });
+
+        modelBuilder.Entity<ControlledSubstanceRegister>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ScheduleClass, x.DispensedAt });
+            e.Property(x => x.DrugName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
+            e.Property(x => x.PatientName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.PatientAddress).HasMaxLength(500);
+            e.Property(x => x.PrescriberName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.PrescriberRegNo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.DispenserName).HasMaxLength(255);
+            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId);
+            e.HasOne(x => x.DispenseRecord).WithMany().HasForeignKey(x => x.DispenseRecordId);
+            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId);
+        });
+
+        modelBuilder.Entity<Supplier>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Name });
+            e.Property(x => x.Name).HasMaxLength(255).IsRequired();
+            e.Property(x => x.Gstin).HasMaxLength(50);
+            e.Property(x => x.Phone).HasMaxLength(20);
+            e.Property(x => x.Email).HasMaxLength(255);
+            e.Property(x => x.Address).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<PurchaseOrder>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
+            e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
+            e.Property(x => x.DistributorName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.ItemsJson).HasColumnType("jsonb");
+            e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId);
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
+        });
+
+        modelBuilder.Entity<WishlistItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.Property(x => x.Text).HasMaxLength(1000).IsRequired();
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
+        });
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        EnforceAppendOnlyAuditLogs();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        EnforceAppendOnlyAuditLogs();
+        return base.SaveChanges();
+    }
+
+    private void EnforceAppendOnlyAuditLogs()
+    {
+        var forbiddenEntries = ChangeTracker.Entries()
+            .Where(e => (e.State == EntityState.Modified || e.State == EntityState.Deleted) &&
+                        (e.Entity is PatientAuditLog ||
+                         e.Entity is NurseAuditLog ||
+                         e.Entity is AppointmentHistory ||
+                         e.Entity is NotificationLog ||
+                         e.Entity is PriorityLog ||
+                         e.Entity is ImpersonationLog ||
+                         e.Entity is ControlledSubstanceRegister))
+            .ToList();
+
+        if (forbiddenEntries.Count != 0)
+        {
+            var entityNames = string.Join(", ", forbiddenEntries.Select(e => e.Entity.GetType().Name));
+            throw new InvalidOperationException($"Audit records are append-only. Modification and deletion of [{entityNames}] are prohibited per FR-08.");
+        }
     }
 }

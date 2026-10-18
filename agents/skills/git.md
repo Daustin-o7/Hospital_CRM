@@ -56,9 +56,9 @@ Before marking any FR done, run `/ponytail-review` on the diff to detect unneces
 
 ## Important Files
 
-- [`.claude/skills/new-fr/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/new-fr/SKILL.md) — Standard FR build sequence
-- [`CLAUDE.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/CLAUDE.md#line=6) — Ponytail review instructions
-- [`TOOLING-SETUP.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/TOOLING-SETUP.md) — Tooling setup instructions
+- [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md) — Standard FR build sequence
+- [`CLAUDE.md`](../../CLAUDE.md) — Ponytail review instructions
+- [`TOOLING-SETUP.md`](../../docs/technical/TOOLING-SETUP.md) — Tooling setup instructions
 
 ---
 
@@ -96,5 +96,5 @@ Before marking any FR done, run `/ponytail-review` on the diff to detect unneces
 
 ## Verification Source
 
-- [`.claude/skills/new-fr/SKILL.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/.claude/skills/new-fr/SKILL.md)
-- [`CLAUDE.md`](file:///e:/Company/Hospital%20Management/Hospital_CRM/CLAUDE.md)
+- [`.claude/skills/new-fr/SKILL.md`](../../.claude/skills/new-fr/SKILL.md)
+- [`CLAUDE.md`](../../CLAUDE.md)

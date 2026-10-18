@@ -26,6 +26,8 @@ public class Patient
 
     public Guid CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    [ConcurrencyCheck]
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? IdempotencyKey { get; set; }
 
     // Navigation

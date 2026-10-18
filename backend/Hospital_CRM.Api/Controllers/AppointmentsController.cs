@@ -1,4 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
@@ -7,6 +10,7 @@ using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
@@ -18,15 +22,18 @@ public class AppointmentsController : ControllerBase
     private readonly HospitalCrmDbContext _db;
     private readonly INotificationService _notificationService;
     private readonly PrecheckService _precheckService;
+    private readonly ITimezoneService _timezoneService;
 
     public AppointmentsController(
         HospitalCrmDbContext db,
         INotificationService notificationService,
-        PrecheckService precheckService)
+        PrecheckService precheckService,
+        ITimezoneService timezoneService)
     {
         _db = db;
         _notificationService = notificationService;
         _precheckService = precheckService;
+        _timezoneService = timezoneService;
     }
 
     [HttpPost]
@@ -51,7 +58,16 @@ public class AppointmentsController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == doctor.ClinicId, ct);
 
         if (clinic is null)
-            return BadRequest(new { error = "doctor_has_no_clinic" });
+        {
+            clinic = await _db.Clinics
+                .Include(c => c.WorkingHours)
+                .Include(c => c.Holidays)
+                .Include(c => c.SpecialHours)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (clinic is null)
+            return BadRequest(new { error = "no_clinic_configured" });
 
         // Check if the requested date falls within a holiday range (exact date or recurring annually MM-dd)
         var requestDate = appointmentDate.ToString("yyyy-MM-dd");
@@ -94,16 +110,16 @@ public class AppointmentsController : ControllerBase
                 .OrderBy(h => h.ShiftIndex)
                 .ToList();
 
-            if (workingShifts.Count == 0)
-                return BadRequest(new { error = "clinic_closed_on_selected_day" });
+            if (workingShifts.Count > 0)
+            {
+                // Verify the time slot falls within at least one of the shifts
+                var isInAnyShift = workingShifts.Any(s =>
+                    string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
+                    string.CompareOrdinal(request.TimeSlot, s.CloseTime) < 0);
 
-            // Verify the time slot falls within at least one of the shifts
-            var isInAnyShift = workingShifts.Any(s =>
-                string.CompareOrdinal(request.TimeSlot, s.OpenTime) >= 0 &&
-                string.CompareOrdinal(request.TimeSlot, s.CloseTime) < 0);
-
-            if (!isInAnyShift)
-                return BadRequest(new { error = "time_slot_outside_working_hours" });
+                if (!isInAnyShift)
+                    return BadRequest(new { error = "time_slot_outside_working_hours" });
+            }
         }
 
         var executionStrategy = _db.Database.CreateExecutionStrategy();
@@ -203,7 +219,8 @@ public class AppointmentsController : ControllerBase
             if (appointment.Status == AppointmentStatus.Completed || appointment.Status == AppointmentStatus.Cancelled)
                 return BadRequest(new { error = "cannot_check_in_completed_or_cancelled_appointment" });
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            var clinic = await _db.Clinics.FindAsync([appointment.ClinicId], ct);
+            var today = _timezoneService.GetClinicToday(clinic?.Timezone, HttpContext);
             var maxToken = await _db.Appointments
                 .Where(a => a.ClinicId == appointment.ClinicId && a.Date == today && a.QueueToken.HasValue)
                 .MaxAsync(a => (int?)a.QueueToken, ct) ?? 0;
@@ -274,7 +291,13 @@ public class AppointmentsController : ControllerBase
             .Select(a => new
             {
                 appointmentId = a.Id,
+                patientId = a.PatientId,
                 patientName = a.Patient.Name,
+                patientPhone = a.Patient.Phone,
+                patientGender = a.Patient.Gender.ToString(),
+                patientDob = a.Patient.Dob,
+                patientAge = a.Patient.ApproxAge,
+                doctorId = a.DoctorId,
                 doctorName = a.Doctor.Name,
                 time = a.TimeSlot,
                 status = a.Status.ToString().ToLower(),
@@ -347,9 +370,113 @@ public class AppointmentsController : ControllerBase
 
         return Ok(new { appointmentId = id, priority = newPriority.ToString().ToLower(), unchanged = false });
     }
+
+    /// <summary>FR-23-03 — Doctor reviews pre-check submission inline in consult flow.</summary>
+    [HttpGet("{id:guid}/precheck")]
+    [AuthorizeRoles("Doctor", "ClinicAdmin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPrecheckSubmission(Guid id, CancellationToken ct)
+    {
+        var submission = await _db.PrecheckSubmissions
+            .FirstOrDefaultAsync(s => s.AppointmentId == id, ct);
+
+        if (submission is null || submission.SubmittedAt is null)
+            return Ok(new { submitted = false });
+
+        return Ok(new
+        {
+            submitted = true,
+            submittedAt = submission.SubmittedAt,
+            chiefComplaint = submission.ChiefComplaint,
+            symptomDuration = submission.SymptomDuration,
+            medications = submission.Medications,
+            allergies = submission.Allergies
+        });
+    }
+
+    /// <summary>FR-23-02 — Patient submits pre-check form (unauthenticated, tokenized with DOB verification).</summary>
+    [HttpPost("/api/v1/precheck/{token}")]
+    [AllowAnonymous]
+    [EnableRateLimiting("precheck")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> SubmitPrecheck(string token, [FromBody] PrecheckSubmissionRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return BadRequest(new { error = "invalid_token" });
+
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+        var submission = await _db.PrecheckSubmissions
+            .Include(s => s.Appointment)
+                .ThenInclude(a => a.Patient)
+            .FirstOrDefaultAsync(s => s.TokenHash == hash, ct);
+
+        if (submission is null)
+            return BadRequest(new { error = "invalid_token" });
+
+        if (submission.SubmittedAt is not null)
+            return Ok(new { message = "already_submitted" });
+
+        if (DateTimeOffset.UtcNow > submission.ExpiresAt)
+            return BadRequest(new { error = "token_expired" });
+
+        // P2-C1 Identity binding: Verify submitted DOB matches patient record
+        var patient = submission.Appointment?.Patient;
+        if (patient != null && patient.DobHasValue && patient.Dob.HasValue)
+        {
+            if (string.IsNullOrWhiteSpace(request.DateOfBirth) ||
+                !DateOnly.TryParse(request.DateOfBirth, out var submittedDob) ||
+                submittedDob != patient.Dob.Value)
+            {
+                return BadRequest(new { error = "identity_verification_failed" });
+            }
+        }
+
+        submission.SubmittedAt = DateTimeOffset.UtcNow;
+        submission.ChiefComplaint = request.ChiefComplaint;
+        submission.SymptomDuration = request.SymptomDuration;
+        submission.Medications = request.Medications;
+        submission.Allergies = request.Allergies;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { message = "submitted" });
+    }
 }
 
-public record BookAppointmentRequest(Guid PatientId, Guid DoctorId, string Date, string TimeSlot, string Type);
-public record UpdateAppointmentRequest(string Status);
-public record UpdatePriorityRequest(string Priority, string? Reason = null);
+public record PrecheckSubmissionRequest(
+    string? DateOfBirth,
+    string? ChiefComplaint,
+    string? SymptomDuration,
+    string? Medications,
+    string? Allergies
+);
+
+public record BookAppointmentRequest(
+    [Required(ErrorMessage = "Patient ID is required")]
+    Guid PatientId,
+
+    [Required(ErrorMessage = "Doctor ID is required")]
+    Guid DoctorId,
+
+    [Required(ErrorMessage = "Appointment Date is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Date must be YYYY-MM-DD")]
+    string Date,
+
+    [Required(ErrorMessage = "TimeSlot is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "TimeSlot must be HH:mm format")]
+    string TimeSlot,
+
+    [Required(ErrorMessage = "Appointment Type is required")]
+    string Type);
+
+public record UpdateAppointmentRequest(
+    [Required(ErrorMessage = "Status is required")]
+    string Status);
+
+public record UpdatePriorityRequest(
+    [Required(ErrorMessage = "Priority is required"), RegularExpression("(?i)^(normal|emergency|urgent)$", ErrorMessage = "Priority must be normal, urgent, or emergency")]
+    string Priority,
+
+    [StringLength(300, ErrorMessage = "Reason cannot exceed 300 characters")]
+    string? Reason = null);
 
