@@ -142,7 +142,7 @@ public class LedgerController : ControllerBase
     public async Task<IActionResult> ListExpenses([FromQuery] string? month, CancellationToken ct)
     {
         var (year, monthNum) = ParseMonth(month);
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
