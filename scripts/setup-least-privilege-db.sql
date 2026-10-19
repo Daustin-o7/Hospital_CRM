@@ -39,9 +39,27 @@ GRANT INSERT, SELECT ON TABLE "NurseAuditLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "NotificationLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "PriorityLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "ImpersonationLogs" TO app_user;
+GRANT UPDATE ("EndedAt") ON TABLE "ImpersonationLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "AppointmentHistories" TO app_user;
 GRANT INSERT, SELECT ON TABLE "ControlledSubstanceRegisters" TO app_user;
 
 -- 6. Invalidate Legacy Sessions on Key Rotation
 UPDATE "RefreshTokens" SET "RevokedAt" = NOW() WHERE "RevokedAt" IS NULL;
+
+-- 7. Hangfire background jobs live in their own schema, which the public-schema
+--    grants above do not reach. Without this the API cannot start: Hangfire fails
+--    to acquire its distributed locks and aborts with a PostgreSqlDistributedLockException.
+--    Hangfire also creates its own tables on first run, so it needs CREATE here.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_namespace WHERE nspname = 'hangfire') THEN
+        EXECUTE 'CREATE SCHEMA hangfire';
+    END IF;
+END $$;
+
+GRANT USAGE, CREATE ON SCHEMA hangfire TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA hangfire TO app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA hangfire TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA hangfire GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA hangfire GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 

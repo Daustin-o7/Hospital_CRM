@@ -10,16 +10,25 @@ namespace Hospital_CRM.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Append-only enforcement can only be applied by a role that owns the tables.
+            // Least-privilege runtime roles cannot create or grant on app_user, so this
+            // warns instead of aborting the deploy. The complete set of grants (all seven
+            // audit tables, not just these two) lives in scripts/setup-least-privilege-db.sql.
             migrationBuilder.Sql(@"
 DO $$
 BEGIN
-    CREATE ROLE app_user;
-EXCEPTION WHEN duplicate_object THEN null;
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+        REVOKE UPDATE, DELETE ON ""PatientAuditLogs"" FROM app_user;
+        REVOKE UPDATE, DELETE ON ""NotificationLogs"" FROM app_user;
+        GRANT INSERT, SELECT ON ""PatientAuditLogs"" TO app_user;
+        GRANT INSERT, SELECT ON ""NotificationLogs"" TO app_user;
+    ELSE
+        RAISE NOTICE 'app_user role not found; append-only grants skipped. Run scripts/setup-least-privilege-db.sql as the schema owner.';
+    END IF;
+EXCEPTION
+    WHEN insufficient_privilege THEN
+        RAISE WARNING 'Not privileged to enforce append-only audit for app_user. Run scripts/setup-least-privilege-db.sql as the schema owner.';
 END $$;");
-            migrationBuilder.Sql("REVOKE UPDATE, DELETE ON \"PatientAuditLogs\" FROM app_user;");
-            migrationBuilder.Sql("REVOKE UPDATE, DELETE ON \"NotificationLogs\" FROM app_user;");
-            migrationBuilder.Sql("GRANT INSERT ON \"PatientAuditLogs\" TO app_user;");
-            migrationBuilder.Sql("GRANT INSERT ON \"NotificationLogs\" TO app_user;");
         }
 
         /// <inheritdoc />

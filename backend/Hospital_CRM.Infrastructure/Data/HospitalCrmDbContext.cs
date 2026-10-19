@@ -1,16 +1,26 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Hospital_CRM.Domain.Entities;
+using Hospital_CRM.Domain.Services;
 
 namespace Hospital_CRM.Infrastructure.Data;
 
 public class HospitalCrmDbContext : DbContext
 {
-    public HospitalCrmDbContext(DbContextOptions<HospitalCrmDbContext> options) : base(options) { }
+    private readonly ITenantContext? _tenantContext;
+
+    public HospitalCrmDbContext(
+        DbContextOptions<HospitalCrmDbContext> options,
+        ITenantContext? tenantContext = null) : base(options)
+    {
+        _tenantContext = tenantContext;
+    }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<StaffInvite> StaffInvites => Set<StaffInvite>();
+    public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Clinic> Clinics => Set<Clinic>();
     public DbSet<ClinicHours> ClinicHours => Set<ClinicHours>();
     public DbSet<ClinicHoliday> ClinicHolidays => Set<ClinicHoliday>();
@@ -39,7 +49,10 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<LabResult> LabResults => Set<LabResult>();
     public DbSet<LedgerExpense> LedgerExpenses => Set<LedgerExpense>();
     public DbSet<ImpersonationLog> ImpersonationLogs => Set<ImpersonationLog>();
+    public DbSet<ImpersonationPhiAccessLog> ImpersonationPhiAccessLogs => Set<ImpersonationPhiAccessLog>();
     public DbSet<TenantFeatureFlag> TenantFeatureFlags => Set<TenantFeatureFlag>();
+    public DbSet<TenantIntegration> TenantIntegrations => Set<TenantIntegration>();
+    public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
     public DbSet<NurseProfile> NurseProfiles => Set<NurseProfile>();
     public DbSet<NurseAvailability> NurseAvailabilities => Set<NurseAvailability>();
     public DbSet<NurseShift> NurseShifts => Set<NurseShift>();
@@ -58,10 +71,37 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<Department> Departments => Set<Department>();
 
 
+    public Guid CurrentTenantId => _tenantContext?.CurrentTenantId ?? Guid.Empty;
+    public bool BypassTenantFilter => _tenantContext == null || _tenantContext.IsPlatformAdmin;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         ApplyConfigurations(modelBuilder);
+        ApplyTenantFilters(modelBuilder);
+    }
+
+    private void ApplyTenantFilters(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(ITenantScoped).IsAssignableFrom(entityType.ClrType) &&
+                entityType.BaseType == null &&
+                !entityType.IsOwned())
+            {
+                var method = typeof(HospitalCrmDbContext)
+                    .GetMethod(nameof(ConfigureTenantFilter), BindingFlags.NonPublic | BindingFlags.Instance)?
+                    .MakeGenericMethod(entityType.ClrType);
+
+                method?.Invoke(this, [modelBuilder]);
+            }
+        }
+    }
+
+    private void ConfigureTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : class, ITenantScoped
+    {
+        modelBuilder.Entity<TEntity>().HasQueryFilter(e =>
+            BypassTenantFilter || e.TenantId == CurrentTenantId);
     }
 
     private static void ApplyConfigurations(ModelBuilder modelBuilder)
@@ -73,7 +113,7 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.Email).HasMaxLength(255);
             e.Property(x => x.PasswordHash).HasMaxLength(255);
-            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.TenantId).IsRequired(false);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
             e.HasOne(x => x.Clinic).WithMany(c => c.Users).HasForeignKey(x => x.ClinicId);
@@ -232,9 +272,20 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.ChangedAt).HasDefaultValueSql("now()");
         });
 
+        modelBuilder.Entity<Tenant>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).HasMaxLength(255).IsRequired();
+            e.Property(x => x.ActivatedModules).HasMaxLength(1000).HasDefaultValue("core");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
+        });
+
         modelBuilder.Entity<Clinic>(e =>
         {
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TenantId).IsUnique();
+            e.HasOne(x => x.Tenant).WithOne(t => t.Clinic).HasForeignKey<Clinic>(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.OrganizationType).HasMaxLength(100);
             e.Property(x => x.LegalName).HasMaxLength(255);
@@ -257,7 +308,6 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.InvoicePrefix).HasMaxLength(20);
             e.Property(x => x.TokenFormat).HasMaxLength(20);
             e.Property(x => x.TokenResetFrequency).HasMaxLength(20);
-            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
 
@@ -407,10 +457,36 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.InvoiceId);
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.RazorpayPaymentId).HasMaxLength(255);
+            e.Property(x => x.RazorpayOrderId).HasMaxLength(255);
+            e.Property(x => x.Utr).HasMaxLength(64);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Invoice).WithMany(inv => inv.Payments).HasForeignKey(x => x.InvoiceId);
+        });
+
+        modelBuilder.Entity<TenantIntegration>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.Provider }).IsUnique();
+            e.HasIndex(x => x.WebhookPathToken).IsUnique();
+            e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+            e.Property(x => x.MerchantId).HasMaxLength(255);
+            e.Property(x => x.SecretProtected).HasMaxLength(2000);
+            e.Property(x => x.WebhookPathToken).HasMaxLength(64).IsRequired();
+        });
+
+        modelBuilder.Entity<ProcessedWebhookEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.Provider, x.EventId }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.Property(x => x.Provider).HasMaxLength(32).IsRequired();
+            e.Property(x => x.EventId).HasMaxLength(255).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            e.Property(x => x.Utr).HasMaxLength(64);
+            e.Property(x => x.Reference).HasMaxLength(255);
         });
 
         modelBuilder.Entity<NotificationLog>(e =>
@@ -531,6 +607,14 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Reason).HasMaxLength(500);
         });
 
+        modelBuilder.Entity<ImpersonationPhiAccessLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.ImpersonationId);
+            e.Property(x => x.Path).HasMaxLength(512).IsRequired();
+            e.Property(x => x.Method).HasMaxLength(10).IsRequired();
+        });
+
         modelBuilder.Entity<TenantFeatureFlag>(e =>
         {
             e.HasKey(x => x.Id);
@@ -642,14 +726,33 @@ public class HospitalCrmDbContext : DbContext
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        EnforceTenantScopedInserts();
         EnforceAppendOnlyAuditLogs();
         return base.SaveChangesAsync(cancellationToken);
     }
 
     public override int SaveChanges()
     {
+        EnforceTenantScopedInserts();
         EnforceAppendOnlyAuditLogs();
         return base.SaveChanges();
+    }
+
+    private void EnforceTenantScopedInserts()
+    {
+        var tenantId = _tenantContext?.CurrentTenantId;
+        if (!tenantId.HasValue || tenantId.Value == Guid.Empty) return;
+
+        foreach (var entry in ChangeTracker.Entries<ITenantScoped>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.TenantId == Guid.Empty)
+                {
+                    entry.Entity.TenantId = tenantId.Value;
+                }
+            }
+        }
     }
 
     private void EnforceAppendOnlyAuditLogs()
@@ -661,7 +764,7 @@ public class HospitalCrmDbContext : DbContext
                          e.Entity is AppointmentHistory ||
                          e.Entity is NotificationLog ||
                          e.Entity is PriorityLog ||
-                         e.Entity is ImpersonationLog ||
+                         (e.Entity is ImpersonationLog && !IsPermittedImpersonationLogEnd(e)) ||
                          e.Entity is ControlledSubstanceRegister))
             .ToList();
 
@@ -670,5 +773,20 @@ public class HospitalCrmDbContext : DbContext
             var entityNames = string.Join(", ", forbiddenEntries.Select(e => e.Entity.GetType().Name));
             throw new InvalidOperationException($"Audit records are append-only. Modification and deletion of [{entityNames}] are prohibited per FR-08.");
         }
+    }
+
+    private static bool IsPermittedImpersonationLogEnd(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        if (entry.State != EntityState.Modified) return false;
+        var endedAtProp = entry.Property(nameof(ImpersonationLog.EndedAt));
+        var originalEndedAt = endedAtProp.OriginalValue;
+        var currentEndedAt = endedAtProp.CurrentValue;
+
+        // Permitted only when EndedAt transitions from null to a non-null timestamp,
+        // and no other property was modified on the ImpersonationLog entry.
+        var isEnding = originalEndedAt == null && currentEndedAt != null;
+        var onlyEndedAtModified = entry.Properties.All(p => p.Metadata.Name == nameof(ImpersonationLog.EndedAt) || !p.IsModified);
+
+        return isEnding && onlyEndedAtModified;
     }
 }

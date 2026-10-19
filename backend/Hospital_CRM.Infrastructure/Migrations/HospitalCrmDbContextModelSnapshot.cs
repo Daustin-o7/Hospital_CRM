@@ -261,9 +261,7 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
+                        .HasColumnType("uuid");
 
                     b.Property<string>("TimeFormat")
                         .IsRequired()
@@ -299,6 +297,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
 
                     b.ToTable("Clinics");
                 });
@@ -884,6 +885,47 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("TenantId", "StartedAt");
 
                     b.ToTable("ImpersonationLogs");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ImpersonationPhiAccessLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ImpersonatedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ImpersonationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("PlatformAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImpersonationId");
+
+                    b.ToTable("ImpersonationPhiAccessLogs");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.InventoryItem", b =>
@@ -1946,12 +1988,23 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("PaidAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RazorpayOrderId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.Property<string>("RazorpayPaymentId")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Utr")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 
@@ -1960,6 +2013,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("TenantId", "CreatedAt");
 
                     b.ToTable("Payments");
                 });
@@ -2104,6 +2159,60 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("ChangedBy");
 
                     b.ToTable("PriorityLogs");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.ProcessedWebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("RawPayload")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Utr")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "EventId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("ProcessedWebhookEvents");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PurchaseOrder", b =>
@@ -2447,6 +2556,49 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.ToTable("Suppliers");
                 });
 
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActivatedModules")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasDefaultValue("core");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset?>("SubscriptionEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SubscriptionStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubscriptionTier")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tenants");
+                });
+
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.TenantFeatureFlag", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2476,6 +2628,56 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("TenantFeatureFlags");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.TenantIntegration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MerchantId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SecretProtected")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WebhookPathToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WebhookPathToken")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("TenantIntegrations");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.User", b =>
@@ -2516,10 +2718,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .IsConcurrencyToken()
@@ -2611,6 +2811,17 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Appointment");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.Clinic", b =>
+                {
+                    b.HasOne("Hospital_CRM.Domain.Entities.Tenant", "Tenant")
+                        .WithOne("Clinic")
+                        .HasForeignKey("Hospital_CRM.Domain.Entities.Clinic", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.ClinicHoliday", b =>
@@ -3288,6 +3499,11 @@ namespace Hospital_CRM.Infrastructure.Migrations
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Prescription", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.Tenant", b =>
+                {
+                    b.Navigation("Clinic");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.User", b =>
