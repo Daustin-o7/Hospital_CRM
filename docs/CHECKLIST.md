@@ -151,14 +151,14 @@ Formally moved to Phase 3 per FRD-Phase2 §9.
 | ControlledSubstanceRegister (Schedule H/H1/NDPS/X) | `ControlledSubstanceRegister.cs` | ✅ |
 | Enums: ScheduleClass, InvoiceType, PurchaseOrderStatus | `DrugEnums.cs` | ✅ |
 | Migration `20260904201324_AddPharmacyTrack2` | `Migrations/` | ✅ |
-| PharmacyController: drugs CRUD | `GET/POST /pharmacy/drugs` | ✅ |
-| PharmacyController: FEFO batches | `GET /pharmacy/drugs/{id}/batches/fefo` | ✅ |
-| PharmacyController: stock inwarding | `POST /pharmacy/drugs/{id}/batches` | ✅ |
-| PharmacyController: POS checkout | `POST /pharmacy/checkout` | ✅ |
-| PharmacyController: Schedule H/H1 gate + compliance register | `GET /pharmacy/compliance/register` | ✅ |
-| PharmacyController: generic substitutes | `GET /pharmacy/substitutes/{drugId}` | ✅ |
-| PharmacyController: stats dashboard | `GET /pharmacy/stats` | ✅ |
-| PharmacyController: supplier CRUD | `GET/POST /pharmacy/suppliers` | ✅ |
+| PharmacyCatalogController: drugs CRUD & export | `GET/POST /pharmacy/drugs`, `GET /pharmacy/drugs/export` | ✅ |
+| PharmacyCatalogController: generic substitutes | `GET /pharmacy/substitutes/{drugId}` | ✅ |
+| PharmacyBatchController: FEFO batches | `GET /pharmacy/drugs/{id}/batches/fefo` | ✅ |
+| PharmacyBatchController: stock inwarding & PO receive | `POST /pharmacy/drugs/{id}/batches`, `POST /pharmacy/purchase-orders/{id}/receive` | ✅ |
+| PharmacyPosController: POS checkout & returns | `POST /pharmacy/checkout`, `POST /pharmacy/returns/{invoiceId}` | ✅ |
+| PharmacyPosController: stats dashboard | `GET /pharmacy/stats` | ✅ |
+| PharmacyComplianceController: Rx dispense | `POST /pharmacy/dispense` | ✅ |
+| PharmacyComplianceController: Schedule H/H1 register & suppliers | `GET /pharmacy/compliance/register`, `GET/POST /pharmacy/suppliers` | ✅ |
 | Frontend: Pharmacy POS | `/dashboard/pharmacy/pos` | ✅ |
 | Frontend: Drug Batches | `/dashboard/pharmacy/batches` | ✅ |
 | Frontend: Drug Compliance | `/dashboard/pharmacy/compliance` | ✅ |
@@ -207,7 +207,7 @@ Per FRD §5.2 and AGENTS.md:
 | Item | Reason |
 |---|---|
 | UAE adapter | International, not pilot region |
-| Dedicated DB/Instance tenancy | Tier 3 SaaS model, not pilot scope |
+| Dedicated DB/Instance tenancy | Tier 3 SaaS model, not pilot scope. **Confirmed by decision D2 (2026-10-19):** the first clients run on a **shared database**, so Tier 2/Tier 3 remain deferred — but tenant isolation (B1) moves *earlier*, to a pre-pilot blocker, rather than later. See `Platform-Admin-Master-TODO.md` §0. |
 | AI features (Track 3) | Deferred — regulatory review needed |
 | IPD (Track 4) | Deferred — OPD-only pilot |
 | Real-time WebSockets | Accepted debt — polling sufficient at OPD scale |

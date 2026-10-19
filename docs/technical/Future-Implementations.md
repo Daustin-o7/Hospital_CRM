@@ -64,6 +64,8 @@ Platform expansion beyond Phase 1 (FR-01–22) is governed by **strict commercia
 +-----------------------------------------------------------------------------------+
 ```
 
+> **Sequencing changed by decision D2 (2026-10-19).** The diagram above assumes tenant isolation (RLS) arrives with Gate 3 "Commercial SaaS". Because **D2 chose a shared database from the first client**, tenant isolation is now a **pre-pilot requirement** — tracked as **B1** in `Platform-Admin-Master-TODO.md` — so it moves *ahead of* Gate 2 rather than behind Gate 3. The rest of Gate 3 (multi-tenant lifecycle, remaining Phase 2 surface) is unaffected. Tier 1's architecture below is now the architecture of the first client, not a later tier.
+
 ---
 
 ## 2. Advanced Multi-Tenancy Architecture (Tiers 2 & 3)

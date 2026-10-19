@@ -67,8 +67,8 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
 
 10. **Missing Tenant Feature Flag for `pharmacy`** (Track 2a):
     - *Item*: Pharmacy module is always-on; no `TenantFeatureFlag` gating it per tenant. MOD-14 infrastructure exists but no seed row for `pharmacy` flag.
-    - *Status*: Known debt. Track 2b will add flag seed + check in `PharmacyController` (or middleware).
-    - *Action*: Add `TenantFeatureFlag` seed in Track 2b; gate controller with feature flag check.
+    - *Status*: Known debt. Track 2b will add flag seed + check in the 4 modular pharmacy controllers (or middleware).
+    - *Action*: Add `TenantFeatureFlag` seed in Track 2b; gate pharmacy controllers with feature flag check.
 
 ---
 

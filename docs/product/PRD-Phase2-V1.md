@@ -76,4 +76,4 @@ Mirroring PRD_Phase1 §9's discipline, not loosening it for Phase 2:
 ## 8. Open Questions Carried Forward
 - MOD-11's export format — needs a real accountant conversation, not another doctor interview
 - MOD-09's three-tier stock framing — needs direct pilot-clinic validation
-- Whether MOD-14's Tier 2 tenancy milestone is even on the near-term roadmap, or whether Phase 2 pilots will stay single-tenant for a while yet — not decided, doesn't block anything above it
+- ~~Whether MOD-14's Tier 2 tenancy milestone is even on the near-term roadmap, or whether Phase 2 pilots will stay single-tenant for a while yet — not decided, doesn't block anything above it~~ → **RESOLVED (2026-10-19).** MOD-14's precondition is being met now: decisions **D1** and **D2** (`Platform-Admin-Master-TODO.md` §0) activate tenancy with a real `tenants` table and a **shared database from the first client**. MOD-14 is therefore buildable, and building it is the active workstream — not a later business milestone.

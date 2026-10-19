@@ -1,5 +1,7 @@
 # Platform Admin & Commercialisation Roadmap
 
+> ⚠️ **SUPERSEDED** by [`Platform-Admin-Master-TODO.md`](../../Platform-Admin-Master-TODO.md) (v1.0). Kept for the raw findings and file references only. Do not plan from this document.
+
 > **Status:** DRAFT — for review. No code changes until approved.
 > **Branch:** `feat/security-hardening`
 > **Aligns with:** `docs/technical/Future-Implementations.md` (Gates 1–6, Tenancy Tiers 1–3), `TODO.md`, `Pending Works.md`, `docs/product/FRD_FINAL.md` §MOD-14 (FR-14-01…04)
@@ -192,6 +194,8 @@ The existing docs already define the tiers and gates (`Future-Implementations.md
 ---
 
 ## 7. Decisions needed from you
+
+> **SUPERSEDED — do not act on this table.** These six were the *pre-decision* defaults. All eight decisions are now answered; see **`Platform-Admin-Master-TODO.md` §0 "Decisions as confirmed (2026-10-19)"**. Three differences matter: **D2** was answered *"shared database from the start"* (not "Tier 1 as a later sales model" — it makes tenant isolation a pre-pilot blocker), the suspension grace is **3 days**, not 7, and there is a new **D7** (who collects patient payments) answered as a **hybrid direct-to-clinic** model where SAMSTACK never holds patient funds. The rows below are kept only as the historical record of what was recommended.
 
 | # | Decision | Recommendation |
 |---|---|---|

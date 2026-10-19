@@ -38,7 +38,7 @@
 | `UserRole.Pharmacist`, `Nurse`, `PlatformAdmin` | `Domain/Enums/UserRole.cs` | ✅ |
 | `Drug`, `DrugBatch`, `Supplier`, `PurchaseOrder`, `DispenseRecord`, `DispenseItem`, `ControlledSubstanceRegister` | `Domain/Entities/` | ✅ |
 | `ScheduleClass`, `InvoiceType`, `PurchaseOrderStatus` | `Domain/Enums/DrugEnums.cs` | ✅ |
-| `PharmacyController` + `[AuthorizeRoles("Pharmacist","Doctor","ClinicAdmin","Receptionist","Nurse")]` | `Api/Controllers/PharmacyController.cs` | ✅ |
+| 4 Modular Pharmacy Controllers (`PharmacyCatalogController`, `PharmacyPosController`, `PharmacyBatchController`, `PharmacyComplianceController`) + `[AuthorizeRoles(...)]` | `Api/Controllers/Pharmacy*.cs` | ✅ |
 | `PharmacyService` (fulfillment, batch tracking, expiry) | Inline in controller (no separate service class needed — ponytail) | ✅ |
 | `/pharmacy` lazy-loaded route tree | `frontend/src/pages/Pharmacy/` (POS, Batches, Compliance) | ✅ |
 | DB migration | `Migrations/20260904201324_AddPharmacyTrack2.cs` | ✅ |
@@ -114,7 +114,11 @@
 ### New Code Files (Track 2a Implementation)
 ```
 backend/Hospital_CRM.Api/Controllers/
-├── PharmacyController.cs                    (MOD-15/16/17)
+├── PharmacyCatalogController.cs             (MOD-15 Drug Catalog & Substitutes)
+├── PharmacyPosController.cs                 (MOD-15/16 POS Checkout, Returns, Stats)
+├── PharmacyBatchController.cs               (MOD-15 FEFO Batch Tracking & PO Receive)
+├── PharmacyComplianceController.cs          (MOD-16/17 Rx Dispense, Registers & Suppliers)
+├── PharmacyDtos.cs                          (Shared Pharmacy DTOs)
 
 backend/Hospital_CRM.Domain/Entities/
 ├── Drug.cs                                  (MOD-15)

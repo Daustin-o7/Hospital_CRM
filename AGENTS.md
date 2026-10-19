@@ -37,7 +37,7 @@ Build what's in them; don't build what isn't. If a task seems to need something 
 - **`.agents/skills/frontend-design/SKILL.md`** — ⚡ MUST READ before editing any `.tsx`, `.css`, or UI file. Synthesises taste-skill + Vercel guidelines + design-craft rules. Covers colour tokens, typography scale, interaction quality, anti-patterns checklist, and page-specific patterns for Hospital CRM.
 
 ## What NOT to Build Yet
-Pharmacy core (POS, FEFO batches, inward, compliance — Track 2 partial) is **shipped**. Remaining Track 2, AI features (Track 3), IPD (Track 4), UAE adapter, Dedicated DB/Instance tenancy — out of scope per FRD §5.2. Voice Agent (MOD-27) is Phase 3.
+Pharmacy core is **shipped** across 4 dedicated modular controllers (`PharmacyCatalogController`, `PharmacyPosController`, `PharmacyBatchController`, `PharmacyComplianceController`). Remaining Track 2, AI features (Track 3), IPD (Track 4), UAE adapter, Dedicated DB/Instance tenancy — out of scope per FRD §5.2. Voice Agent (MOD-27) is Phase 3.
 
 ---
 
@@ -53,8 +53,10 @@ dotnet build
 dotnet run --project backend/Hospital_CRM.Api
 
 # EF Core migrations
+# NOTE: the CLI uses DefaultConnection (app_user), which cannot create tables. Pass the owner
+# connection explicitly or the update fails with "permission denied for schema public".
 dotnet ef migrations add <Name> --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api
-dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api
+dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api --connection "<MigrationsConnection from appsettings.json>"
 
 # Test
 dotnet test

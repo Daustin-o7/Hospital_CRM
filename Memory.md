@@ -4,6 +4,8 @@
 **Session mode:** Build
 **Project root:** `E:\Company\Hospital Management\Hospital_CRM`
 
+> ⚠️ **STALE — last updated 2026-09-04.** This file predates the Platform Admin & Commercialisation work. Current state, decisions (**D1–D8**) and open items live in **`Platform-Admin-Master-TODO.md`**; the active workstream is **`agents/state/current.md`**. Specific facts that have since changed are struck through inline below.
+
 ---
 
 ## 📊 Current State at a Glance
@@ -30,7 +32,11 @@
 - Drug catalog (`Drug`, `DrugBatch`, `Supplier`, `PurchaseOrder`, `DispenseRecord`, `DispenseItem`, `ControlledSubstanceRegister`)
 - Enums: `ScheduleClass` (General/H/H1/NDPS/X), `InvoiceType` (Consultation/Pharmacy), `PurchaseOrderStatus`
 - Migration `20260904201324_AddPharmacyTrack2`: creates 7 tables, makes `Invoice.AppointmentId` nullable, adds walk-in fields, adds `InvoiceLineItem` pharmacy columns (Quantity, UnitPrice, GstRate, HsnCode, DrugBatchId)
-- `PharmacyController` at `/api/v1/pharmacy`: drugs CRUD, FEFO batch endpoint, stock inwarding, POS checkout (idempotent, Schedule H/H1 gate, controlled substance register write, Razorpay payment → MOD-11 ledger auto-reconciles), generic substitutes (by generic name), pharmacy stats, supplier CRUD
+- **4 Dedicated Modular Controllers** at `/api/v1/pharmacy` (superseded legacy monolithic controller to prevent ASP.NET Core route conflicts):
+  1. `PharmacyCatalogController`: Drug catalog CRUD (`GET/POST /drugs`, `GET /drugs/{id}`), CSV catalog export (`GET /drugs/export`), generic substitute lookup (`GET /substitutes/{drugId}`).
+  2. `PharmacyPosController`: POS checkout (`POST /checkout`), walk-in/Rx sales, billing returns & stock restorations (`POST /returns/{invoiceId}`), pharmacy stats metrics (`GET /stats`).
+  3. `PharmacyBatchController`: FEFO batch tracking (`GET /drugs/{id}/batches/fefo`, `GET /drugs/{id}/fefo-batch`), stock inwarding (`POST /drugs/{id}/batches`), PO receiving & batch creation (`POST /purchase-orders/{id}/receive`).
+  4. `PharmacyComplianceController`: Prescription dispense validation (`POST /dispense`), Schedule H/H1/NDPS/X compliance register (`GET /compliance/register`), supplier management (`GET/POST /suppliers`).
 - Frontend: `/dashboard/pharmacy/pos` (PharmacyPOS.tsx), `/dashboard/pharmacy/batches` (PharmacyBatches.tsx), `/dashboard/pharmacy/compliance` (PharmacyCompliance.tsx)
 - Nav + RBAC in DashboardLayout; Pharmacist/Nurse/PlatformAdmin dev presets in Login
 - Seed: `Indian_Essential_Medicine_Master.csv` → 90 drugs with 2 batches each + supplier
@@ -48,7 +54,7 @@
 - `UserRole` enum has `Pharmacist`, `Nurse`, `PlatformAdmin`
 - `PrescriptionItem.MedicineText` remains free-text (no drug master link; substitute finder uses generic name fuzzy match)
 - MOD-11 income query reads `payments` table — pharmacy sales auto-reconcile via `Payment` entity
-- All entities have dormant `tenant_id` = `Guid.Empty`
+- ~~All entities have dormant `tenant_id` = `Guid.Empty`~~ → **SUPERSEDED by D1 (2026-10-19):** `tenant_id` is the tenant key everywhere and is backed by a real `tenants` table; `Guid.Empty` is retired (platform admins use NULL = platform scope). See `Platform-Admin-Master-TODO.md` A3.
 
 ---
 
@@ -94,10 +100,10 @@
 
 - **Stack:** .NET 10 (Minimal APIs, EF Core 10), React 19 PWA, PostgreSQL 16+
 - **Auth:** Azure Entra External ID (managed OIDC, not Duende)
-- **Payments:** Razorpay
+- **Payments:** Razorpay — **SUPERSEDED by D7 (2026-10-19):** patient payment capture is **hybrid direct-to-clinic** (PSP business webhooks primary, Android notification bridge fallback, manual "Mark as Paid" + UTR). SAMSTACK never holds patient funds; Razorpay remains optional for remote SMS payment links only. Razorpay still bills *SAMSTACK's own* subscription invoices (B4).
 - **Messaging:** WhatsApp Business API
-- **tenant_id** dormant in Phase 1, use `Guid.Empty`
-- **Audit logs:** DB role `app_user` has `REVOKE UPDATE, DELETE` on audit tables
+- ~~**tenant_id** dormant in Phase 1, use `Guid.Empty`~~ → **SUPERSEDED by D1 (2026-10-19):** `TenantId` is the key everywhere; `Guid.Empty` is retired. A real `tenants` table is introduced now.
+- **Audit logs:** DB role `app_user` has `REVOKE UPDATE, DELETE` on audit tables. **Verified enforced 2026-10-19:** `app_user` receives `permission denied` on `UPDATE` and `DELETE` of `PatientAuditLogs`. Note this was previously a no-op — the app connected as `postgres` (superuser). The runtime role is now genuinely `app_user`, with schema changes on a separate `MigrationsConnection`.
 - **Amendments, never overwrites** on clinical data (FR-14/15/08)
 - **Route style:** direct lowercase (`api/v1/resource-name`), NOT `[Route("api/v1/[controller]")]`
 - **JSONB columns:** `.HasColumnType("jsonb")` for string properties holding JSON

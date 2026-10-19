@@ -121,8 +121,8 @@ Audit every component against this checklist before shipping:
 ### Colour Tokens
 ```css
 --color-surface:    #ffffff       /* card backgrounds */
---color-base:       #f8fafc       /* page background */
---color-border:     #e2e8f0       /* hairline borders */
+--color-base:       #F2EFEA       /* soft cream page background canvas */
+--color-border:     #ded7cb       /* warm stone hairline borders */
 --color-text:       #1e293b       /* primary text */
 --color-text-muted: #64748b       /* secondary text */
 --color-accent:     #0d9488       /* teal — primary action */

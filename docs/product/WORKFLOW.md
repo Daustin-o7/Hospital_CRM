@@ -9,17 +9,22 @@
 ```
 Hospital CRM (Samstack AI)
 ├── Phase 1: FR-01 → FR-22 (core CRM + billing) — SHIPPED
-└── Phase 2: FR-23 → FR-14 (9 Fast-Follow modules) — SHIPPED 100%
-    ├── MOD-23 Pre-Check Form
-    ├── MOD-24 Emergency Queue
-    ├── MOD-25 Live Ticket Tracking
-    ├── MOD-12 Speciality EMR Templates
-    ├── MOD-13 Notification Rules Engine (absorbs FR-20/21)
-    ├── MOD-09 Inventory
-    ├── MOD-10 Wishlist
-    ├── MOD-08 Lab Records
-    ├── MOD-11 Finance Ledger
-    └── MOD-14 Platform Admin Portal
+├── Phase 2: FR-23 → FR-14 (9 Fast-Follow modules) — SHIPPED 100%
+│   ├── MOD-23 Pre-Check Form
+│   ├── MOD-24 Emergency Queue
+│   ├── MOD-25 Live Ticket Tracking
+│   ├── MOD-12 Speciality EMR Templates
+│   ├── MOD-13 Notification Rules Engine (absorbs FR-20/21)
+│   ├── MOD-09 Inventory
+│   ├── MOD-10 Wishlist
+│   ├── MOD-08 Lab Records
+│   ├── MOD-11 Finance Ledger
+│   └── MOD-14 Platform Admin Portal
+└── Pharmacy Suite (Track 2 — 4 Dedicated Modular Controllers) — SHIPPED
+    ├── PharmacyCatalogController (MOD-15 Drug Catalog & Generic Substitutes)
+    ├── PharmacyBatchController (MOD-15 FEFO Batch Tracking & PO Receive)
+    ├── PharmacyPosController (MOD-15/16 POS Checkout, Returns & Stats)
+    └── PharmacyComplianceController (MOD-16/17 Rx Dispensing, Schedule Registers & Suppliers)
 ```
 
 **Stack:** .NET 10 (Minimal APIs, EF Core 10) · React 19 PWA · PostgreSQL 16 · Azure Entra External ID · Razorpay · WhatsApp Business API
@@ -740,6 +745,30 @@ PLATFORM ADMIN
   GET    /api/v1/platform-admin/impersonations        (MOD-14)
   GET    /api/v1/platform-admin/tenants/{id}/flags    (MOD-14)
   PATCH  /api/v1/platform-admin/tenants/{id}/flags/{flagName}  (MOD-14)
+
+PHARMACY CATALOG (PharmacyCatalogController)
+  GET    /api/v1/pharmacy/drugs                       (MOD-15 Drug Master CRUD)
+  GET    /api/v1/pharmacy/drugs/export                (MOD-15 CSV Catalog Export)
+  GET    /api/v1/pharmacy/drugs/{id}                  (MOD-15 Drug Details)
+  POST   /api/v1/pharmacy/drugs                       (MOD-15 Create Drug)
+  GET    /api/v1/pharmacy/substitutes/{drugId}        (MOD-15 Generic Substitutes)
+
+PHARMACY BATCHES & PO (PharmacyBatchController)
+  GET    /api/v1/pharmacy/drugs/{id}/batches/fefo     (MOD-15 FEFO Batch List)
+  GET    /api/v1/pharmacy/drugs/{id}/fefo-batch       (MOD-15 Next Active FEFO Batch)
+  POST   /api/v1/pharmacy/drugs/{id}/batches          (MOD-15 Stock Inwarding)
+  POST   /api/v1/pharmacy/purchase-orders/{id}/receive (MOD-15 PO Receive & Batch Inwarding)
+
+PHARMACY POS & SALES (PharmacyPosController)
+  POST   /api/v1/pharmacy/checkout                    (MOD-15/16 Idempotent POS Checkout)
+  POST   /api/v1/pharmacy/returns/{invoiceId}         (MOD-15/16 POS Returns & Stock Restoral)
+  GET    /api/v1/pharmacy/stats                       (MOD-15/16 Sales & Inventory Stats)
+
+PHARMACY COMPLIANCE & DISPENSING (PharmacyComplianceController)
+  POST   /api/v1/pharmacy/dispense                    (MOD-16 Rx Validation & Dispense)
+  GET    /api/v1/pharmacy/compliance/register         (MOD-16 Schedule H/H1/NDPS/X Registers)
+  GET    /api/v1/pharmacy/suppliers                   (MOD-17 Supplier List)
+  POST   /api/v1/pharmacy/suppliers                   (MOD-17 Create Supplier)
 ```
 
 ---
@@ -767,7 +796,7 @@ PLATFORM ADMIN
 
 ## Out of Scope (Explicit)
 
-- **Pharmacy** (MOD-15/16/17) — Track 2
+- **Pharmacy Track 2 Remainder** (MOD-15/16/17 core is shipped via 4 dedicated controllers; remaining Track 2 extended items out of scope)
 - **AI features** (MOD-18/19) — Track 3
 - **IPD** (MOD-20–26) — Track 4
 - **UAE adapter** — International

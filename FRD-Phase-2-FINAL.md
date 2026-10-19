@@ -331,6 +331,10 @@ Explicit, per instruction — not asserted, shown:
 
 **Precondition, stated once, applies to every FR below:** none of MOD-14 is buildable in a literal sense until Tier 2 tenancy (strategy-v0.5 §3.1) actually activates — this is a mechanical dependency on "does more than one tenant exist yet," not a pilot-feedback question. These FRs are fully specified now so they're ready the moment that precondition is met, not because they're buildable today.
 
+> **Implementation note (2026-10):** MOD-14 *was* implemented before this precondition was met, and that is the direct cause of its current defects. `PlatformAdminController` and a console page exist, but they were built against a dormant `tenant_id`: the console writes module flags keyed to `Clinic.Id` while the enforcement path (`IsPharmacyEnabledAsync`) reads `Guid.Empty`, so toggling a module silently does nothing. Tenant identity and the module gate are tracked as **A3** in `Platform-Admin-Master-TODO.md`.
+>
+> **Precondition now being met (2026-10-19):** decisions **D1** (a real `tenants` table, `TenantId` as the key everywhere) and **D2** (**shared database from the first client**) answer the "does more than one tenant exist yet" question in the affirmative. Consequently MOD-14 is no longer gated behind a business milestone — it is the active workstream. Note that D2 also makes tenant isolation (RLS, `Platform-Admin-Master-TODO.md` **B1**) a pre-pilot requirement rather than a later addition, which supersedes `TRD_Phase1.md`'s earlier "don't build the policies now".
+
 #### FR-14-01: Tenant List and Search
 **Roles:** Platform Admin (SAMSTACK's own team — auth-and-ia-v0.1's role, not a clinic role) · **NFR:** Security
 **Workflow:** List all tenants, searchable, with basic status (active tier, last activity).
@@ -341,6 +345,7 @@ Explicit, per instruction — not asserted, shown:
 #### FR-14-02: Tenant Detail and Configuration
 **Roles:** Platform Admin · **NFR:** Security
 **Workflow:** View/edit a tenant's tier, activated modules, subscription status.
+**Entitlement vs override (clarification):** FR-14-02's `activatedModules` is the **entitlement** — what the tenant's plan includes. FR-14-04's flags are **overrides** (kill switches) applied on top. A module is usable only when it is entitled **and** not overridden off; one gate function must evaluate both. The original text did not distinguish the two, and the implementation conflated them.
 **API shape:** `GET/PATCH /api/v1/platform-admin/tenants/{id}`
 **DB schema:** Extends tenant/clinic table with subscription/tier fields (not yet present in Phase 1's single-tenant schema).
 **Security notes:** Every change logged with Platform Admin identity — this is the highest-privilege action in the whole system, treated accordingly.

@@ -131,7 +131,7 @@ notification_log (id, appointment_id, channel, template, status, sent_at, delive
 
 **Indexes (Phase 1 scale, not over-built):** `patients(phone)`, `patients(name)` (trigram), `appointments(doctor_id, date)`, `invoices(status, created_at)`, `consultations` join path via `appointments(patient_id)`.
 
-**Row-level security:** `tenant_id` columns are present and populated (single value in Phase 1) but RLS policies are **not enabled yet** — strategy-v0.5 §3.1 defers this until Tier 2 tenancy is actually sold. Don't build the policies now; do keep every table's `tenant_id` column NOT NULL so adding RLS later is a policy addition, not a migration.
+**Row-level security:** `tenant_id` columns are present and populated (single value in Phase 1) but RLS policies are **not enabled yet**. strategy-v0.5 §3.1 deferred this until Tier 2 tenancy was sold — **that assumption has since changed.** Decision **D2** (`Platform-Admin-Master-TODO.md` §0, 2026-10-19) chose a **shared database from the very first client**, which makes tenant isolation (RLS plus a per-transaction `SET LOCAL` tenant context) a **pre-pilot blocker, tracked as B1**, rather than a later policy addition. Keep every table's `tenant_id` column NOT NULL, and note that `tenant_id` is now backed by a real `tenants` table per decision D1.
 
 ---
 

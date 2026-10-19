@@ -45,8 +45,8 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 
 - [ ] **Mobile app**: React Native tree is currently broken — held for explicit go-ahead.
 - [ ] **FR-22 offline sync**: client-side idempotency keys for registration/billing exist; full IndexedDB queue not built.
-- [ ] **Platform Admin Tier-2 features**: tenant impersonation/flags — endpoints deliberately not built (FR-14-01 list only; tier-gated).
-- [ ] **Razorpay refund API** — Track 2b TODO at `PharmacyController.cs:1182`.
+- [ ] **Platform Admin Tier-2 features**: the tenant list *and* the impersonation/flag endpoints **are** built (`PlatformAdminController`: `GET tenants`, `GET tenants/{id}`, `PATCH tenants/{id}`, `GET/PATCH tenants/{id}/flags`, `POST tenants/{id}/impersonate`, `POST impersonations/{id}/end`, `GET impersonations`), and a console page exists at `/dashboard/platform-admin`. What is *not* built: tenant provisioning (`POST tenants`), subscription/tier **enforcement** (status is stored but nothing acts on it), and a working module gate — see `Platform-Admin-Master-TODO.md` A3/A4/B3. This line previously claimed the endpoints did not exist.
+- [ ] **Razorpay refund API** — Track 2b TODO at `PharmacyPosController.cs:264` (ProcessReturn currently processes database return & stock restoral; Razorpay external gateway refund call pending API credentials).
 - [ ] **Voice Agent (MOD-27)** — Phase 3 per FRD-Phase2 §9.
 - [ ] **UAE/international payment adapter** — India-only adapters per scope.
 - [ ] **Dedicated DB/instance tenancy** — Tier-2+.
