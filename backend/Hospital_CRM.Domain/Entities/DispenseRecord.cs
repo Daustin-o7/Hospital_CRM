@@ -1,9 +1,9 @@
 namespace Hospital_CRM.Domain.Entities;
 
-public class DispenseRecord
+public class DispenseRecord : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TenantId { get; set; } = Guid.Empty;
+    public Guid TenantId { get; set; }
     public Guid? PrescriptionId { get; set; }
     public Guid? PatientId { get; set; }
     public string? WalkInCustomerName { get; set; }

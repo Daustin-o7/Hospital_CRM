@@ -4,7 +4,7 @@ namespace Hospital_CRM.Domain.Entities;
 /// FR-14-04: Per-tenant feature flag. Minimal — only what MOD-14 needs. No general
 /// flag infrastructure (TRD_Phase1 §10 explicitly deferred that).
 /// </summary>
-public class TenantFeatureFlag
+public class TenantFeatureFlag : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

@@ -4,9 +4,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class Payment
+public class Payment : ITenantScoped
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
     public Guid InvoiceId { get; set; }
     
     public PaymentMethod Method { get; set; }
@@ -16,6 +17,14 @@ public class Payment
     
     [MaxLength(255)]
     public string? RazorpayPaymentId { get; set; }
+
+    /// <summary>Razorpay order id created before checkout; the webhook matches on this.</summary>
+    [MaxLength(255)]
+    public string? RazorpayOrderId { get; set; }
+
+    /// <summary>Bank UTR / PSP reference captured on a manual or webhook-confirmed payment.</summary>
+    [MaxLength(64)]
+    public string? Utr { get; set; }
     
     public PaymentStatus Status { get; set; }
     public string? IdempotencyKey { get; set; }

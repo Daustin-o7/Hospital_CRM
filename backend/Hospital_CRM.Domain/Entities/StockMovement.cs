@@ -6,7 +6,7 @@ namespace Hospital_CRM.Domain.Entities;
 /// Append-only. Every stock movement (in or out) is its own row — the running balance
 /// is derived, never edited. Same audit principle as PatientAuditLog.
 /// </summary>
-public class StockMovement
+public class StockMovement : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

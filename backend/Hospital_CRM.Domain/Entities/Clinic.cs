@@ -3,7 +3,7 @@ using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class Clinic
+public class Clinic : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
@@ -109,4 +109,5 @@ public class Clinic
     public virtual ICollection<StaffInvite> StaffInvites { get; set; } = [];
     public virtual ICollection<User> Users { get; set; } = [];
     public virtual ICollection<Department> Departments { get; set; } = [];
+    public virtual Tenant? Tenant { get; set; }
 }

@@ -1,7 +1,7 @@
 namespace Hospital_CRM.Domain.Entities;
 
 // Append-only — REVOKE UPDATE, DELETE enforced at DB role level (see migration).
-public class NurseAuditLog
+public class NurseAuditLog : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }

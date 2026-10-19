@@ -2,10 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class DrugBatch
+public class DrugBatch : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TenantId { get; set; } = Guid.Empty;
+    public Guid TenantId { get; set; }
     public Guid DrugId { get; set; }
     public string BatchNumber { get; set; } = string.Empty;
     public DateOnly ExpiryDate { get; set; }

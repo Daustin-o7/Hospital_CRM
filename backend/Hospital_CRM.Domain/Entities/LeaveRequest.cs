@@ -2,7 +2,7 @@ using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class LeaveRequest
+public class LeaveRequest : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }

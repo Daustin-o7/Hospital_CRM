@@ -1,9 +1,9 @@
 namespace Hospital_CRM.Domain.Entities;
 
-public class Supplier
+public class Supplier : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TenantId { get; set; } = Guid.Empty;
+    public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Gstin { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;

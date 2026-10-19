@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class StaffInvite
+public class StaffInvite : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

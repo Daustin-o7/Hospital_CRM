@@ -4,10 +4,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class Invoice
+public class Invoice : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TenantId { get; set; } = Guid.Empty;
+    public Guid TenantId { get; set; }
     public Guid? AppointmentId { get; set; }
     public Guid? PatientId { get; set; }
     public InvoiceType InvoiceType { get; set; } = InvoiceType.Consultation;

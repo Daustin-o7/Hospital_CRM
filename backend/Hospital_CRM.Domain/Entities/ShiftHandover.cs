@@ -1,7 +1,7 @@
 namespace Hospital_CRM.Domain.Entities;
 
 // Single free-text handover note from one nurse to the next (continuity of care).
-public class ShiftHandover
+public class ShiftHandover : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }

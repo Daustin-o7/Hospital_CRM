@@ -6,13 +6,16 @@ public enum SubscriptionTier
     Starter = 1,
     Professional = 2,
     Enterprise = 3,
-    Suspended = 99  // admin-set, blocks tenant logins
+    EnterprisePlus = 4,
+    Private = 5,
+    Suspended = 99  // legacy admin-set, maps to Status.Suspended
 }
 
 public enum SubscriptionStatus
 {
-    Active = 0,
-    PastDue = 1,
-    Cancelled = 2,
-    Suspended = 3
+    Trial = 0,
+    Active = 1,
+    PastDue = 2,
+    Suspended = 3,
+    Cancelled = 4
 }

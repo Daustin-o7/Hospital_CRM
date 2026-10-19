@@ -2,7 +2,7 @@ using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class NotificationRule
+public class NotificationRule : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

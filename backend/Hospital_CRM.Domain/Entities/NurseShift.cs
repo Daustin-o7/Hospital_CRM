@@ -3,7 +3,7 @@ using Hospital_CRM.Domain.Enums;
 namespace Hospital_CRM.Domain.Entities;
 
 // One roster row. NurseProfileId null = open shift nurses can apply to.
-public class NurseShift
+public class NurseShift : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }

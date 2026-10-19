@@ -2,10 +2,10 @@ using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class PurchaseOrder
+public class PurchaseOrder : ITenantScoped
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TenantId { get; set; } = Guid.Empty;
+    public Guid TenantId { get; set; }
     public Guid? SupplierId { get; set; }
     public string DistributorName { get; set; } = string.Empty;
     public string OrderNumber { get; set; } = string.Empty;

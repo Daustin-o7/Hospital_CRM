@@ -1,6 +1,6 @@
 namespace Hospital_CRM.Domain.Entities;
 
-public class ConsultTemplate
+public class ConsultTemplate : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }

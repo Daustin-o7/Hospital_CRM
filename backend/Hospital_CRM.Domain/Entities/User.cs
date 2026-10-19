@@ -6,7 +6,7 @@ namespace Hospital_CRM.Domain.Entities;
 public class User
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
+    public Guid? TenantId { get; set; }
     public Guid? ClinicId { get; set; }
 
     [Required]

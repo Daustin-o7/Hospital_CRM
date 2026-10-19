@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class NurseAvailability
+public class NurseAvailability : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid NurseProfileId { get; set; }

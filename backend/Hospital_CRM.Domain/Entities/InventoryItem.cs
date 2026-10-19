@@ -2,7 +2,7 @@ using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class InventoryItem
+public class InventoryItem : ITenantScoped
 {
     public Guid Id { get; set; }
     public Guid TenantId { get; set; }
