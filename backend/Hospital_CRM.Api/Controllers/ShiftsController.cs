@@ -47,7 +47,7 @@ public class ShiftsController : ControllerBase
         var shift = new NurseShift
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             ClinicId = clinicId.Value,
             Date = request.Date,
             ShiftType = request.ShiftType,
@@ -195,7 +195,7 @@ public class ShiftsController : ControllerBase
         var application = new NurseShiftApplication
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             ShiftId = id,
             NurseProfileId = profileId.Value,
             Status = ShiftApplicationStatus.Applied,

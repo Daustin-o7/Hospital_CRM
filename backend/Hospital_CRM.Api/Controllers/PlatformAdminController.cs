@@ -1,9 +1,15 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,12 +17,31 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/platform-admin")]
-[AuthorizeRoles("PlatformAdmin")]
+[Authorize]
 public class PlatformAdminController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly IPersistentKeyService _keyService;
+    private readonly IConfiguration _config;
+    private readonly IImpersonationAuditService _auditService;
 
-    public PlatformAdminController(HospitalCrmDbContext db) => _db = db;
+    private static readonly SubscriptionTier[] AssignableTiers =
+    [
+        SubscriptionTier.Trial, SubscriptionTier.Starter, SubscriptionTier.Professional,
+        SubscriptionTier.Enterprise, SubscriptionTier.EnterprisePlus, SubscriptionTier.Private
+    ];
+
+    public PlatformAdminController(
+        HospitalCrmDbContext db,
+        IPersistentKeyService keyService,
+        IConfiguration config,
+        IImpersonationAuditService auditService)
+    {
+        _db = db;
+        _keyService = keyService;
+        _config = config;
+        _auditService = auditService;
+    }
 
     /// <summary>Reject any non-PlatformAdmin user. Defense in depth — the [AuthorizeRoles] attribute
     /// on the class is the primary gate, this confirms the JWT was issued for a PlatformAdmin (no tenant ClinicId).</summary>
@@ -29,23 +54,24 @@ public class PlatformAdminController : ControllerBase
     // ----- FR-14-01: Tenant List and Search -----
 
     [HttpGet("tenants")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> ListTenants([FromQuery] string? q, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
-        var query = _db.Clinics.AsQueryable();
+        var query = _db.Tenants.Include(t => t.Clinic).AsQueryable();
         if (!string.IsNullOrWhiteSpace(q))
-            query = query.Where(c => c.Name.Contains(q) || (c.LegalName != null && c.LegalName.Contains(q)));
+            query = query.Where(t => t.Name.Contains(q) || (t.Clinic != null && t.Clinic.Name.Contains(q)));
         var tenants = await query
-            .OrderBy(c => c.Name)
-            .Select(c => new
+            .OrderBy(t => t.Name)
+            .Select(t => new
             {
-                id = c.Id,
-                name = c.Name,
-                subscriptionTier = c.SubscriptionTier.ToString().ToLower(),
-                subscriptionStatus = c.SubscriptionStatus.ToString().ToLower(),
-                activatedModules = c.ActivatedModules,
-                createdAt = c.CreatedAt,
-                subscriptionEndsAt = c.SubscriptionEndsAt
+                id = t.Id,
+                name = t.Name,
+                subscriptionTier = t.SubscriptionTier.ToString().ToLower(),
+                subscriptionStatus = t.SubscriptionStatus.ToString().ToLower(),
+                activatedModules = ModuleRegistry.Parse(t.ActivatedModules),
+                createdAt = t.CreatedAt,
+                subscriptionEndsAt = t.SubscriptionEndsAt
             })
             .ToListAsync(ct);
         return Ok(tenants);
@@ -54,70 +80,186 @@ public class PlatformAdminController : ControllerBase
     // ----- FR-14-02: Tenant Detail and Configuration -----
 
     [HttpGet("tenants/{id:guid}")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> GetTenant(Guid id, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
-        var c = await _db.Clinics.FindAsync([id], ct);
-        if (c is null) return NotFound(new { error = "tenant_not_found" });
+        var t = await _db.Tenants.Include(x => x.Clinic).FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (t is null) return NotFound(new { error = "tenant_not_found" });
         return Ok(new
         {
-            id = c.Id,
-            name = c.Name,
-            subscriptionTier = c.SubscriptionTier.ToString().ToLower(),
-            subscriptionStatus = c.SubscriptionStatus.ToString().ToLower(),
-            activatedModules = c.ActivatedModules,
-            subscriptionEndsAt = c.SubscriptionEndsAt
+            id = t.Id,
+            name = t.Name,
+            subscriptionTier = t.SubscriptionTier.ToString().ToLower(),
+            subscriptionStatus = t.SubscriptionStatus.ToString().ToLower(),
+            activatedModules = ModuleRegistry.Parse(t.ActivatedModules),
+            subscriptionEndsAt = t.SubscriptionEndsAt
         });
     }
 
+    [HttpGet("tenants/{id:guid}/users")]
+    [AuthorizeRoles("PlatformAdmin")]
+    public async Task<IActionResult> ListTenantUsers(Guid id, CancellationToken ct)
+    {
+        if (!IsPlatformAdmin()) return Forbid();
+        var users = await _db.Users
+            .Where(u => u.TenantId == id || (u.Clinic != null && u.Clinic.TenantId == id))
+            .Where(u => u.Role != UserRole.PlatformAdmin)
+            .OrderBy(u => u.Name)
+            .Select(u => new
+            {
+                id = u.Id,
+                name = u.Name,
+                email = u.Email,
+                role = u.Role.ToString().ToLower(),
+                isLocked = u.LockedUntil.HasValue && u.LockedUntil.Value > DateTimeOffset.UtcNow
+            })
+            .ToListAsync(ct);
+        return Ok(users);
+    }
+
     [HttpPatch("tenants/{id:guid}")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> UpdateTenant(Guid id, [FromBody] UpdateTenantRequest request, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
-        var c = await _db.Clinics.FindAsync([id], ct);
-        if (c is null) return NotFound(new { error = "tenant_not_found" });
+        var t = await _db.Tenants.Include(x => x.Clinic).FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (t is null) return NotFound(new { error = "tenant_not_found" });
 
-        if (!string.IsNullOrWhiteSpace(request.SubscriptionTier) &&
-            Enum.TryParse<SubscriptionTier>(request.SubscriptionTier, true, out var tier))
-            c.SubscriptionTier = tier;
+        if (!string.IsNullOrWhiteSpace(request.SubscriptionTier))
+        {
+            // Enum.TryParse accepts any number ("99"), so check membership of the assignable tiers.
+            // SubscriptionTier.Suspended (99) is legacy and must not be assigned as a plan.
+            if (!Enum.TryParse<SubscriptionTier>(request.SubscriptionTier, true, out var tier) ||
+                !AssignableTiers.Contains(tier))
+                return BadRequest(new { error = "invalid_subscription_tier" });
 
-        if (!string.IsNullOrWhiteSpace(request.SubscriptionStatus) &&
-            Enum.TryParse<SubscriptionStatus>(request.SubscriptionStatus, true, out var status))
-            c.SubscriptionStatus = status;
+            t.SubscriptionTier = tier;
+            if (t.Clinic != null) t.Clinic.SubscriptionTier = tier;
+        }
 
-        if (!string.IsNullOrWhiteSpace(request.ActivatedModules))
-            c.ActivatedModules = request.ActivatedModules;
+        if (!string.IsNullOrWhiteSpace(request.SubscriptionStatus))
+        {
+            if (!Enum.TryParse<SubscriptionStatus>(request.SubscriptionStatus, true, out var status) ||
+                !Enum.IsDefined(status))
+                return BadRequest(new { error = "invalid_subscription_status" });
+
+            t.SubscriptionStatus = status;
+            if (t.Clinic != null) t.Clinic.SubscriptionStatus = status;
+
+            // A4.3: Revoke active refresh tokens on Suspend
+            if (status == SubscriptionStatus.Suspended)
+            {
+                var tenantUserIds = await _db.Users
+                    .Where(u => u.TenantId == id || (u.Clinic != null && u.Clinic.TenantId == id))
+                    .Select(u => u.Id)
+                    .ToListAsync(ct);
+
+                var activeRefreshTokens = await _db.RefreshTokens
+                    .Where(r => tenantUserIds.Contains(r.UserId) && r.RevokedAt == null)
+                    .ToListAsync(ct);
+
+                foreach (var rt in activeRefreshTokens)
+                {
+                    rt.RevokedAt = DateTimeOffset.UtcNow;
+                }
+            }
+        }
+
+        if (request.ActivatedModules is not null)
+        {
+            var unknown = request.ActivatedModules.Where(m => !ModuleRegistry.IsKnown(m)).ToArray();
+            if (unknown.Length > 0)
+                return BadRequest(new { error = "unknown_module_code", modules = unknown });
+
+            var serialized = ModuleRegistry.Serialize(request.ActivatedModules);
+            t.ActivatedModules = serialized;
+            if (t.Clinic != null) t.Clinic.ActivatedModules = serialized;
+        }
 
         if (request.SubscriptionEndsAt.HasValue)
-            c.SubscriptionEndsAt = request.SubscriptionEndsAt;
+        {
+            t.SubscriptionEndsAt = request.SubscriptionEndsAt;
+            if (t.Clinic != null) t.Clinic.SubscriptionEndsAt = request.SubscriptionEndsAt;
+        }
 
-        c.UpdatedAt = DateTimeOffset.UtcNow;
+        t.UpdatedAt = DateTimeOffset.UtcNow;
+        if (t.Clinic != null) t.Clinic.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         return Ok(new
         {
-            id = c.Id,
-            subscriptionTier = c.SubscriptionTier.ToString().ToLower(),
-            subscriptionStatus = c.SubscriptionStatus.ToString().ToLower(),
-            activatedModules = c.ActivatedModules
+            id = t.Id,
+            subscriptionTier = t.SubscriptionTier.ToString().ToLower(),
+            subscriptionStatus = t.SubscriptionStatus.ToString().ToLower(),
+            activatedModules = ModuleRegistry.Parse(t.ActivatedModules)
         });
     }
 
     // ----- FR-14-03: Impersonate-for-Support -----
 
     [HttpPost("impersonate")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> StartImpersonation([FromBody] StartImpersonationRequest request, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
         var adminId = User.GetUserId();
         if (!adminId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        // FR-14-03 acceptance: impersonation doesn't grant extra privilege, just a different viewpoint
-        var target = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.UserId && u.ClinicId == request.TenantId, ct);
-        if (target is null)
-            return NotFound(new { error = "user_not_found_in_tenant" });
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return BadRequest(new
+            {
+                error = "reason_required",
+                message = "A written reason is required to start an impersonation session."
+            });
+        }
 
-        // Maximum impersonation session length = 1 hour (configurable later)
+        var tenantExists = await _db.Tenants.AnyAsync(t => t.Id == request.TenantId, ct);
+        if (!tenantExists)
+        {
+            return NotFound(new { error = "tenant_not_found", message = "Tenant does not exist." });
+        }
+
+        // Target user must belong to specified tenant
+        var target = await _db.Users
+            .Include(u => u.Clinic)
+            .FirstOrDefaultAsync(u => u.Id == request.UserId && (u.TenantId == request.TenantId || (u.Clinic != null && u.Clinic.TenantId == request.TenantId)), ct);
+
+        if (target is null)
+        {
+            return NotFound(new
+            {
+                error = "user_not_found_in_tenant",
+                message = "Target user was not found in the specified tenant."
+            });
+        }
+
+        if (target.Role == UserRole.PlatformAdmin)
+        {
+            return BadRequest(new
+            {
+                error = "cannot_impersonate_platform_admin",
+                message = "Platform administrators cannot be impersonated."
+            });
+        }
+
+        if (target.LockedUntil.HasValue && target.LockedUntil.Value > DateTimeOffset.UtcNow)
+        {
+            return BadRequest(new
+            {
+                error = "user_inactive",
+                message = "Cannot impersonate a locked or inactive user."
+            });
+        }
+
+        // Token lifetime: <= 30 minutes per A5 spec
+        var durationMinutes = request.DurationMinutes.GetValueOrDefault(30);
+        if (durationMinutes <= 0 || durationMinutes > 30)
+        {
+            durationMinutes = 30;
+        }
+
         var log = new ImpersonationLog
         {
             Id = Guid.NewGuid(),
@@ -125,62 +267,173 @@ public class PlatformAdminController : ControllerBase
             TenantId = request.TenantId,
             ImpersonatedUserId = target.Id,
             StartedAt = DateTimeOffset.UtcNow,
-            Reason = request.Reason
+            Reason = request.Reason.Trim()
         };
         _db.ImpersonationLogs.Add(log);
         await _db.SaveChangesAsync(ct);
 
-        return StatusCode(201, new
+        var token = await GenerateImpersonationJwtAsync(target, adminId.Value, log.Id, request.TenantId, durationMinutes, ct);
+
+        return StatusCode(StatusCodes.Status201Created, new
         {
             impersonationId = log.Id,
             impersonatedUserId = target.Id,
             tenantId = request.TenantId,
             startedAt = log.StartedAt,
-            // In a real impl this would mint a short-lived token for the target user
-            // with an `impersonatedBy: <adminId>` claim. Out of scope for Phase 1.
-            warning = "impersonation_active_session_logged"
+            accessToken = token,
+            expiresIn = durationMinutes * 60,
+            role = target.Role.ToString().ToLower(),
+            user = new
+            {
+                id = target.Id,
+                name = target.Name,
+                email = target.Email,
+                role = target.Role.ToString().ToLower()
+            }
         });
     }
 
     [HttpPost("impersonate/{id:guid}/end")]
+    [AuthorizeRoles("PlatformAdmin", "Doctor", "Receptionist", "ClinicAdmin", "Pharmacist", "Nurse")]
     public async Task<IActionResult> EndImpersonation(Guid id, CancellationToken ct)
     {
-        if (!IsPlatformAdmin()) return Forbid();
+        var isPlatformAdmin = IsPlatformAdmin();
+        var isImpersonated = User.HasClaim(c => c.Type == "impersonated_by");
+        var impersonationIdClaim = User.FindFirst("impersonation_id")?.Value;
+        var isMatchingSession = Guid.TryParse(impersonationIdClaim, out var impId) && impId == id;
+
+        if (!isPlatformAdmin && (!isImpersonated || !isMatchingSession))
+        {
+            return Forbid();
+        }
+
         var log = await _db.ImpersonationLogs.FindAsync([id], ct);
         if (log is null) return NotFound(new { error = "impersonation_not_found" });
         if (log.EndedAt.HasValue)
             return Ok(new { id = log.Id, endedAt = log.EndedAt, unchanged = true });
+
         log.EndedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(new { id = log.Id, endedAt = log.EndedAt });
     }
 
     [HttpGet("impersonations")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> ListImpersonations([FromQuery] Guid? tenantId, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
         var query = _db.ImpersonationLogs.AsQueryable();
         if (tenantId.HasValue) query = query.Where(l => l.TenantId == tenantId.Value);
-        var logs = await query
+        var rawLogs = await query
             .OrderByDescending(l => l.StartedAt)
             .Take(100)
-            .Select(l => new
-            {
-                id = l.Id,
-                platformAdminId = l.PlatformAdminId,
-                tenantId = l.TenantId,
-                impersonatedUserId = l.ImpersonatedUserId,
-                startedAt = l.StartedAt,
-                endedAt = l.EndedAt,
-                reason = l.Reason
-            })
             .ToListAsync(ct);
+
+        var phiAccessCounts = await _auditService.GetPhiAccessCountsAsync(
+            rawLogs.Select(l => l.Id).ToList(), ct);
+
+        var logs = rawLogs.Select(l => new
+        {
+            id = l.Id,
+            platformAdminId = l.PlatformAdminId,
+            tenantId = l.TenantId,
+            impersonatedUserId = l.ImpersonatedUserId,
+            startedAt = l.StartedAt,
+            endedAt = l.EndedAt,
+            reason = l.Reason,
+            phiAccessCount = phiAccessCounts.GetValueOrDefault(l.Id)
+        });
+
         return Ok(logs);
     }
+
+    [HttpGet("impersonations/{id:guid}/audit")]
+    [AuthorizeRoles("PlatformAdmin")]
+    public async Task<IActionResult> GetImpersonationAudit(Guid id, CancellationToken ct)
+    {
+        if (!IsPlatformAdmin()) return Forbid();
+        var log = await _db.ImpersonationLogs.FindAsync([id], ct);
+        if (log is null) return NotFound(new { error = "impersonation_not_found" });
+
+        var records = await _auditService.GetPhiAccessRecordsAsync(id, ct);
+        return Ok(new
+        {
+            id = log.Id,
+            platformAdminId = log.PlatformAdminId,
+            tenantId = log.TenantId,
+            impersonatedUserId = log.ImpersonatedUserId,
+            startedAt = log.StartedAt,
+            endedAt = log.EndedAt,
+            reason = log.Reason,
+            phiAccessCount = records.Count,
+            phiReads = records
+        });
+    }
+
+    private async Task<string> GenerateImpersonationJwtAsync(
+        User target,
+        Guid adminId,
+        Guid impersonationId,
+        Guid tenantId,
+        int expiryMinutes,
+        CancellationToken ct)
+    {
+        var issuer = _config["Jwt:Issuer"] ?? "Hospital_CRM";
+        var audience = _config["Jwt:Audience"] ?? "Hospital_CRM";
+        var keyId = _config["Jwt:KeyId"] ?? "hospital-crm-rsa-key-1";
+        var expires = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes).ToUnixTimeSeconds();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var header = JsonSerializer.SerializeToElement(new { alg = "RS256", typ = "JWT", kid = keyId });
+        var payloadDict = new Dictionary<string, object?>
+        {
+            ["sub"] = target.Id.ToString(),
+            ["email"] = target.Email,
+            ["role"] = target.Role.ToString(),
+            ["jti"] = Guid.NewGuid().ToString(),
+            ["iss"] = issuer,
+            ["aud"] = audience,
+            ["exp"] = expires,
+            ["iat"] = now,
+            ["impersonated_by"] = adminId.ToString(),
+            ["impersonation_id"] = impersonationId.ToString()
+        };
+
+        if (target.TenantId.HasValue && target.TenantId.Value != Guid.Empty)
+        {
+            payloadDict["tenant_id"] = target.TenantId.Value.ToString();
+        }
+        else if (tenantId != Guid.Empty)
+        {
+            payloadDict["tenant_id"] = tenantId.ToString();
+        }
+
+        if (target.ClinicId.HasValue)
+        {
+            payloadDict["clinic_id"] = target.ClinicId.Value.ToString();
+        }
+
+        var payload = JsonSerializer.SerializeToElement(payloadDict);
+
+        var headerB64 = Base64UrlEncode(header.GetRawText());
+        var payloadB64 = Base64UrlEncode(payload.GetRawText());
+        var signingInput = $"{headerB64}.{payloadB64}";
+        var signature = await _keyService.SignAsync(Encoding.UTF8.GetBytes(signingInput), ct);
+        var signatureB64 = Base64UrlEncode(signature);
+
+        return $"{signingInput}.{signatureB64}";
+    }
+
+    private static string Base64UrlEncode(byte[] data) =>
+        Convert.ToBase64String(data).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static string Base64UrlEncode(string text) =>
+        Base64UrlEncode(Encoding.UTF8.GetBytes(text));
 
     // ----- FR-14-04: Feature Flag Management -----
 
     [HttpGet("tenants/{id:guid}/flags")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> ListFlags(Guid id, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
@@ -199,21 +452,26 @@ public class PlatformAdminController : ControllerBase
     }
 
     [HttpPatch("tenants/{id:guid}/flags/{flagName}")]
+    [AuthorizeRoles("PlatformAdmin")]
     public async Task<IActionResult> SetFlag(Guid id, string flagName, [FromBody] SetFlagRequest request, CancellationToken ct)
     {
         if (!IsPlatformAdmin()) return Forbid();
         var adminId = User.GetUserId();
         if (!adminId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
+        var tenantExists = await _db.Tenants.AnyAsync(t => t.Id == id, ct);
+        if (!tenantExists) return NotFound(new { error = "tenant_not_found" });
+
+        var normalizedFlag = flagName.Trim().ToLowerInvariant();
         var flag = await _db.TenantFeatureFlags
-            .FirstOrDefaultAsync(f => f.TenantId == id && f.FlagName == flagName, ct);
+            .FirstOrDefaultAsync(f => f.TenantId == id && f.FlagName.ToLower() == normalizedFlag, ct);
         if (flag is null)
         {
             flag = new TenantFeatureFlag
             {
                 Id = Guid.NewGuid(),
                 TenantId = id,
-                FlagName = flagName,
+                FlagName = normalizedFlag,
                 Enabled = request.Enabled,
                 UpdatedAt = DateTimeOffset.UtcNow,
                 UpdatedBy = adminId.Value
@@ -234,8 +492,142 @@ public class PlatformAdminController : ControllerBase
             enabled = flag.Enabled
         });
     }
+
+    // ----- B3: Tenant provisioning (V10) -----
+
+    /// <summary>
+    /// Transactional, idempotent tenant provisioning. The idempotency key is the
+    /// standard X-Idempotency-Key header handled by <c>IdempotencyMiddleware</c>, so a
+    /// retried request replays the first response instead of creating a second tenant.
+    /// The first ClinicAdmin is minted as a pending invite — the documented FR-04
+    /// exception — because no password is ever generated or sent.
+    /// </summary>
+    [HttpPost("tenants")]
+    [AuthorizeRoles("PlatformAdmin")]
+    public async Task<IActionResult> ProvisionTenant([FromBody] ProvisionTenantRequest request, CancellationToken ct)
+    {
+        if (!IsPlatformAdmin()) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(request.Name) ||
+            string.IsNullOrWhiteSpace(request.AdminName) ||
+            string.IsNullOrWhiteSpace(request.AdminEmail))
+            return BadRequest(new { error = "name_admin_name_and_admin_email_required" });
+
+        if (!new EmailAddressAttribute().IsValid(request.AdminEmail))
+            return BadRequest(new { error = "invalid_admin_email" });
+
+        if (!Enum.TryParse<SubscriptionTier>(request.SubscriptionTier ?? nameof(SubscriptionTier.Trial), true, out var tier) ||
+            !AssignableTiers.Contains(tier))
+            return BadRequest(new { error = "invalid_subscription_tier" });
+
+        if (!Enum.TryParse<SubscriptionStatus>(request.SubscriptionStatus ?? nameof(SubscriptionStatus.Trial), true, out var status) ||
+            !Enum.IsDefined(status))
+            return BadRequest(new { error = "invalid_subscription_status" });
+
+        var requestedModules = request.ActivatedModules ?? [ModuleRegistry.Core];
+        var unknown = requestedModules.Where(m => !ModuleRegistry.IsKnown(m)).ToArray();
+        if (unknown.Length > 0)
+            return BadRequest(new { error = "unknown_module_code", modules = unknown });
+
+        var modules = ModuleRegistry.Serialize(requestedModules.Append(ModuleRegistry.Core));
+        var adminUserId = User.GetUserId() ?? Guid.Empty;
+        var now = DateTimeOffset.UtcNow;
+        var tenantId = Guid.NewGuid();
+        var clinicId = Guid.NewGuid();
+        var adminInviteToken = Guid.NewGuid().ToString("N");
+        var adminInviteExpiresAt = now.AddHours(72); // FR-04
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            // Re-checked inside the transaction: the email may have been claimed since the request started.
+            if (await _db.Users.AnyAsync(u => u.Email == request.AdminEmail, ct))
+                return Conflict(new { error = "email_already_registered" });
+
+            _db.Tenants.Add(new Tenant
+            {
+                Id = tenantId,
+                Name = request.Name.Trim(),
+                SubscriptionTier = tier,
+                SubscriptionStatus = status,
+                ActivatedModules = modules,
+                SubscriptionEndsAt = request.SubscriptionEndsAt,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+            _db.Clinics.Add(new Clinic
+            {
+                Id = clinicId,
+                TenantId = tenantId,
+                Name = (request.ClinicName ?? request.Name).Trim(),
+                Timezone = request.Timezone ?? "Asia/Kolkata",
+                Currency = request.Currency ?? "INR",
+                SubscriptionTier = tier,
+                SubscriptionStatus = status,
+                ActivatedModules = modules,
+                SubscriptionEndsAt = request.SubscriptionEndsAt,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+            foreach (var module in ModuleRegistry.Parse(modules).Where(m => m != ModuleRegistry.Core))
+            {
+                _db.TenantFeatureFlags.Add(new TenantFeatureFlag
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    FlagName = module,
+                    Enabled = true,
+                    UpdatedAt = now,
+                    UpdatedBy = adminUserId
+                });
+            }
+
+            _db.StaffInvites.Add(new StaffInvite
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                ClinicId = clinicId,
+                Name = request.AdminName.Trim(),
+                Email = request.AdminEmail.Trim(),
+                Role = UserRole.ClinicAdmin,
+                TokenHash = adminInviteToken.HashPassword(),
+                ExpiresAt = adminInviteExpiresAt
+            });
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                tenantId,
+                clinicId,
+                inviteToken = adminInviteToken,
+                inviteExpiresAt = adminInviteExpiresAt,
+                subscriptionTier = tier.ToString().ToLowerInvariant(),
+                subscriptionStatus = status.ToString().ToLowerInvariant(),
+                activatedModules = ModuleRegistry.Parse(modules)
+            });
+        });
+    }
 }
 
-public record UpdateTenantRequest(string? SubscriptionTier, string? SubscriptionStatus, string? ActivatedModules, DateTimeOffset? SubscriptionEndsAt);
-public record StartImpersonationRequest(Guid TenantId, Guid UserId, string? Reason);
+
+public record UpdateTenantRequest(string? SubscriptionTier, string? SubscriptionStatus, string[]? ActivatedModules, DateTimeOffset? SubscriptionEndsAt);
+public record StartImpersonationRequest(Guid TenantId, Guid UserId, string? Reason, int? DurationMinutes = 30);
 public record SetFlagRequest(bool Enabled);
+
+public record ProvisionTenantRequest(
+    string? Name,
+    string? ClinicName,
+    string? AdminName,
+    string? AdminEmail,
+    string? SubscriptionTier = null,
+    string? SubscriptionStatus = null,
+    string[]? ActivatedModules = null,
+    DateTimeOffset? SubscriptionEndsAt = null,
+    string? Timezone = null,
+    string? Currency = null);

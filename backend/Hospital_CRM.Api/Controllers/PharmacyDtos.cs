@@ -15,30 +15,8 @@ public static class PharmacyCommon
             escaped = "'" + escaped;
         return escaped;
     }
-
-    // SEC-009: Unified helper to ensure consistent pharmacy feature flag enforcement across all endpoints
-    public static async Task<bool> IsPharmacyEnabledAsync(HospitalCrmDbContext db, CancellationToken ct)
-    {
-        var tenantId = Guid.Empty;
-        var pharmacyFlag = await db.TenantFeatureFlags
-            .FirstOrDefaultAsync(f => f.TenantId == tenantId && f.FlagName == "pharmacy", ct);
-        if (pharmacyFlag == null)
-        {
-            pharmacyFlag = new TenantFeatureFlag
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                FlagName = "pharmacy",
-                Enabled = false,
-                UpdatedAt = DateTimeOffset.UtcNow,
-                UpdatedBy = Guid.Empty
-            };
-            db.TenantFeatureFlags.Add(pharmacyFlag);
-            await db.SaveChangesAsync(ct);
-        }
-        return pharmacyFlag.Enabled;
-    }
 }
+
 
 public record CreateDrugRequest(
     [Required(ErrorMessage = "Drug Name is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Drug Name must be 2–150 characters")]

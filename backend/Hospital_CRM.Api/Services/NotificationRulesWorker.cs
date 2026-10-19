@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Services;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,24 +55,31 @@ public class NotificationRulesWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
         var notifier = scope.ServiceProvider.GetRequiredService<INotificationService>();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
 
-        var tenantId = Guid.Empty;
-        var activeRules = await db.NotificationRules
-            .Include(r => r.Template)
-            .Where(r => r.TenantId == tenantId && r.Active)
-            .ToListAsync(ct);
-
-        if (activeRules.Count == 0) return;
-
+        // B2/F4: this previously hardcoded Guid.Empty, so no tenant's rules ever fired.
+        // Evaluate each tenant under its own pushed context so RLS and the EF query
+        // filter see exactly one tenant's rows.
+        var tenantIds = await db.Tenants.Select(t => t.Id).ToListAsync(ct);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        foreach (var rule in activeRules)
+        foreach (var tenantId in tenantIds)
         {
-            try
+            using var tenantScope = tenantContext.PushTenant(tenantId);
+
+            var activeRules = await db.NotificationRules
+                .Include(r => r.Template)
+                .Where(r => r.Active)
+                .ToListAsync(ct);
+
+            foreach (var rule in activeRules)
             {
-                await EvaluateRuleAsync(db, notifier, rule, today, ct);
+                try
+                {
+                    await EvaluateRuleAsync(db, notifier, rule, today, ct);
+                }
+                catch (Exception ex) { _logger.LogError(ex, "Error evaluating rule {RuleId} for tenant {TenantId}", rule.Id, tenantId); }
             }
-            catch (Exception ex) { _logger.LogError(ex, "Error evaluating rule {RuleId}", rule.Id); }
         }
     }
 

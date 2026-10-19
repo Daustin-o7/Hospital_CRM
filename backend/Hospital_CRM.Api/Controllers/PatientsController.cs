@@ -140,8 +140,7 @@ public class PatientsController : ControllerBase
         var userId = User.GetUserId();
         if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        // TenantId is Guid.Empty for single-tenant Phase 1
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
 
         if (string.IsNullOrWhiteSpace(q))
             return Ok(new List<object>());
@@ -174,7 +173,7 @@ public class PatientsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { error = "name_required" });
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var hits = await _search.CheckDuplicatesAsync(request.Name, request.Phone, request.Dob, tenantId, ct);
 
         var potentialMatches = hits.Select(h => new

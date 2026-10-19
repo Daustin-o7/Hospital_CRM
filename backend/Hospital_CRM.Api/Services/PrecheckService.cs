@@ -50,8 +50,9 @@ public class PrecheckService
         return (plaintext, submission);
     }
 
+    // The patient-facing page is the SPA route /intake/:token (see frontend/src/App.tsx).
     public string BuildLink(string token) =>
-        $"{_config["App:PublicBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173"}/precheck/{token}";
+        $"{_config["App:PublicBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173"}/intake/{token}";
 
     private static (string plaintext, string hash) GenerateToken()
     {

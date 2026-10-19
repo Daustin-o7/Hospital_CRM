@@ -1,5 +1,6 @@
 using System.Text;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -231,7 +232,7 @@ public class PharmacyCatalogController : ControllerBase
         var drug = new Drug
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             Name = req.Name.Trim(),
             GenericName = req.GenericName.Trim(),
             TherapeuticCategory = req.TherapeuticCategory?.Trim() ?? "General",

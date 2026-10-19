@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -19,11 +20,13 @@ public class InvoicesController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly IConfiguration _config;
+    private readonly RazorpayOrderClient _razorpay;
 
-    public InvoicesController(HospitalCrmDbContext db, IConfiguration config)
+    public InvoicesController(HospitalCrmDbContext db, IConfiguration config, RazorpayOrderClient razorpay)
     {
         _db = db;
         _config = config;
+        _razorpay = razorpay;
     }
 
     [HttpPost("invoices")]
@@ -119,35 +122,23 @@ public class InvoicesController : ControllerBase
         if (invoice.Status == InvoiceStatus.Paid)
             return BadRequest(new { error = "invoice_already_paid" });
 
-        if (string.Equals(request.Method, "cash", StringComparison.OrdinalIgnoreCase))
-        {
-            var payment = new Payment
-            {
-                Id = Guid.NewGuid(),
-                InvoiceId = id,
-                Method = PaymentMethod.Cash,
-                Amount = request.Amount,
-                Status = PaymentStatus.Completed,
-                PaidAt = DateTimeOffset.UtcNow,
-                IdempotencyKey = request.IdempotencyKey,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-
-            _db.Payments.Add(payment);
-            invoice.Status = InvoiceStatus.Paid;
-            await _db.SaveChangesAsync(ct);
-
-            return Ok(new { status = "paid" });
-        }
-
         if (string.Equals(request.Method, "razorpay", StringComparison.OrdinalIgnoreCase))
         {
+            if (!_razorpay.IsConfigured)
+                return StatusCode(503, new { error = "razorpay_not_configured" });
+
+            var orderId = await _razorpay.CreateOrderAsync(request.Amount, $"invoice-{invoice.InvoiceNumber}", ct);
+            if (string.IsNullOrWhiteSpace(orderId))
+                return StatusCode(502, new { error = "razorpay_order_failed" });
+
             var payment = new Payment
             {
                 Id = Guid.NewGuid(),
+                TenantId = invoice.TenantId,
                 InvoiceId = id,
                 Method = PaymentMethod.Razorpay,
                 Amount = request.Amount,
+                RazorpayOrderId = orderId,
                 Status = PaymentStatus.Pending,
                 IdempotencyKey = request.IdempotencyKey,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -156,10 +147,49 @@ public class InvoicesController : ControllerBase
             _db.Payments.Add(payment);
             await _db.SaveChangesAsync(ct);
 
-            return Ok(new { paymentLinkUrl = $"https://checkout.razorpay.com/v1/pay/{payment.Id}" });
+            return Ok(new
+            {
+                orderId,
+                razorpayKeyId = _razorpay.KeyId,
+                amount = request.Amount,
+                currency = "INR"
+            });
         }
 
-        return BadRequest(new { error = "invalid_payment_method" });
+        // B2: manual "Mark as Paid" — cash, an offline card swipe, or a UPI transfer
+        // seen on the clinic's own phone. The UTR is what reconciles it later.
+        var manualMethod = request.Method.Trim().ToLowerInvariant() switch
+        {
+            "cash" => PaymentMethod.Cash,
+            "upi" => PaymentMethod.UPI,
+            "card" => PaymentMethod.Card,
+            "netbanking" => PaymentMethod.NetBanking,
+            _ => (PaymentMethod?)null
+        };
+
+        if (manualMethod is null)
+            return BadRequest(new { error = "invalid_payment_method" });
+
+        var manualPayment = new Payment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = invoice.TenantId,
+            InvoiceId = id,
+            Method = manualMethod.Value,
+            Amount = request.Amount,
+            Utr = string.IsNullOrWhiteSpace(request.Utr) ? null : request.Utr.Trim(),
+            Status = PaymentStatus.Completed,
+            PaidAt = DateTimeOffset.UtcNow,
+            IdempotencyKey = request.IdempotencyKey,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Payments.Add(manualPayment);
+        invoice.Status = InvoiceStatus.Paid;
+        invoice.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { status = "paid", utr = manualPayment.Utr });
     }
 
     [HttpPost("webhooks/razorpay")]
@@ -195,6 +225,12 @@ public class InvoicesController : ControllerBase
             return BadRequest(new { error = "invalid_webhook_signature" });
         }
 
+        // RLS is enabled on Payments/Invoices. An anonymous webhook has no tenant, and the
+        // platform Razorpay account legitimately spans tenants, so this one signed handler
+        // is explicitly granted the cross-tenant context for the duration of its transaction.
+        await using var rlsTransaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlAsync($"SELECT set_config('app.is_platform_admin', 'true', true)", ct);
+
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(bodyText);
@@ -209,30 +245,50 @@ public class InvoicesController : ControllerBase
                         payObj.TryGetProperty("entity", out var entity))
                     {
                         var razorpayPaymentId = entity.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                        var razorpayOrderId = entity.TryGetProperty("order_id", out var orderProp) ? orderProp.GetString() : null;
 
                         Payment? payment = null;
                         if (!string.IsNullOrEmpty(razorpayPaymentId))
                         {
-                            payment = await _db.Payments.FirstOrDefaultAsync(p => p.RazorpayPaymentId == razorpayPaymentId, ct);
+                            payment = await _db.Payments.IgnoreQueryFilters()
+                                .FirstOrDefaultAsync(p => p.RazorpayPaymentId == razorpayPaymentId, ct);
+                        }
+
+                        // F6: a checkout payment is only identified by its order until the
+                        // capture webhook arrives, so match on the order we created.
+                        if (payment is null && !string.IsNullOrEmpty(razorpayOrderId))
+                        {
+                            payment = await _db.Payments.IgnoreQueryFilters()
+                                .FirstOrDefaultAsync(p => p.RazorpayOrderId == razorpayOrderId, ct);
                         }
 
                         if (payment is not null && payment.Status != PaymentStatus.Completed)
                         {
                             payment.Status = PaymentStatus.Completed;
                             payment.PaidAt = DateTimeOffset.UtcNow;
-                            var invoice = await _db.Invoices.FindAsync([payment.InvoiceId], ct);
+                            if (!string.IsNullOrEmpty(razorpayPaymentId))
+                                payment.RazorpayPaymentId = razorpayPaymentId;
+
+                            var invoice = await _db.Invoices.IgnoreQueryFilters()
+                                .FirstOrDefaultAsync(i => i.Id == payment.InvoiceId, ct);
                             if (invoice is not null)
                             {
+                                if (payment.TenantId == Guid.Empty)
+                                    payment.TenantId = invoice.TenantId;
                                 invoice.Status = InvoiceStatus.Paid;
+                                invoice.UpdatedAt = DateTimeOffset.UtcNow;
                             }
                             await _db.SaveChangesAsync(ct);
                         }
                     }
                 }
             }
+
+            await rlsTransaction.CommitAsync(ct);
         }
         catch
         {
+            await rlsTransaction.RollbackAsync(ct);
             // Signature was valid; avoid failing webhook delivery on malformed event json
         }
 
@@ -302,11 +358,14 @@ public record InvoiceLineItemRequest(
     decimal Amount);
 
 public record CollectPaymentRequest(
-    [Required(ErrorMessage = "Payment Method is required"), RegularExpression("(?i)^(cash|razorpay)$", ErrorMessage = "Method must be cash or razorpay")]
+    [Required(ErrorMessage = "Payment Method is required"), RegularExpression("(?i)^(cash|upi|card|netbanking|razorpay)$", ErrorMessage = "Method must be cash, upi, card, netbanking or razorpay")]
     string Method,
 
     [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
     decimal Amount,
 
     [RegularExpression(@"^IDEMP-PAY-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-PAY-{UUID}")]
-    string? IdempotencyKey);
+    string? IdempotencyKey,
+
+    [MaxLength(64)]
+    string? Utr = null);

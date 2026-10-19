@@ -24,6 +24,13 @@ public class InactivityMiddleware
             return;
         }
 
+        // Impersonated support sessions have explicit time-bounded TTLs and no refresh tokens (A5)
+        if (context.User.HasClaim(c => c.Type == "impersonated_by"))
+        {
+            await _next(context);
+            return;
+        }
+
         var role = context.User.GetUserRole();
 
         // Receptionist has no inactivity timeout (FR-01)

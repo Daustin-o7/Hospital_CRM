@@ -39,7 +39,7 @@ public class ReportsController : ControllerBase
         var startDt = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var endDt = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var clinicId = await GetUserClinicId(userId.Value, ct);
 
         // Income from completed payments
@@ -54,7 +54,7 @@ public class ReportsController : ControllerBase
 
         // Expenses
         var expensesQuery = _db.LedgerExpenses
-            .Where(e => e.TenantId == Guid.Empty && e.ExpenseDate >= startDate && e.ExpenseDate < endDate);
+            .Where(e => e.TenantId == tenantId && e.ExpenseDate >= startDate && e.ExpenseDate < endDate);
 
         if (clinicId.HasValue)
         {
@@ -267,8 +267,12 @@ public class ReportsController : ControllerBase
                      && p.PaidAt >= startDt
                      && p.PaidAt < endDt);
 
+        // Walk-in invoices have no appointment, so there is nothing to clinic-scope them by —
+        // excluding them silently dropped all walk-in revenue from every tax report.
+        // shortcut: clinic-scoping for walk-in invoices needs the tenant key (Master TODO A3/B1).
         if (clinicId.HasValue)
-            query = query.Where(p => p.Invoice.Appointment != null && p.Invoice.Appointment.ClinicId == clinicId.Value);
+            query = query.Where(p => p.Invoice.Appointment == null
+                                  || p.Invoice.Appointment.ClinicId == clinicId.Value);
 
         return query;
     }
@@ -279,8 +283,10 @@ public class ReportsController : ControllerBase
             .Include(i => i.Appointment).ThenInclude(a => a.Patient)
             .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt && i.Status != InvoiceStatus.Cancelled);
 
+        // See QueryPayments: walk-in invoices have no appointment to scope by.
         if (clinicId.HasValue)
-            query = query.Where(i => i.Appointment != null && i.Appointment.ClinicId == clinicId.Value);
+            query = query.Where(i => i.Appointment == null
+                                  || i.Appointment.ClinicId == clinicId.Value);
 
         return query;
     }

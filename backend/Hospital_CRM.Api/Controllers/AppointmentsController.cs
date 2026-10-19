@@ -421,6 +421,7 @@ public class AppointmentsController : ControllerBase
 
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
         var submission = await _db.PrecheckSubmissions
+            .IgnoreQueryFilters()
             .Include(s => s.Appointment)
                 .ThenInclude(a => a.Patient)
             .FirstOrDefaultAsync(s => s.TokenHash == hash, ct);
@@ -454,6 +455,35 @@ public class AppointmentsController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { message = "submitted" });
+    }
+
+    /// <summary>FR-23-02 - Validate a pre-check link without submitting (unauthenticated, same tokenisation).</summary>
+    [HttpGet("/api/v1/precheck/{token}")]
+    [AllowAnonymous]
+    [EnableRateLimiting("precheck")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetPrecheckStatus(string token, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return BadRequest(new { error = "invalid_token" });
+
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+        var submission = await _db.PrecheckSubmissions
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TokenHash == hash, ct);
+
+        if (submission is null)
+            return BadRequest(new { error = "invalid_token" });
+
+        if (submission.SubmittedAt is not null)
+            return Ok(new { message = "already_submitted" });
+
+        if (DateTimeOffset.UtcNow > submission.ExpiresAt)
+            return BadRequest(new { error = "token_expired" });
+
+        return Ok(new { message = "valid" });
     }
 }
 

@@ -6,6 +6,8 @@ using System.Text.Json;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
+using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Services;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -61,13 +63,35 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "invalid_credentials" });
         }
 
+        // A4.3: Enforce subscription lifecycle on login
+        if (user.Role != UserRole.PlatformAdmin && user.TenantId.HasValue && user.TenantId.Value != Guid.Empty)
+        {
+            var tenant = await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == user.TenantId.Value)
+                .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
+                .FirstOrDefaultAsync(ct);
+
+            if (tenant is null)
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "tenant_not_found" });
+
+            var access = SubscriptionPolicy.EffectiveAccess(tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
+            if (access == EffectiveAccessLevel.Blocked)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    error = "tenant_suspended",
+                    message = "Tenant subscription is suspended or expired."
+                });
+            }
+        }
+
         if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
             tokenExpiry = 15;
 
         if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
             refreshExpiryDays = 7;
 
-        var accessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), tokenExpiry, ct);
+        var accessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), user.TenantId, tokenExpiry, ct);
         var refreshToken = Guid.NewGuid().ToString("N");
 
         _db.RefreshTokens.Add(new RefreshToken
@@ -128,6 +152,30 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized(new { error = "invalid_refresh_token" });
 
+        // A4.3: Enforce subscription lifecycle on refresh
+        if (user.Role != UserRole.PlatformAdmin && user.TenantId.HasValue && user.TenantId.Value != Guid.Empty)
+        {
+            var tenant = await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == user.TenantId.Value)
+                .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
+                .FirstOrDefaultAsync(ct);
+
+            if (tenant is null)
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "tenant_not_found" });
+
+            var access = SubscriptionPolicy.EffectiveAccess(tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
+            if (access == EffectiveAccessLevel.Blocked)
+            {
+                storedToken.RevokedAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    error = "tenant_suspended",
+                    message = "Tenant subscription is suspended or expired."
+                });
+            }
+        }
+
         storedToken.RevokedAt = DateTimeOffset.UtcNow;
 
         if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
@@ -136,7 +184,7 @@ public class AuthController : ControllerBase
         if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
             refreshExpiryDays = 7;
 
-        var newAccessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), tokenExpiry, ct);
+        var newAccessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), user.TenantId, tokenExpiry, ct);
         var newRefreshToken = Guid.NewGuid().ToString("N");
 
         _db.RefreshTokens.Add(new RefreshToken
@@ -209,7 +257,7 @@ public class AuthController : ControllerBase
         return Ok(_keyService.GetJwks());
     }
 
-    private async Task<string> GenerateJwtAsync(Guid userId, string email, string role, int expiryMinutes, CancellationToken ct)
+    private async Task<string> GenerateJwtAsync(Guid userId, string email, string role, Guid? tenantId, int expiryMinutes, CancellationToken ct)
     {
         var issuer = _config["Jwt:Issuer"] ?? "Hospital_CRM";
         var audience = _config["Jwt:Audience"] ?? "Hospital_CRM";
@@ -218,17 +266,24 @@ public class AuthController : ControllerBase
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var header = JsonSerializer.SerializeToElement(new { alg = "RS256", typ = "JWT", kid = keyId });
-        var payload = JsonSerializer.SerializeToElement(new
+        var payloadDict = new Dictionary<string, object?>
         {
-            sub = userId.ToString(),
-            email,
-            role,
-            jti = Guid.NewGuid().ToString(),
-            iss = issuer,
-            aud = audience,
-            exp = expires,
-            iat = now
-        });
+            ["sub"] = userId.ToString(),
+            ["email"] = email,
+            ["role"] = role,
+            ["jti"] = Guid.NewGuid().ToString(),
+            ["iss"] = issuer,
+            ["aud"] = audience,
+            ["exp"] = expires,
+            ["iat"] = now
+        };
+
+        if (tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            payloadDict["tenant_id"] = tenantId.Value.ToString();
+        }
+
+        var payload = JsonSerializer.SerializeToElement(payloadDict);
 
         var headerB64 = Base64UrlEncode(header.GetRawText());
         var payloadB64 = Base64UrlEncode(payload.GetRawText());

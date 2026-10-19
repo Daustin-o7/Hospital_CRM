@@ -5,6 +5,7 @@ using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using static Hangfire.Cron;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Configuration;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Middlewares;
 using Hospital_CRM.Api.Services;
@@ -12,8 +13,10 @@ using Hospital_CRM.Api.Services.Typesense;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
+using Hospital_CRM.Infrastructure.Interceptors;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +26,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// P0-3: fail fast rather than run in a real environment on development defaults.
+StartupConfigurationGuard.Validate(builder.Configuration, builder.Environment);
+
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -31,9 +37,12 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+builder.Services.AddScoped<TenantConnectionInterceptor>();
+
 // EF Core
-builder.Services.AddDbContext<HospitalCrmDbContext>(options =>
+builder.Services.AddDbContext<HospitalCrmDbContext>((sp, options) =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .AddInterceptors(sp.GetRequiredService<TenantConnectionInterceptor>())
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 builder.Services.AddMemoryCache();
@@ -237,8 +246,33 @@ builder.Services.AddHostedService<ReminderSchedulerService>();
 // MOD-23 (Phase 2): pre-check link generation / submission lookup
 builder.Services.AddScoped<PrecheckService>();
 
+// Tenant context provider (B1)
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Hospital_CRM.Domain.Services.ITenantContext, TenantContext>();
+
+// B2: per-tenant integration secrets. Data Protection keys are persisted so a restart
+// does not orphan every stored PSP/WhatsApp secret. Swap the ISecretProtector
+// implementation for a Key Vault-backed one without changing call sites.
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(AppContext.BaseDirectory, "dp-keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+    .SetApplicationName("HospitalCrm");
+builder.Services.AddSingleton<Hospital_CRM.Domain.Services.ISecretProtector, DataProtectionSecretProtector>();
+
+// Universal module entitlement and kill-switch gate service (D6, A3)
+builder.Services.AddScoped<IModuleGateService, ModuleGateService>();
+
+// Impersonation audit tracking and structured access logging (A5)
+builder.Services.AddScoped<IImpersonationAuditService, ImpersonationAuditService>();
+
 // FR-18 edge case (Phase 1): Razorpay reconciliation worker
 builder.Services.AddHostedService<RazorpayReconciliationWorker>();
+
+// B2/F6: Razorpay order creation (optional, D7). Timeout keeps a PSP outage from
+// hanging the request pipeline.
+builder.Services.AddHttpClient<RazorpayOrderClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
 
 // MOD-13 (Phase 2): notification rules engine worker (FR-13-03)
 builder.Services.AddHostedService<NotificationRulesWorker>();
@@ -284,6 +318,16 @@ if (autoMigrate)
     var db = scope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
     var eraseOnStartup = app.Configuration.GetValue<bool>("Database:EraseOnStartup");
 
+    // Schema changes are applied with the owner role. The app itself connects as the
+    // least-privilege DefaultConnection role, which is deliberately not allowed to
+    // alter the schema or to UPDATE/DELETE the append-only audit tables.
+    var migrationsConnection = app.Configuration.GetConnectionString("MigrationsConnection");
+    if (!string.IsNullOrWhiteSpace(migrationsConnection) &&
+        !string.Equals(migrationsConnection, db.Database.GetConnectionString(), StringComparison.Ordinal))
+    {
+        db.Database.SetConnectionString(migrationsConnection);
+    }
+
     if (eraseOnStartup && app.Environment.IsDevelopment())
     {
         Log.Information("Erasing development database...");
@@ -310,6 +354,7 @@ if (autoMigrate)
                     var clinic = await db.Clinics.FirstOrDefaultAsync();
                     if (clinic != null)
                     {
+                        var tenantId = clinic.TenantId;
                         db.Users.Add(new User
                         {
                             Id = Guid.NewGuid(),
@@ -318,7 +363,7 @@ if (autoMigrate)
                             Name = "Pharmacist Alex",
                             Role = UserRole.Pharmacist,
                             ClinicId = clinic.Id,
-                            TenantId = Guid.Empty,
+                            TenantId = tenantId,
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
                         });
@@ -330,12 +375,30 @@ if (autoMigrate)
                             Name = "Nurse Joy",
                             Role = UserRole.Nurse,
                             ClinicId = clinic.Id,
-                            TenantId = Guid.Empty,
+                            TenantId = tenantId,
                             CreatedAt = DateTimeOffset.UtcNow,
                             UpdatedAt = DateTimeOffset.UtcNow
                         });
                         await db.SaveChangesAsync();
                     }
+                }
+                // MOD-14: existing dev DBs predate the PlatformAdmin user, so the console
+                // is unreachable. Top up idempotently (same pattern as pharmacist/nurse above).
+                if (!await db.Users.AnyAsync(u => u.Role == UserRole.PlatformAdmin))
+                {
+                    db.Users.Add(new User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = "platform-admin@samstack.ai",
+                        PasswordHash = "PlatformAdminPass123!".HashPassword(),
+                        Name = "SAMSTACK Platform Admin",
+                        Role = UserRole.PlatformAdmin,
+                        ClinicId = null,
+                        TenantId = null,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    });
+                    await db.SaveChangesAsync();
                 }
                 // MOD-26: existing dev DBs predate NurseProfile — backfill so the
                 // seeded nurse preset can use roster/leave/handover.
@@ -347,7 +410,7 @@ if (autoMigrate)
                     {
                         Id = Guid.NewGuid(),
                         UserId = seededNurse.Id,
-                        TenantId = Guid.Empty,
+                        TenantId = seededNurse.TenantId ?? Guid.Empty,
                         DepartmentId = null,
                         Designation = "Staff Nurse",
                         EmploymentType = EmploymentType.FullTime,
@@ -365,7 +428,8 @@ if (autoMigrate)
                 if (!await db.Drugs.AnyAsync())
                 {
                     Log.Information("Seeding Track 2 Pharmacy Catalog...");
-                    await SeedPharmacyDataAsync(db);
+                    var defaultClinic = await db.Clinics.FirstOrDefaultAsync();
+                    await SeedPharmacyDataAsync(db, defaultClinic?.TenantId);
                     await db.SaveChangesAsync();
                 }
             }
@@ -404,6 +468,7 @@ app.UseCors("AllowFrontend");
 
 app.UseRateLimiter();
 app.UseSecurityHeaders();
+app.UseMiddleware<PlatformAdminIpAllowlistMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 
 
@@ -413,6 +478,8 @@ Directory.CreateDirectory(labUploadDir);
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<ImpersonationEnforcementMiddleware>();
+app.UseMiddleware<SubscriptionEnforcementMiddleware>();
 
 // SEC-002: Lab file static middleware MUST run AFTER UseAuthentication/UseAuthorization
 // so that JWT is parsed before OnPrepareResponse fires. Also short-circuit the response
@@ -484,11 +551,24 @@ app.Run();
 
 static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
 {
+    var tenant = new Tenant
+    {
+        Id = Guid.NewGuid(),
+        Name = "Demo Health Organization",
+        SubscriptionTier = SubscriptionTier.Starter,
+        SubscriptionStatus = SubscriptionStatus.Trial,
+        ActivatedModules = "core,pharmacy",
+        SubscriptionEndsAt = DateTimeOffset.UtcNow.AddDays(30),
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Tenants.Add(tenant);
+
     var clinic = new Clinic
     {
         Id = Guid.NewGuid(),
+        TenantId = tenant.Id,
         Name = "Demo Health Clinic",
-        TenantId = Guid.Empty,
         CreatedAt = DateTimeOffset.UtcNow
     };
     db.Clinics.Add(clinic);
@@ -497,7 +577,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         Name = "Outpatient Department",
         Code = "OPD",
         Description = "General OPD Consultation & Triage",
@@ -509,7 +589,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         Name = "Emergency & Trauma",
         Code = "EMERG",
         Description = "24x7 Casualty & Acute Care",
@@ -521,7 +601,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         Name = "Intensive Care Unit",
         Code = "ICU",
         Description = "Critical Care & Ventilator Monitoring",
@@ -539,7 +619,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Dr. Admin",
         Role = UserRole.ClinicAdmin,
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
@@ -553,7 +633,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Dr. Sharma",
         Role = UserRole.Doctor,
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
@@ -567,14 +647,14 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Ms. Reception",
         Role = UserRole.Receptionist,
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(receptionist);
 
     // MOD-14: SAMSTACK's own platform admin — separate from clinic users.
-    // TenantId is empty (no clinic), ClinicId is null (no clinic association).
+    // TenantId is null (platform scope), ClinicId is null (no clinic association).
     var platformAdmin = new User
     {
         Id = Guid.NewGuid(),
@@ -583,7 +663,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "SAMSTACK Platform Admin",
         Role = UserRole.PlatformAdmin,
         ClinicId = null,
-        TenantId = Guid.Empty,
+        TenantId = null,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
@@ -597,7 +677,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Pharmacist Alex",
         Role = UserRole.Pharmacist,
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
@@ -611,7 +691,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Nurse Joy",
         Role = UserRole.Nurse,
         ClinicId = clinic.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
     };
@@ -622,7 +702,8 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     {
         Id = Guid.NewGuid(),
         UserId = nurse.Id,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
+
         DepartmentId = opdDept.Id,
         Designation = "Staff Nurse",
         EmploymentType = EmploymentType.FullTime,
@@ -723,7 +804,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
             Gender = p.Gender,
             Address = p.Address,
             CreatedBy = receptionist.Id,
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             CreatedAt = DateTimeOffset.UtcNow
         };
         db.Patients.Add(patient);
@@ -759,7 +840,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
             TimeSlot = time,
             Type = AppointmentType.Scheduled,
             Status = AppointmentStatus.Booked,
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             CreatedAt = DateTimeOffset.UtcNow
         };
         db.Appointments.Add(appointment);
@@ -777,7 +858,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Type = AppointmentType.Scheduled,
         Status = AppointmentStatus.CheckedIn,
         QueueToken = 1,
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         CreatedAt = DateTimeOffset.UtcNow
     };
     db.Appointments.Add(checkedInAppointment);
@@ -789,7 +870,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         new ConsultTemplate
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             DoctorId = null,
             Specialty = "dental",
             Name = "Dental — Standard Exam",
@@ -800,7 +881,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         new ConsultTemplate
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             DoctorId = null,
             Specialty = "general",
             Name = "General / Family Medicine — Standard Consult",
@@ -811,7 +892,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         new ConsultTemplate
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             DoctorId = null,
             Specialty = "ayurveda",
             Name = "Ayurveda / AYUSH — Panchakarma Consult",
@@ -826,7 +907,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     var msgTplConfirmation = new MessageTemplate
     {
         Id = Guid.NewGuid(),
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         Name = "FR-20 Appointment Confirmation",
         Channel = NotificationChannel.WhatsApp,
         Content = "Your appointment at {{clinic_name}} is confirmed for {{date}} at {{time}}.",
@@ -836,7 +917,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     var msgTplReminder = new MessageTemplate
     {
         Id = Guid.NewGuid(),
-        TenantId = Guid.Empty,
+        TenantId = tenant.Id,
         Name = "FR-21 Appointment Reminder (1 day before)",
         Channel = NotificationChannel.WhatsApp,
         Content = "Reminder: You have an appointment at {{clinic_name}} tomorrow at {{time}}.",
@@ -851,7 +932,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         new NotificationRule
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             RuleType = NotificationRuleType.AppointmentConfirmation,
             TimingConfigJson = "{}",
             TemplateId = msgTplConfirmation.Id,
@@ -861,7 +942,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         new NotificationRule
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenant.Id,
             RuleType = NotificationRuleType.AppointmentReminder,
             TimingConfigJson = "{\"daysBefore\":1}",
             TemplateId = msgTplReminder.Id,
@@ -871,23 +952,42 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     };
     db.NotificationRules.AddRange(defaultRules);
 
+    // A3.5: Seed default TenantFeatureFlags explicitly
+    db.TenantFeatureFlags.Add(new TenantFeatureFlag
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenant.Id,
+        FlagName = "pharmacy",
+        Enabled = true,
+        UpdatedAt = DateTimeOffset.UtcNow,
+        UpdatedBy = admin.Id
+    });
+
     await db.SaveChangesAsync();
 
     // Track 2: Seed Indian Essential Medicines & Batches
-    await SeedPharmacyDataAsync(db);
+    await SeedPharmacyDataAsync(db, tenant.Id);
 
     await db.SaveChangesAsync();
     Log.Information("Development seed data created successfully.");
 }
 
-static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db)
+static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db, Guid? tenantId = null)
 {
     if (await db.Drugs.AnyAsync()) return;
+
+    if (!tenantId.HasValue || tenantId.Value == Guid.Empty)
+    {
+        var clinic = await db.Clinics.FirstOrDefaultAsync();
+        tenantId = clinic?.TenantId ?? Guid.Empty;
+    }
+
+    var targetTenantId = tenantId.Value;
 
     var supplier = new Supplier
     {
         Id = Guid.NewGuid(),
-        TenantId = Guid.Empty,
+        TenantId = targetTenantId,
         Name = "MedSource India Healthcare Pvt Ltd",
         Gstin = "27AABCM8812K1Z0",
         Phone = "+91 98201 12345",
@@ -950,7 +1050,7 @@ static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db)
             var drug = new Drug
             {
                 Id = Guid.NewGuid(),
-                TenantId = Guid.Empty,
+                TenantId = targetTenantId,
                 Name = name,
                 GenericName = genericName,
                 TherapeuticCategory = category,
@@ -975,7 +1075,7 @@ static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db)
             batches.Add(new DrugBatch
             {
                 Id = Guid.NewGuid(),
-                TenantId = Guid.Empty,
+                TenantId = targetTenantId,
                 DrugId = drug.Id,
                 BatchNumber = batchNumA,
                 ExpiryDate = today.AddMonths(14 + (i % 12)),

@@ -20,7 +20,7 @@ public class WishlistItemsController : ControllerBase
     [AuthorizeRoles("Doctor", "ClinicAdmin")]
     public async Task<IActionResult> List([FromQuery] string? status, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var query = _db.WishlistItems.Where(w => w.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(status) &&
@@ -61,10 +61,11 @@ public class WishlistItemsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized(new { error = "invalid_token" });
 
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var item = new WishlistItem
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenantId,
             CreatedBy = userId.Value,
             Text = request.Text,
             Category = category,
@@ -87,7 +88,7 @@ public class WishlistItemsController : ControllerBase
     [AuthorizeRoles("Doctor", "ClinicAdmin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWishlistItemRequest request, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var item = await _db.WishlistItems.FirstOrDefaultAsync(w => w.Id == id && w.TenantId == tenantId, ct);
         if (item is null)
             return NotFound(new { error = "item_not_found" });

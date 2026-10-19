@@ -2,6 +2,8 @@ using System.Data;
 using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -16,11 +18,34 @@ public class PharmacyComplianceController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly ILogger<PharmacyComplianceController> _logger;
+    private readonly IModuleGateService _moduleGate;
 
-    public PharmacyComplianceController(HospitalCrmDbContext db, ILogger<PharmacyComplianceController> logger)
+    public PharmacyComplianceController(
+        HospitalCrmDbContext db,
+        ILogger<PharmacyComplianceController> logger,
+        IModuleGateService moduleGate)
     {
         _db = db;
         _logger = logger;
+        _moduleGate = moduleGate;
+    }
+
+    private async Task<(bool enabled, Guid tenantId)> EnsurePharmacyEnabledAsync(CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId == null)
+        {
+            var userId = User.GetUserId();
+            if (userId.HasValue)
+                tenantId = await _db.Users.AsNoTracking().Where(u => u.Id == userId.Value).Select(u => (Guid?)u.TenantId).FirstOrDefaultAsync(ct);
+        }
+
+        if (tenantId == null || !await _moduleGate.IsModuleEnabledAsync(tenantId.Value, ModuleRegistry.Pharmacy, ct))
+        {
+            return (false, Guid.Empty);
+        }
+
+        return (true, tenantId.Value);
     }
 
     [HttpPost("dispense")]
@@ -37,8 +62,8 @@ public class PharmacyComplianceController : ControllerBase
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
 
-        // SEC-009: Tenant feature flag check
-        if (!await PharmacyCommon.IsPharmacyEnabledAsync(_db, ct))
+        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
+        if (!enabled)
         {
             return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
         }
@@ -74,7 +99,7 @@ public class PharmacyComplianceController : ControllerBase
             var dispenseRecord = new DispenseRecord
             {
                 Id = Guid.NewGuid(),
-                TenantId = Guid.Empty,
+                TenantId = tenantId,
                 PrescriptionId = prescription.Id,
                 PatientId = prescription.Consultation?.Appointment?.PatientId,
                 WalkInCustomerName = req.PatientName,
@@ -161,7 +186,7 @@ public class PharmacyComplianceController : ControllerBase
                     _db.ControlledSubstanceRegisters.Add(new ControlledSubstanceRegister
                     {
                         Id = Guid.NewGuid(),
-                        TenantId = Guid.Empty,
+                        TenantId = tenantId,
                         DispenseRecordId = dispenseRecord.Id,
                         DrugId = matchedDrug.Id,
                         ScheduleClass = matchedDrug.ScheduleClass,
@@ -221,7 +246,17 @@ public class PharmacyComplianceController : ControllerBase
         [FromQuery] int pageSize = 100,
         CancellationToken ct = default)
     {
-        var q = _db.ControlledSubstanceRegisters.Include(r => r.Drug).AsNoTracking().AsQueryable();
+        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
+        if (!enabled)
+        {
+            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
+        }
+
+        var q = _db.ControlledSubstanceRegisters
+            .Include(r => r.Drug)
+            .AsNoTracking()
+            .Where(r => r.TenantId == tenantId)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(schedule) && Enum.TryParse<ScheduleClass>(schedule, true, out var schedClass))
         {
@@ -299,7 +334,7 @@ public class PharmacyComplianceController : ControllerBase
         var supplier = new Supplier
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             Name = req.Name.Trim(),
             Gstin = req.Gstin?.Trim() ?? "",
             Phone = req.Phone?.Trim() ?? "",

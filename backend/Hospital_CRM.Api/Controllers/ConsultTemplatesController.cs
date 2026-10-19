@@ -113,7 +113,7 @@ public class ConsultTemplatesController : ControllerBase
         var template = new ConsultTemplate
         {
             Id = Guid.NewGuid(),
-            TenantId = doctor.TenantId,
+            TenantId = doctor.TenantId ?? Guid.Empty,
             DoctorId = userId.Value,
             Specialty = request.Specialty,
             Name = request.Name,

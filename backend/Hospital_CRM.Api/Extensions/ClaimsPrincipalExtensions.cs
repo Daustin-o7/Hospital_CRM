@@ -31,4 +31,15 @@ public static class ClaimsPrincipalExtensions
             return null;
         return clinicId;
     }
+
+    public static Guid? GetTenantId(this ClaimsPrincipal? user)
+    {
+        if (user is null) return null;
+        var claim = user.FindFirst("tenant_id")
+                 ?? user.FindFirst("tenantId");
+        if (claim is null || !Guid.TryParse(claim.Value, out var tenantId))
+            return null;
+        return tenantId;
+    }
 }
+

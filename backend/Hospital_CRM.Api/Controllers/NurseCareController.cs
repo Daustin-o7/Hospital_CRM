@@ -50,7 +50,7 @@ public class NurseCareController : ControllerBase
         var assignment = new PatientNurseAssignment
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? caller.TenantId ?? Guid.Empty,
             PatientId = request.PatientId,
             NurseProfileId = request.NurseProfileId,
             AppointmentId = request.AppointmentId,
@@ -171,7 +171,7 @@ public class NurseCareController : ControllerBase
         var handover = new ShiftHandover
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? caller.TenantId ?? Guid.Empty,
             PatientId = request.PatientId,
             AuthorNurseProfileId = own.Id,
             ToNurseProfileId = request.ToNurseProfileId,

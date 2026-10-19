@@ -26,7 +26,7 @@ public class LedgerController : ControllerBase
         // month param format: "YYYY-MM" (defaults to current month)
         var (year, monthNum) = ParseMonth(month);
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
@@ -70,10 +70,11 @@ public class LedgerController : ControllerBase
         var userId = User.GetUserId();
         if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var expense = new LedgerExpense
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenantId,
             Category = category,
             CategoryOther = category == ExpenseCategory.Other
                 ? (request.CategoryOther ?? request.Category)
@@ -100,7 +101,7 @@ public class LedgerController : ControllerBase
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> UpdateExpense(Guid id, [FromBody] UpdateExpenseRequest request, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var expense = await _db.LedgerExpenses.FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, ct);
         if (expense is null)
             return NotFound(new { error = "expense_not_found" });
@@ -170,7 +171,7 @@ public class LedgerController : ControllerBase
     {
         var (year, monthNum) = ParseMonth(month);
         var monthLabel = $"{year:D4}-{monthNum:D2}";
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
@@ -234,8 +235,9 @@ public class LedgerController : ControllerBase
         var paymentCount = payments.Count;
 
         // Expenses recorded on the given date
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var expenses = await _db.LedgerExpenses
-            .Where(e => e.TenantId == Guid.Empty && e.ExpenseDate == targetDate)
+            .Where(e => e.TenantId == tenantId && e.ExpenseDate == targetDate)
             .ToListAsync(ct);
 
         var totalExpenses = expenses.Sum(e => e.Amount);

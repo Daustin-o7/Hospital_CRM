@@ -1,5 +1,6 @@
 using System.Data;
 using Hospital_CRM.Api.Authorization;
+using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -94,7 +95,7 @@ public class PharmacyBatchController : ControllerBase
         var batch = new DrugBatch
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             DrugId = id,
             BatchNumber = req.BatchNumber.Trim().ToUpperInvariant(),
             ExpiryDate = expiryDate,
@@ -178,7 +179,7 @@ public class PharmacyBatchController : ControllerBase
                 var batch = new DrugBatch
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = Guid.Empty,
+                    TenantId = User.GetTenantId() ?? Guid.Empty,
                     DrugId = item.DrugId,
                     BatchNumber = batchNumber,
                     ExpiryDate = expiryDate,

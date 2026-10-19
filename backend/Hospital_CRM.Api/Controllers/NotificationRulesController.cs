@@ -21,7 +21,7 @@ public class NotificationRulesController : ControllerBase
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> List(CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var rules = await _db.NotificationRules
             .Include(r => r.Template)
             .Where(r => r.TenantId == tenantId)
@@ -50,7 +50,7 @@ public class NotificationRulesController : ControllerBase
         if (request.TimingConfig is null)
             return BadRequest(new { error = "timing_config_required" });
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var template = await _db.MessageTemplates.FindAsync([request.TemplateId], ct);
         if (template is null || template.TenantId != tenantId)
             return BadRequest(new { error = "template_not_found" });
@@ -81,7 +81,7 @@ public class NotificationRulesController : ControllerBase
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateNotificationRuleRequest request, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var rule = await _db.NotificationRules.FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, ct);
         if (rule is null)
             return NotFound(new { error = "rule_not_found" });

@@ -20,8 +20,7 @@ public class MessageTemplatesController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Receptionist", "Doctor")]
     public async Task<IActionResult> List(CancellationToken ct)
     {
-        // Phase 1: single-tenant. All data uses TenantId = Guid.Empty (dormant).
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var templates = await _db.MessageTemplates
             .Where(t => t.TenantId == tenantId)
             .OrderBy(t => t.Name)
@@ -48,7 +47,7 @@ public class MessageTemplatesController : ControllerBase
         if (!Enum.TryParse<NotificationChannel>(request.Channel, true, out var channel))
             return BadRequest(new { error = "invalid_channel" });
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var template = new MessageTemplate
         {
             Id = Guid.NewGuid(),

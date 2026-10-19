@@ -174,7 +174,7 @@ public class SyncController : ControllerBase
                             var patient = new Patient
                             {
                                 Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
-                                TenantId = Guid.Empty,
+                                TenantId = User.GetTenantId() ?? Guid.Empty,
                                 Name = payload.Name.Trim(),
                                 Phone = payload.Phone.Trim(),
                                 DobHasValue = payload.Dob.HasValue,
@@ -267,7 +267,7 @@ public class SyncController : ControllerBase
                                 var invoice = new Invoice
                                 {
                                     Id = item.Id != Guid.Empty ? item.Id : Guid.NewGuid(),
-                                    TenantId = Guid.Empty,
+                                    TenantId = User.GetTenantId() ?? Guid.Empty,
                                     InvoiceNumber = maxInvoiceNumber + 1,
                                     PatientId = hasRegisteredPatient ? payload.PatientId : null,
                                     WalkInCustomerName = hasRegisteredPatient ? null : payload.WalkInCustomerName?.Trim(),

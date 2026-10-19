@@ -25,7 +25,7 @@ public class MedicinesController : ControllerBase
         var userId = User.GetUserId();
         if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
 
         if (string.IsNullOrWhiteSpace(q))
             return Ok(Array.Empty<object>());

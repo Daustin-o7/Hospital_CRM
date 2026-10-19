@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -38,8 +39,19 @@ public class StaffController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
             return BadRequest(new { error = "name_and_email_required" });
 
-        if (!Enum.TryParse<UserRole>(request.Role, true, out var role) || role == UserRole.PlatformAdmin)
+        if (!StaffRolePolicy.TryParseInvitableRole(request.Role, allowClinicAdmin: false, out var role))
             return BadRequest(new { error = "invalid_role" });
+
+        // F1: a user whose TenantId stays null has no tenant claim and is therefore
+        // invisible to both the EF query filter and RLS. Resolve it from the clinic if
+        // the admin row predates the tenant backfill.
+        var tenantId = adminUser.TenantId
+            ?? await _db.Clinics.IgnoreQueryFilters()
+                .Where(c => c.Id == adminUser.ClinicId.Value)
+                .Select(c => (Guid?)c.TenantId)
+                .FirstOrDefaultAsync(ct);
+        if (tenantId is null || tenantId == Guid.Empty)
+            return Forbid();
 
         var existingUser = await _db.Users.AnyAsync(u => u.Email == request.Email, ct);
         if (existingUser)
@@ -51,12 +63,13 @@ public class StaffController : ControllerBase
         var invite = new StaffInvite
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId.Value,
             ClinicId = adminUser.ClinicId.Value,
             Name = request.Name,
             Email = request.Email,
             Role = role,
             TokenHash = tokenHash,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+            ExpiresAt = DateTimeOffset.UtcNow.AddHours(72) // FR-04
         };
 
         if (request.Role.Equals("Nurse", StringComparison.OrdinalIgnoreCase))
@@ -102,6 +115,7 @@ public class StaffController : ControllerBase
     public async Task<IActionResult> AcceptInvite([FromBody] AcceptInviteRequest request, CancellationToken ct)
     {
         var validInvites = await _db.StaffInvites
+            .IgnoreQueryFilters()
             .Where(i => i.ExpiresAt > DateTimeOffset.UtcNow && i.AcceptedAt == null)
             .ToListAsync(ct);
 
@@ -117,6 +131,7 @@ public class StaffController : ControllerBase
         var user = new User
         {
             Id = Guid.NewGuid(),
+            TenantId = invite.TenantId,
             ClinicId = invite.ClinicId,
             Name = invite.Name,
             Email = invite.Email,
@@ -135,7 +150,7 @@ public class StaffController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                TenantId = Guid.Empty,
+                TenantId = user.TenantId ?? invite.TenantId,
                 DepartmentId = invite.DepartmentId,
                 WardId = invite.WardId,
                 Designation = invite.Designation ?? "Staff Nurse",

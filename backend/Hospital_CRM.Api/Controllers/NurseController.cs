@@ -39,8 +39,9 @@ public class NurseController : ControllerBase
         if (adminUser?.ClinicId is null)
             return Forbid();
 
+        var tenantId = User.GetTenantId();
         var nurses = await _db.NurseProfiles
-            .Where(n => n.TenantId == Guid.Empty && n.User.ClinicId == adminUser.ClinicId)
+            .Where(n => (tenantId == null || n.TenantId == tenantId.Value) && n.User.ClinicId == adminUser.ClinicId)
             .OrderBy(n => n.User.Name)
             .Select(n => new
             {
@@ -76,8 +77,9 @@ public class NurseController : ControllerBase
         if (adminUser?.ClinicId is null)
             return Forbid();
 
+        var tenantId = User.GetTenantId();
         var nurse = await _db.NurseProfiles
-            .Where(n => n.Id == id && n.TenantId == Guid.Empty && n.User.ClinicId == adminUser.ClinicId)
+            .Where(n => n.Id == id && (tenantId == null || n.TenantId == tenantId.Value) && n.User.ClinicId == adminUser.ClinicId)
             .Select(n => new
             {
                 id = n.Id,
@@ -129,8 +131,9 @@ public class NurseController : ControllerBase
         if (user?.ClinicId is null)
             return Forbid();
 
+        var tenantId = User.GetTenantId();
         var peers = await _db.NurseProfiles
-            .Where(n => n.TenantId == Guid.Empty && n.User.ClinicId == user.ClinicId && n.UserId != userId.Value)
+            .Where(n => (tenantId == null || n.TenantId == tenantId.Value) && n.User.ClinicId == user.ClinicId && n.UserId != userId.Value)
             .OrderBy(n => n.User.Name)
             .Select(n => new
             {
@@ -158,9 +161,10 @@ public class NurseController : ControllerBase
         if (adminUser?.ClinicId is null)
             return Forbid();
 
+        var tenantId = User.GetTenantId();
         var nurse = await _db.NurseProfiles
             .Include(n => n.User)
-            .FirstOrDefaultAsync(n => n.Id == id && n.TenantId == Guid.Empty && n.User.ClinicId == adminUser.ClinicId, ct);
+            .FirstOrDefaultAsync(n => n.Id == id && (tenantId == null || n.TenantId == tenantId.Value) && n.User.ClinicId == adminUser.ClinicId, ct);
 
         if (nurse == null)
             return NotFound(new { error = "nurse_not_found" });
@@ -227,8 +231,9 @@ public class NurseController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized(new { error = "invalid_token" });
 
+        var tenantId = User.GetTenantId();
         var nurse = await _db.NurseProfiles
-            .Where(n => n.UserId == userId.Value && n.TenantId == Guid.Empty)
+            .Where(n => n.UserId == userId.Value && (tenantId == null || n.TenantId == tenantId.Value))
             .Select(n => new
             {
                 id = n.Id,
@@ -251,8 +256,9 @@ public class NurseController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Nurse")]
     public async Task<IActionResult> GetAvailability(Guid id, CancellationToken ct)
     {
+        var tenantId = User.GetTenantId();
         var availabilities = await _db.NurseAvailabilities
-            .Where(a => a.NurseProfileId == id && a.TenantId == Guid.Empty)
+            .Where(a => a.NurseProfileId == id && (tenantId == null || a.TenantId == tenantId.Value))
             .OrderByDescending(a => a.StartDate)
             .Select(a => new
             {
@@ -282,7 +288,7 @@ public class NurseController : ControllerBase
         {
             Id = Guid.NewGuid(),
             NurseProfileId = id,
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             PreferredShift = request.PreferredShift,
@@ -317,7 +323,7 @@ public class NurseController : ControllerBase
         {
             Id = Guid.NewGuid(),
             NurseProfileId = id,
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             Type = request.Type,
@@ -337,8 +343,9 @@ public class NurseController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Nurse")]
     public async Task<IActionResult> ListLeaves(Guid id, CancellationToken ct)
     {
+        var tenantId = User.GetTenantId();
         var leaves = await _db.LeaveRequests
-            .Where(l => l.NurseProfileId == id && l.TenantId == Guid.Empty)
+            .Where(l => l.NurseProfileId == id && (tenantId == null || l.TenantId == tenantId.Value))
             .OrderByDescending(l => l.StartDate)
             .Select(l => new
             {
@@ -360,9 +367,10 @@ public class NurseController : ControllerBase
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> ListAllLeaveRequests([FromQuery] string? status, CancellationToken ct)
     {
+        var tenantId = User.GetTenantId();
         var query = _db.LeaveRequests
             .Include(l => l.Nurse).ThenInclude(n => n.User)
-            .Where(l => l.TenantId == Guid.Empty);
+            .Where(l => tenantId == null || l.TenantId == tenantId.Value);
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<LeaveStatus>(status, true, out var st))
             query = query.Where(l => l.Status == st);

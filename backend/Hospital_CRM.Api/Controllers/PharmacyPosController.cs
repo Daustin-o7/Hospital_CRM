@@ -2,6 +2,7 @@ using System.Data;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -17,20 +18,44 @@ public class PharmacyPosController : ControllerBase
     private readonly HospitalCrmDbContext _db;
     private readonly ILogger<PharmacyPosController> _logger;
     private readonly ITimezoneService _timezoneService;
+    private readonly IModuleGateService _moduleGate;
 
-    public PharmacyPosController(HospitalCrmDbContext db, ILogger<PharmacyPosController> logger, ITimezoneService timezoneService)
+    public PharmacyPosController(
+        HospitalCrmDbContext db,
+        ILogger<PharmacyPosController> logger,
+        ITimezoneService timezoneService,
+        IModuleGateService moduleGate)
     {
         _db = db;
         _logger = logger;
         _timezoneService = timezoneService;
+        _moduleGate = moduleGate;
+    }
+
+    private async Task<(bool enabled, Guid tenantId)> EnsurePharmacyEnabledAsync(CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId == null)
+        {
+            var userId = User.GetUserId();
+            if (userId.HasValue)
+                tenantId = await _db.Users.AsNoTracking().Where(u => u.Id == userId.Value).Select(u => (Guid?)u.TenantId).FirstOrDefaultAsync(ct);
+        }
+
+        if (tenantId == null || !await _moduleGate.IsModuleEnabledAsync(tenantId.Value, ModuleRegistry.Pharmacy, ct))
+        {
+            return (false, Guid.Empty);
+        }
+
+        return (true, tenantId.Value);
     }
 
     [HttpPost("checkout")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> CheckoutPos([FromBody] PosCheckoutRequest req, CancellationToken ct)
     {
-        // SEC-009: Tenant feature flag check applied uniformly to walk-in checkout
-        if (!await PharmacyCommon.IsPharmacyEnabledAsync(_db, ct))
+        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
+        if (!enabled)
         {
             return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
         }
@@ -151,7 +176,7 @@ public class PharmacyPosController : ControllerBase
             var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
-                TenantId = Guid.Empty,
+                TenantId = tenantId,
                 AppointmentId = null,
                 PatientId = req.PatientId,
                 InvoiceType = InvoiceType.Pharmacy,
@@ -213,7 +238,7 @@ public class PharmacyPosController : ControllerBase
                 _db.ControlledSubstanceRegisters.Add(new ControlledSubstanceRegister
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = Guid.Empty,
+                    TenantId = tenantId,
                     InvoiceId = invoice.Id,
                     DrugId = drug.Id,
                     ScheduleClass = drug.ScheduleClass,
@@ -265,6 +290,11 @@ public class PharmacyPosController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> ProcessReturn(Guid invoiceId, [FromBody] ReturnRequest req, CancellationToken ct)
     {
+        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
+        if (!enabled)
+        {
+            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
+        }
         var invoice = await _db.Invoices
             .Include(i => i.LineItems)
                 .ThenInclude(li => li.DrugBatch!)
@@ -346,7 +376,7 @@ public class PharmacyPosController : ControllerBase
                 _db.ControlledSubstanceRegisters.Add(new ControlledSubstanceRegister
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = Guid.Empty,
+                    TenantId = tenantId,
                     InvoiceId = invoice.Id,
                     DrugId = reg.DrugId,
                     ScheduleClass = reg.ScheduleClass,
@@ -384,6 +414,11 @@ public class PharmacyPosController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
     public async Task<IActionResult> GetPharmacyStats(CancellationToken ct)
     {
+        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
+        if (!enabled)
+        {
+            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
+        }
         var clinic = await _db.Clinics.FirstOrDefaultAsync(ct);
         var today = _timezoneService.GetClinicToday(clinic?.Timezone, HttpContext);
         var startOfTodayUtc = _timezoneService.GetStartOfDayUtc(today, clinic?.Timezone);
