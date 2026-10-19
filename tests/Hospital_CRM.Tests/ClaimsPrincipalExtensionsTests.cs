@@ -38,4 +38,48 @@ public class ClaimsPrincipalExtensionsTests
 
         Assert.Equal("Doctor", result);
     }
+
+    [Fact]
+    public void GetTenantId_ReturnsGuid_WhenTenantIdClaimPresent()
+    {
+        var expectedId = Guid.NewGuid();
+        var claims = new[] { new Claim("tenant_id", expectedId.ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var result = principal.GetTenantId();
+
+        Assert.Equal(expectedId, result);
+    }
+
+    [Fact]
+    public void GetTenantId_ReturnsNull_WhenUserIsNull()
+    {
+        ClaimsPrincipal? principal = null;
+        var result = principal.GetTenantId();
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void GetTenantId_ReturnsNull_WhenClaimMissing()
+    {
+        var claims = new[] { new Claim("sub", Guid.NewGuid().ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var result = principal.GetTenantId();
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void GetTenantId_ReturnsNull_WhenClaimInvalidGuid()
+    {
+        var claims = new[] { new Claim("tenant_id", "not-a-guid") };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var result = principal.GetTenantId();
+        Assert.Null(result);
+    }
 }
+
