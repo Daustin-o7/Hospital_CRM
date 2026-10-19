@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { BrandLogo } from './ui/BrandLogo'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone'
+import { drainPaymentBridge, isPaymentBridgeAvailable } from '../services/paymentBridge'
 
 // ── Categorized Healthcare Navigation ──────────────────────────────────────────
 export interface NavItem {
@@ -262,6 +263,14 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentDate(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // B2.9: push any queued bank-SMS / soundbox signals while we hold a session.
+  useEffect(() => {
+    if (!isPaymentBridgeAvailable()) return
+    void drainPaymentBridge()
+    const timer = setInterval(() => void drainPaymentBridge(), 60_000)
     return () => clearInterval(timer)
   }, [])
 
