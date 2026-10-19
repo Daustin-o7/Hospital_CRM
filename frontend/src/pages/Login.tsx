@@ -306,7 +306,8 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Role Persona Presets */}
+          {/* Role Persona Presets — dev only; never ship credentials */}
+          {import.meta.env.DEV && (
           <div
             className="card"
             style={{
@@ -337,6 +338,7 @@ export default function Login() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>
@@ -374,14 +376,14 @@ const TRUST_BADGES = [
   },
 ]
 
-const DEV_PRESETS = [
+const DEV_PRESETS = import.meta.env.DEV ? [
   { label: 'Doctor',         email: 'doctor@samstack.ai',         pass: 'DoctorPass123!',         icon: '🩺' },
   { label: 'Reception',      email: 'reception@samstack.ai',      pass: 'ReceptPass123!',      icon: '📋' },
   { label: 'Pharmacist',     email: 'pharmacist@samstack.ai',     pass: 'PharmacistPass123!',     icon: '💊' },
   { label: 'Admin',          email: 'admin@samstack.ai',          pass: 'AdminPass123!',          icon: '⚙️' },
   { label: 'Nurse',          email: 'nurse@samstack.ai',          pass: 'NursePass123!',          icon: '💉' },
   { label: 'Platform Admin', email: 'platform-admin@samstack.ai', pass: 'PlatformAdminPass123!', icon: '🛡️' },
-]
+] : []
 
 // ── Inline icons ──────────────────────────────────────────────────────────────
 function EyeIcon() {

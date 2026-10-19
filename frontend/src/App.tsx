@@ -20,7 +20,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AcceptInvite from './pages/AcceptInvite'
 import Wishlist from './pages/Wishlist'
-import PlatformAdmin from './pages/PlatformAdmin'
+import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
 import { SkeletonCard } from './components/ui/Skeleton'
 
@@ -30,6 +30,8 @@ const Billing = lazy(() => import('./pages/Billing'))
 const PharmacyPOS = lazy(() => import('./pages/PharmacyPOS'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Reports = lazy(() => import('./pages/Reports'))
+// A6: the platform-admin console is not needed by clinic users — keep it out of the main bundle.
+const PlatformAdmin = lazy(() => import('./pages/PlatformAdmin'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -37,6 +39,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <div className="flex h-screen w-screen items-center justify-center bg-slate-900 text-slate-300 font-sans">Loading workspace...</div>
   }
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+// The API already rejects a non-admin (403), but without this the console shell renders
+// empty with "Something went wrong" for clinic staff who hit the URL directly.
+function PlatformAdminOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  return String(user?.role).toLowerCase() === 'platformadmin'
+    ? <>{children}</>
+    : <Navigate to="/dashboard" replace />
 }
 
 function App() {
@@ -87,7 +98,13 @@ function App() {
             <Settings />
           </Suspense>
         } />
-        <Route path="/dashboard/platform-admin" element={<PlatformAdmin />} />
+        <Route path="/dashboard/platform-admin" element={
+          <PlatformAdminOnly>
+            <Suspense fallback={<SkeletonCard />}>
+              <ErrorBoundary title="Platform Admin"><PlatformAdmin /></ErrorBoundary>
+            </Suspense>
+          </PlatformAdminOnly>
+        } />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

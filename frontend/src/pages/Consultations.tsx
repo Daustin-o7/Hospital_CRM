@@ -25,6 +25,41 @@ import ClinicalSoapEditor from '../components/consultations/ClinicalSoapEditor'
 import SpecialtyToolsPanel from '../components/consultations/SpecialtyToolsPanel'
 import PrescriptionsEditor from '../components/consultations/PrescriptionsEditor'
 
+// Development-only demo queue. The literal is the true branch of a condition that
+// compiles to `false` in production, so the bundler drops it and its values entirely.
+const DEMO_APPOINTMENTS: AppointmentItem[] = import.meta.env.DEV
+  ? [
+      {
+        id: 'apt-demo-1',
+        patientId: 'pat-1',
+        patientName: 'Pooja Sharma 5603',
+        patientPhone: '+91 98765 43210',
+        patientGender: 'Female',
+        patientAge: 28,
+        doctorName: 'Dr. Practitioner',
+        status: 'Booked',
+        appointmentDate: new Date().toISOString().split('T')[0],
+        queueNumber: 1,
+        priority: 'Normal',
+        type: 'Scheduled'
+      },
+      {
+        id: 'apt-demo-2',
+        patientId: 'pat-2',
+        patientName: 'Aarav Verma',
+        patientPhone: '+91 98111 22233',
+        patientGender: 'Male',
+        patientAge: 35,
+        doctorName: 'Dr. Practitioner',
+        status: 'Waiting',
+        appointmentDate: new Date().toISOString().split('T')[0],
+        queueNumber: 2,
+        priority: 'Normal',
+        type: 'Walk-In'
+      }
+    ]
+  : []
+
 export default function Consultations() {
   const [searchParams] = useSearchParams()
   const querySpecialty = searchParams.get('specialty') as SpecialtyId | null
@@ -112,61 +147,14 @@ export default function Consultations() {
         const pMatch = queryPatientId ? mapped.find(m => m.patientId === queryPatientId) : null
         setSelectedAppointment(match || pMatch || mapped[0])
       } else {
-        const fallbackAppts: AppointmentItem[] = [
-          {
-            id: 'apt-demo-1',
-            patientId: 'pat-1',
-            patientName: 'Pooja Sharma 5603',
-            patientPhone: '+91 98765 43210',
-            patientGender: 'Female',
-            patientAge: 28,
-            doctorName: 'Dr. Practitioner',
-            status: 'Booked',
-            appointmentDate: todayISO,
-            queueNumber: 1,
-            priority: 'Normal',
-            type: 'Scheduled'
-          },
-          {
-            id: 'apt-demo-2',
-            patientId: 'pat-2',
-            patientName: 'Aarav Verma',
-            patientPhone: '+91 98111 22233',
-            patientGender: 'Male',
-            patientAge: 35,
-            doctorName: 'Dr. Practitioner',
-            status: 'Waiting',
-            appointmentDate: todayISO,
-            queueNumber: 2,
-            priority: 'Normal',
-            type: 'Walk-In'
-          }
-        ]
-        setAppointments(fallbackAppts)
-        const match = queryAppointmentId ? fallbackAppts.find(m => m.id === queryAppointmentId) : null
-        const pMatch = queryPatientId ? fallbackAppts.find(m => m.patientId === queryPatientId) : null
-        setSelectedAppointment(match || pMatch || fallbackAppts[0])
+        setAppointments(DEMO_APPOINTMENTS)
+        const match = queryAppointmentId ? DEMO_APPOINTMENTS.find(m => m.id === queryAppointmentId) : null
+        const pMatch = queryPatientId ? DEMO_APPOINTMENTS.find(m => m.patientId === queryPatientId) : null
+        setSelectedAppointment(match || pMatch || DEMO_APPOINTMENTS[0] || null)
       }
     } catch {
-      const todayISO = new Date().toISOString().split('T')[0]
-      const fallbackAppts: AppointmentItem[] = [
-        {
-          id: 'apt-demo-1',
-          patientId: 'pat-1',
-          patientName: 'Pooja Sharma 5603',
-          patientPhone: '+91 98765 43210',
-          patientGender: 'Female',
-          patientAge: 28,
-          doctorName: 'Dr. Practitioner',
-          status: 'Booked',
-          appointmentDate: todayISO,
-          queueNumber: 1,
-          priority: 'Normal',
-          type: 'Scheduled'
-        }
-      ]
-      setAppointments(fallbackAppts)
-      setSelectedAppointment(fallbackAppts[0])
+      setAppointments(DEMO_APPOINTMENTS.slice(0, 1))
+      setSelectedAppointment(DEMO_APPOINTMENTS[0] || null)
     } finally {
       setLoading(false)
     }

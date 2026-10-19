@@ -27,12 +27,27 @@ interface DoctorRoomStatus {
   currentQueue: number
 }
 
-const DEFAULT_DOCTOR_ROOMS: DoctorRoomStatus[] = [
-  { doctorId: 'doc-1', name: 'Dr. Sarah Jenkins', specialtyId: 'dental', roomNumber: 'OPD Room 101', status: 'busy', currentQueue: 4 },
-  { doctorId: 'doc-2', name: 'Dr. Rajiv Mehta', specialtyId: 'physiotherapy', roomNumber: 'Rehab Suite 104', status: 'available', currentQueue: 2 },
-  { doctorId: 'doc-3', name: 'Dr. Aisha Khan', specialtyId: 'general', roomNumber: 'OPD Room 102', status: 'available', currentQueue: 3 },
-  { doctorId: 'doc-4', name: 'Dr. Vikram Seth', specialtyId: 'orthopedics', roomNumber: 'OPD Room 105', status: 'busy', currentQueue: 5 },
-]
+// Development-only demo fallbacks. Kept out of production builds: each literal is the
+// true branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEFAULT_DOCTOR_ROOMS: DoctorRoomStatus[] = import.meta.env.DEV
+  ? [
+      { doctorId: 'doc-1', name: 'Dr. Sarah Jenkins', specialtyId: 'dental', roomNumber: 'OPD Room 101', status: 'busy', currentQueue: 4 },
+      { doctorId: 'doc-2', name: 'Dr. Rajiv Mehta', specialtyId: 'physiotherapy', roomNumber: 'Rehab Suite 104', status: 'available', currentQueue: 2 },
+      { doctorId: 'doc-3', name: 'Dr. Aisha Khan', specialtyId: 'general', roomNumber: 'OPD Room 102', status: 'available', currentQueue: 3 },
+      { doctorId: 'doc-4', name: 'Dr. Vikram Seth', specialtyId: 'orthopedics', roomNumber: 'OPD Room 105', status: 'busy', currentQueue: 5 },
+    ]
+  : []
+
+const DEMO_QUEUE: LobbyPatient[] = import.meta.env.DEV
+  ? [
+      { id: 'apt-1', tokenNumber: 'A-01', rawToken: 1, patientName: 'Aarav Sharma', phone: '+91 98765 43210', doctorName: 'Dr. Sarah Jenkins', time: '09:30', status: 'waiting', priority: 'normal' },
+      { id: 'apt-2', tokenNumber: 'A-02', rawToken: 2, patientName: 'Priya Patel', phone: '+91 98111 22334', doctorName: 'Dr. Rajiv Mehta', time: '09:45', status: 'waiting', priority: 'normal' },
+      { id: 'apt-3', tokenNumber: 'A-03', rawToken: 3, patientName: 'Rohan Gupta', phone: '+91 98222 33445', doctorName: 'Dr. Aisha Khan', time: '10:00', status: 'in_consultation', priority: 'normal' },
+      { id: 'apt-4', tokenNumber: 'A-04', rawToken: 4, patientName: 'Ananya Deshmukh', phone: '+91 98333 44556', doctorName: 'Dr. Sarah Jenkins', time: '10:15', status: 'waiting', priority: 'emergency' },
+    ]
+  : []
+
+const DEMO_COLLECTION = import.meta.env.DEV ? 4800 : 0
 
 export default function ReceptionistDashboard() {
   const { user } = useAuth()
@@ -104,27 +119,21 @@ export default function ReceptionistDashboard() {
           }
         }))
       } else {
-        // Fallback realistic records for immediate demo
-        const fallbackQueue: LobbyPatient[] = [
-          { id: 'apt-1', tokenNumber: 'A-01', rawToken: 1, patientName: 'Aarav Sharma', phone: '+91 98765 43210', doctorName: 'Dr. Sarah Jenkins', time: '09:30', status: 'waiting', priority: 'normal' },
-          { id: 'apt-2', tokenNumber: 'A-02', rawToken: 2, patientName: 'Priya Patel', phone: '+91 98111 22334', doctorName: 'Dr. Rajiv Mehta', time: '09:45', status: 'waiting', priority: 'normal' },
-          { id: 'apt-3', tokenNumber: 'A-03', rawToken: 3, patientName: 'Rohan Gupta', phone: '+91 98222 33445', doctorName: 'Dr. Aisha Khan', time: '10:00', status: 'in_consultation', priority: 'normal' },
-          { id: 'apt-4', tokenNumber: 'A-04', rawToken: 4, patientName: 'Ananya Deshmukh', phone: '+91 98333 44556', doctorName: 'Dr. Sarah Jenkins', time: '10:15', status: 'waiting', priority: 'emergency' },
-        ]
-        setPatients(fallbackQueue)
+        setPatients(DEMO_QUEUE)
       }
 
       if (invRes.status === 'fulfilled' && Array.isArray(invRes.value.data)) {
+        // Today's collections only — previously this summed every paid invoice ever.
         const paidToday = invRes.value.data
-          .filter((i: any) => i.status?.toLowerCase() === 'paid')
+          .filter((i: any) => i.status?.toLowerCase() === 'paid' && (i.createdAt || '').slice(0, 10) === todayISO)
           .reduce((sum: number, curr: any) => sum + (curr.total || 0), 0)
-        setCounterCollection(paidToday || 4800)
+        setCounterCollection(paidToday || DEMO_COLLECTION)
       } else {
-        setCounterCollection(4800)
+        setCounterCollection(DEMO_COLLECTION)
       }
     } catch {
       // Graceful fallback
-      setCounterCollection(4800)
+      setCounterCollection(DEMO_COLLECTION)
     } finally {
       setLoading(false)
     }
@@ -281,7 +290,7 @@ export default function ReceptionistDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">💵</span>
-              <span className="stat-label mt-0 text-emerald-800 dark:text-emerald-200">OPD Counter Cash</span>
+              <span className="stat-label mt-0 text-emerald-800 dark:text-emerald-200">OPD Counter Cash (Today)</span>
             </div>
             <span className="badge badge-success text-[10px]">Cash / UPI</span>
           </div>

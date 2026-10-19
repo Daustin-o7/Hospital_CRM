@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { friendlyError } from '../components/ui/Alert'
 import { PublicPage } from '../components/ui/PublicPage'
@@ -21,6 +21,25 @@ export default function Intake() {
   const [medications, setMedications] = useState('')
   const [allergies, setAllergies] = useState('')
   const [error, setError] = useState('')
+  const [checking, setChecking] = useState(true)
+
+  // Reject a stale or unknown link before the patient fills anything in.
+  useEffect(() => {
+    let alive = true
+    api.get(`/precheck/${encodeURIComponent(token)}`)
+      .then(res => {
+        if (!alive) return
+        if (res.data?.message === 'already_submitted') setPhase('already')
+      })
+      .catch(err => {
+        if (!alive) return
+        const code = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        // Only trust an explicit rejection; a transient failure falls through to the form.
+        if (code === 'invalid_token' || code === 'token_expired') setPhase(ERRORS[code].phase)
+      })
+      .finally(() => { if (alive) setChecking(false) })
+    return () => { alive = false }
+  }, [token])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +77,10 @@ export default function Intake() {
       subtitle="Your answers reach your doctor before you walk in. Takes under a minute."
       footer="Powered by Samstack Health CRM"
     >
+      {checking && (
+        <p className="text-center text-sm text-[var(--color-text-muted)] py-6">Checking your link…</p>
+      )}
+
       {(phase === 'done' || phase === 'already') && (
         <div className="text-center py-6 space-y-3">
           <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
@@ -92,7 +115,7 @@ export default function Intake() {
         </div>
       )}
 
-      {phase !== 'done' && phase !== 'already' && phase !== 'invalid' && phase !== 'expired' && (
+      {!checking && phase !== 'done' && phase !== 'already' && phase !== 'invalid' && phase !== 'expired' && (
         <form onSubmit={submit} className="space-y-4">
       {error && <div className="alert alert-error">{error}</div>}
 

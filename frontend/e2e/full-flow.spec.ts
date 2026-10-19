@@ -206,7 +206,7 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     // Navigate to Appointments
     await page.getByRole('link', { name: /Appointments/i }).click()
     await expect(page).toHaveURL(/.*appointments/)
-    await expect(page.getByRole('heading', { name: 'Appointments' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Appointments/i, level: 1 })).toBeVisible()
 
     // Open Book Appointment Modal
     await page.locator('#book-appointment-btn').click()
@@ -222,9 +222,11 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     const randomDays = 5 + Math.floor(Math.random() * 60)
     const targetDate = new Date(Date.now() + 86400000 * randomDays).toISOString().split('T')[0]
     await page.locator('#appt-date-input').fill(targetDate)
-    const randomHour = 10 + Math.floor(Math.random() * 7)
+    // Shifts are 09:00-13:00 and 14:00-18:00. Pick hours in valid shifts (avoiding 13:00-14:00 lunch break).
+    const validHours = [10, 11, 12, 14, 15, 16, 17]
+    const chosenHour = validHours[Math.floor(Math.random() * validHours.length)]
     const randomMin = (Math.floor(Math.random() * 12) * 5).toString().padStart(2, '0')
-    await page.locator('#appt-time').fill(`${randomHour.toString().padStart(2, '0')}:${randomMin}`)
+    await page.locator('#appt-time').fill(`${chosenHour.toString().padStart(2, '0')}:${randomMin}`)
 
     await page.locator('#submit-appt-btn').click()
     await expect(page.getByRole('heading', { name: /Book New Appointment/i })).not.toBeVisible({ timeout: 5000 })

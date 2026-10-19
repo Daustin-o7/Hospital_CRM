@@ -29,6 +29,24 @@ interface LabAlert {
   orderedDate: string
 }
 
+// Development-only demo fallbacks. Kept out of production builds: each literal is the
+// true branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEMO_QUEUE: DoctorPatientAppt[] = import.meta.env.DEV
+  ? [
+      { id: 'apt-1', patientId: 'pat-1', tokenNumber: 'A-01', rawToken: 1, patientName: 'Aarav Sharma', age: 38, gender: 'Male', complaint: 'Severe throbbing lower molar pain aggravated by hot liquids', time: '09:30', status: 'waiting', priority: 'normal' },
+      { id: 'apt-2', patientId: 'pat-2', tokenNumber: 'A-02', rawToken: 2, patientName: 'Priya Patel', age: 29, gender: 'Female', complaint: 'Low back stiffness radiating to left calf x 10 days', time: '10:00', status: 'waiting', priority: 'normal' },
+      { id: 'apt-3', patientId: 'pat-3', tokenNumber: 'A-03', rawToken: 3, patientName: 'Rohan Gupta', age: 52, gender: 'Male', complaint: 'Hypertension follow-up with episodic morning dizziness', time: '10:30', status: 'scheduled', priority: 'normal' },
+      { id: 'apt-4', patientId: 'pat-4', tokenNumber: 'A-04', rawToken: 4, patientName: 'Ananya Deshmukh', age: 8, gender: 'Female', complaint: 'Acute high fever (102°F) with dry cough for 3 days', time: '11:00', status: 'waiting', priority: 'emergency' },
+    ]
+  : []
+
+const DEMO_LAB_ALERTS: LabAlert[] = import.meta.env.DEV
+  ? [
+      { id: 'lab-1', patientName: 'Ramesh Verma', testName: 'Hemoglobin & Hematocrit', resultValue: 'Hb 7.2 g/dL', referenceRange: '13.0 - 17.0 g/dL', isCritical: true, orderedDate: 'Today, 08:45 AM' },
+      { id: 'lab-2', patientName: 'Sunita Mehra', testName: 'Serum Potassium (K+)', resultValue: '5.8 mEq/L', referenceRange: '3.5 - 5.0 mEq/L', isCritical: true, orderedDate: 'Today, 09:15 AM' },
+    ]
+  : []
+
 export default function DoctorDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -102,14 +120,7 @@ export default function DoctorDashboard() {
         })
         setAppointments(mapped)
       } else {
-        // Fallback realistic doctor queue
-        const fallbackList: DoctorPatientAppt[] = [
-          { id: 'apt-1', patientId: 'pat-1', tokenNumber: 'A-01', rawToken: 1, patientName: 'Aarav Sharma', age: 38, gender: 'Male', complaint: 'Severe throbbing lower molar pain aggravated by hot liquids', time: '09:30', status: 'waiting', priority: 'normal' },
-          { id: 'apt-2', patientId: 'pat-2', tokenNumber: 'A-02', rawToken: 2, patientName: 'Priya Patel', age: 29, gender: 'Female', complaint: 'Low back stiffness radiating to left calf x 10 days', time: '10:00', status: 'waiting', priority: 'normal' },
-          { id: 'apt-3', patientId: 'pat-3', tokenNumber: 'A-03', rawToken: 3, patientName: 'Rohan Gupta', age: 52, gender: 'Male', complaint: 'Hypertension follow-up with episodic morning dizziness', time: '10:30', status: 'scheduled', priority: 'normal' },
-          { id: 'apt-4', patientId: 'pat-4', tokenNumber: 'A-04', rawToken: 4, patientName: 'Ananya Deshmukh', age: 8, gender: 'Female', complaint: 'Acute high fever (102°F) with dry cough for 3 days', time: '11:00', status: 'waiting', priority: 'emergency' },
-        ]
-        setAppointments(fallbackList)
+        setAppointments(DEMO_QUEUE)
       }
 
       if (labRes.status === 'fulfilled' && Array.isArray(labRes.value.data)) {
@@ -123,10 +134,7 @@ export default function DoctorDashboard() {
           orderedDate: 'Today, 08:30 AM',
         })))
       } else {
-        setLabAlerts([
-          { id: 'lab-1', patientName: 'Ramesh Verma', testName: 'Hemoglobin & Hematocrit', resultValue: 'Hb 7.2 g/dL', referenceRange: '13.0 - 17.0 g/dL', isCritical: true, orderedDate: 'Today, 08:45 AM' },
-          { id: 'lab-2', patientName: 'Sunita Mehra', testName: 'Serum Potassium (K+)', resultValue: '5.8 mEq/L', referenceRange: '3.5 - 5.0 mEq/L', isCritical: true, orderedDate: 'Today, 09:15 AM' },
-        ])
+        setLabAlerts(DEMO_LAB_ALERTS)
       }
     } catch {
       // Fallback

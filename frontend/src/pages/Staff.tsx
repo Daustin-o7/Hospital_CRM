@@ -137,6 +137,18 @@ function getInitials(name: string) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+// Development-only demo roster. Kept out of production builds: the literal is the true
+// branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEMO_STAFF: StaffMember[] = import.meta.env.DEV
+  ? [
+      { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
+      { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
+      { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
+      { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
+      { id: 'st-5', name: 'Anil Kumar', email: 'pharmacy@hospital.org', role: 'Pharmacist', status: 'Active', joinedAt: '2025-01-12T08:00:00Z' },
+    ]
+  : []
+
 export default function Staff() {
   const [staff, setStaff]             = useState<StaffMember[]>([])
   const [loading, setLoading]         = useState(true)
@@ -297,22 +309,10 @@ export default function Staff() {
           specialty: s.specialty || (s.role === 'Doctor' ? getDoctorSpecialty(s.name).id : undefined)
         })))
       } else {
-        // Fallback default staff
-        setStaff([
-          { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
-          { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
-          { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
-          { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
-          { id: 'st-5', name: 'Anil Kumar', email: 'pharmacy@hospital.org', role: 'Pharmacist', status: 'Active', joinedAt: '2025-01-12T08:00:00Z' },
-        ])
+        setStaff(DEMO_STAFF)
       }
     } catch {
-      setStaff([
-        { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
-        { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
-        { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
-        { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
-      ])
+      setStaff(DEMO_STAFF)
     } finally {
       setLoading(false)
     }

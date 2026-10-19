@@ -49,13 +49,14 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
         body: JSON.stringify({ email: 'admin@samstack.ai', password: 'AdminPass123!' })
       })
       if (!loginRes.ok) return
-      const { accessToken } = await loginRes.json()
+      const { accessToken } = (await loginRes.json()) as { accessToken?: string }
+      if (!accessToken) return
       const d = shiftDate()
       const shiftsRes = await fetch(`http://localhost:5000/api/v1/shifts?from=${d}&to=${d}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       })
       if (shiftsRes.ok) {
-        const shifts = await shiftsRes.json()
+        const shifts = (await shiftsRes.json()) as Array<{ id: string; status?: string }>
         for (const s of shifts) {
           if (s.status !== 'Cancelled') {
             await fetch(`http://localhost:5000/api/v1/shifts/${s.id}`, {
@@ -70,7 +71,7 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
         headers: { Authorization: `Bearer ${accessToken}` }
       })
       if (leavesRes.ok) {
-        const leaves = await leavesRes.json()
+        const leaves = (await leavesRes.json()) as Array<{ id: string; startDate: string; endDate: string; status?: string }>
         for (const l of leaves) {
           if (l.startDate <= d && l.endDate >= d && l.status !== 'Rejected') {
             await fetch(`http://localhost:5000/api/v1/staff/leave-requests/${l.id}/review`, {

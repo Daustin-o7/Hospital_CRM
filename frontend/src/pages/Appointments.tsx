@@ -117,20 +117,22 @@ function formatRelativeDate(dateStr: string): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
-const DEFAULT_DOCTORS: Doctor[] = [
+// Development-only placeholder options. Kept out of production builds: each literal is the
+// true branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEFAULT_DOCTORS: Doctor[] = import.meta.env.DEV ? [
   { id: 'doc-1', name: 'Dr. Sarah Jenkins', specialty: 'dental' },
   { id: 'doc-2', name: 'Dr. Rajiv Mehta', specialty: 'physiotherapy' },
   { id: 'doc-3', name: 'Dr. Aisha Khan', specialty: 'general' },
   { id: 'doc-4', name: 'Dr. Vikram Seth', specialty: 'orthopedics' },
   { id: 'doc-5', name: 'Dr. Pooja Nair', specialty: 'pediatrics' },
-]
+] : []
 
-const DEFAULT_PATIENTS: Patient[] = [
+const DEFAULT_PATIENTS: Patient[] = import.meta.env.DEV ? [
   { id: 'pat-1', name: 'Aarav Sharma', phone: '+91 98765 43210' },
   { id: 'pat-2', name: 'Priya Patel', phone: '+91 98765 12345' },
   { id: 'pat-3', name: 'Rohan Gupta', phone: '+91 98765 67890' },
   { id: 'pat-4', name: 'Ananya Deshmukh', phone: '+91 98220 54321' },
-]
+] : []
 
 function isGuid(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)

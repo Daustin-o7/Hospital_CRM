@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useTheme, type ThemeMode } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
+import PaymentIntegrationSettings from '../components/PaymentIntegrationSettings'
 import { CLINICAL_SPECIALTIES } from './Appointments'
 import { SkeletonCard } from '../components/ui/Skeleton'
 
@@ -209,6 +210,9 @@ export default function Settings() {
 
       {/* ── Appearance & Dark Mode Settings ── */}
       <AppearanceSettingsEditor />
+
+      {/* ── B2: per-tenant PSP / WhatsApp connection ── */}
+      {isAdmin && <PaymentIntegrationSettings />}
 
       <WorkingHoursEditor
         initialHours={profile.workingHours}

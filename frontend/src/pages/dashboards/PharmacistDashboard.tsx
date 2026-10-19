@@ -25,6 +25,51 @@ interface FefoBatchAlert {
   remainingQuantity: number
 }
 
+// Development-only demo fallbacks. Kept out of production builds: each literal is the
+// true branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEMO_RX_LIST: PendingRx[] = import.meta.env.DEV
+  ? [
+      {
+        id: 'rx-1',
+        patientName: 'Aarav Sharma',
+        doctorName: 'Dr. Sarah Jenkins',
+        time: '09:45 AM',
+        itemsCount: 3,
+        drugsList: 'Amoxicillin 500mg, Paracetamol 650mg, Chlorhexidine 0.2%',
+        status: 'pending',
+        isScheduleH1: true,
+      },
+      {
+        id: 'rx-2',
+        patientName: 'Priya Patel',
+        doctorName: 'Dr. Rajiv Mehta',
+        time: '10:15 AM',
+        itemsCount: 2,
+        drugsList: 'Aceclofenac + Paracetamol, Thiocolchicoside 4mg',
+        status: 'pending',
+        isScheduleH1: false,
+      },
+      {
+        id: 'rx-3',
+        patientName: 'Sunita Mehra',
+        doctorName: 'Dr. Aisha Khan',
+        time: '10:40 AM',
+        itemsCount: 4,
+        drugsList: 'Metformin 500mg SR, Telmisartan 40mg, Atorvastatin 10mg, Pantoprazole 40mg',
+        status: 'pending',
+        isScheduleH1: false,
+      },
+    ]
+  : []
+
+const DEMO_FEFO_ALERTS: FefoBatchAlert[] = import.meta.env.DEV
+  ? [
+      { id: 'b-1', drugName: 'Cefixime 200mg DT', batchNumber: 'CFX-2024-09', expiryDate: '2026-10-28', daysUntilExpiry: 23, remainingQuantity: 45 },
+      { id: 'b-2', drugName: 'Azithromycin 500mg', batchNumber: 'AZT-8841', expiryDate: '2026-11-12', daysUntilExpiry: 38, remainingQuantity: 80 },
+      { id: 'b-3', drugName: 'Diclofenac Sodium Gel 30g', batchNumber: 'DIC-9921', expiryDate: '2026-11-20', daysUntilExpiry: 46, remainingQuantity: 28 },
+    ]
+  : []
+
 export default function PharmacistDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -32,8 +77,8 @@ export default function PharmacistDashboard() {
   const [loading, setLoading] = useState(true)
   const [rxList, setRxList] = useState<PendingRx[]>([])
   const [fefoAlerts, setFefoAlerts] = useState<FefoBatchAlert[]>([])
-  const [pharmacySales, setPharmacySales] = useState(14850)
-  const [lowStockCount, setLowStockCount] = useState(4)
+  const [pharmacySales, setPharmacySales] = useState(0)
+  const [lowStockCount, setLowStockCount] = useState(0)
 
   const fetchPharmacyData = useCallback(async () => {
     setLoading(true)
@@ -48,46 +93,8 @@ export default function PharmacistDashboard() {
         if (d.lowStockCount != null) setLowStockCount(d.lowStockCount)
       }
 
-      // Realistic prescription feed from consultation desk
-      setRxList([
-        {
-          id: 'rx-1',
-          patientName: 'Aarav Sharma',
-          doctorName: 'Dr. Sarah Jenkins',
-          time: '09:45 AM',
-          itemsCount: 3,
-          drugsList: 'Amoxicillin 500mg, Paracetamol 650mg, Chlorhexidine 0.2%',
-          status: 'pending',
-          isScheduleH1: true,
-        },
-        {
-          id: 'rx-2',
-          patientName: 'Priya Patel',
-          doctorName: 'Dr. Rajiv Mehta',
-          time: '10:15 AM',
-          itemsCount: 2,
-          drugsList: 'Aceclofenac + Paracetamol, Thiocolchicoside 4mg',
-          status: 'pending',
-          isScheduleH1: false,
-        },
-        {
-          id: 'rx-3',
-          patientName: 'Sunita Mehra',
-          doctorName: 'Dr. Aisha Khan',
-          time: '10:40 AM',
-          itemsCount: 4,
-          drugsList: 'Metformin 500mg SR, Telmisartan 40mg, Atorvastatin 10mg, Pantoprazole 40mg',
-          status: 'pending',
-          isScheduleH1: false,
-        },
-      ])
-
-      // Realistic FEFO batch expiry alerts
-      setFefoAlerts([
-        { id: 'b-1', drugName: 'Cefixime 200mg DT', batchNumber: 'CFX-2024-09', expiryDate: '2026-10-28', daysUntilExpiry: 23, remainingQuantity: 45 },
-        { id: 'b-2', drugName: 'Azithromycin 500mg', batchNumber: 'AZT-8841', expiryDate: '2026-11-12', daysUntilExpiry: 38, remainingQuantity: 80 },
-        { id: 'b-3', drugName: 'Diclofenac Sodium Gel 30g', batchNumber: 'DIC-9921', expiryDate: '2026-11-20', daysUntilExpiry: 46, remainingQuantity: 28 },
-      ])
+      setRxList(DEMO_RX_LIST)
+      setFefoAlerts(DEMO_FEFO_ALERTS)
     } catch {
       // Fallback
     } finally {

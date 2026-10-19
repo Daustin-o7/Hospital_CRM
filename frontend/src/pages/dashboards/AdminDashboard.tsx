@@ -27,34 +27,37 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true)
   const [totalPatients, setTotalPatients] = useState(0)
-  const [activeStaffCount, setActiveStaffCount] = useState(8)
-  const [unsettledInvoicesCount, setUnsettledInvoicesCount] = useState(3)
+  const [activeStaffCount, setActiveStaffCount] = useState(0)
+  const [unsettledInvoicesCount, setUnsettledInvoicesCount] = useState(0)
   const [finances, setFinances] = useState<FinancialBreakdown>({
-    cash: 18500,
-    upi: 34200,
-    card: 12000,
-    pending: 4500,
-    total: 64700,
+    cash: 0,
+    upi: 0,
+    card: 0,
+    pending: 0,
+    total: 0,
   })
 
-  const [departments] = useState<DepartmentStat[]>([
+  // Department stats are a local-development demo only: the literal is the true branch of a
+  // condition that compiles to `false` in production, so the bundler drops it entirely.
+  const [departments] = useState<DepartmentStat[]>(import.meta.env.DEV ? [
     { id: 'general', name: 'General Medicine', icon: '🩺', patientCount: 14, revenue: 11200, doctorsCount: 2 },
     { id: 'dental', name: 'Dentistry', icon: '🦷', patientCount: 8, revenue: 16800, doctorsCount: 1 },
     { id: 'physiotherapy', name: 'Physiotherapy & Rehab', icon: '🏃‍♂️', patientCount: 11, revenue: 14300, doctorsCount: 1 },
     { id: 'pediatrics', name: 'Pediatrics', icon: '👶', patientCount: 9, revenue: 7200, doctorsCount: 1 },
     { id: 'orthopedics', name: 'Orthopedics', icon: '🦴', patientCount: 6, revenue: 9500, doctorsCount: 1 },
     { id: 'cardiology', name: 'Cardiology', icon: '❤️', patientCount: 4, revenue: 5700, doctorsCount: 1 },
-  ])
+  ] : [])
 
   const fetchAdminData = useCallback(async () => {
     setLoading(true)
     try {
       const todayISO = new Date().toISOString().split('T')[0]
-      const [, invRes, patRes, staffRes] = await Promise.allSettled([
+      const [, invRes, patRes, staffRes, distRes] = await Promise.allSettled([
         api.get(`/appointments?date=${todayISO}`),
         api.get('/invoices'),
         api.get('/patients'),
         api.get('/staff'),
+        api.get(`/reports/payment-distribution?month=${todayISO.slice(0, 7)}`),
       ])
 
       if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
@@ -62,27 +65,32 @@ export default function AdminDashboard() {
       }
 
       if (staffRes.status === 'fulfilled' && Array.isArray(staffRes.value.data)) {
-        setActiveStaffCount(staffRes.value.data.length || 8)
+        setActiveStaffCount(staffRes.value.data.length)
       }
 
       if (invRes.status === 'fulfilled' && Array.isArray(invRes.value.data)) {
         const invs = invRes.value.data
-        const paidTotal = invs
-          .filter((i: any) => i.status?.toLowerCase() === 'paid')
-          .reduce((sum: number, curr: any) => sum + (curr.total || 0), 0)
-        
-        const pendingCount = invs.filter((i: any) => i.status?.toLowerCase() === 'issued' || i.status?.toLowerCase() === 'unpaid').length
-        setUnsettledInvoicesCount(pendingCount)
+        const isUnsettled = (i: any) => ['issued', 'unpaid'].includes(i.status?.toLowerCase())
 
-        if (paidTotal > 0) {
-          setFinances({
-            cash: Math.round(paidTotal * 0.35),
-            upi: Math.round(paidTotal * 0.45),
-            card: Math.round(paidTotal * 0.20),
-            pending: pendingCount * 800,
-            total: paidTotal,
-          })
-        }
+        setUnsettledInvoicesCount(invs.filter(isUnsettled).length)
+        setFinances(prev => ({
+          ...prev,
+          total: invs
+            .filter((i: any) => i.status?.toLowerCase() === 'paid' && (i.createdAt || '').slice(0, 10) === todayISO)
+            .reduce((sum: number, curr: any) => sum + (curr.total || 0), 0),
+          pending: invs.filter(isUnsettled).reduce((sum: number, curr: any) => sum + (curr.total || 0), 0),
+        }))
+      }
+
+      // Real payment-channel split for the month (see /reports/payment-distribution).
+      if (distRes.status === 'fulfilled' && distRes.value.data) {
+        const dist = distRes.value.data
+        setFinances(prev => ({
+          ...prev,
+          upi: dist.upiAmount ?? 0,
+          cash: dist.cashAmount ?? 0,
+          card: dist.cardAmount ?? 0,
+        }))
       }
     } catch {
       // Fallback
@@ -105,6 +113,10 @@ export default function AdminDashboard() {
     if (h < 17) return 'Good afternoon'
     return 'Good evening'
   })()
+
+  // Payment-channel share, derived from the real amounts (never a fixed percentage).
+  const channelTotal = finances.cash + finances.upi + finances.card
+  const channelPct = (v: number) => channelTotal > 0 ? `${Math.round((v / channelTotal) * 100)}%` : '0%'
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
@@ -318,7 +330,7 @@ export default function AdminDashboard() {
                 Revenue Realization Breakdown
               </h2>
               <p className="text-[11px] text-[var(--color-text-muted)]">
-                Audit breakdown across payment channels today
+                Audit breakdown across payment channels this month
               </p>
             </div>
             <button
@@ -338,11 +350,11 @@ export default function AdminDashboard() {
                   <span>UPI &amp; Dynamic QR</span>
                 </span>
                 <span className="font-mono font-bold text-teal-700 dark:text-teal-300">
-                  ₹{finances.upi.toLocaleString('en-IN')} (45%)
+                  ₹{finances.upi.toLocaleString('en-IN')} ({channelPct(finances.upi)})
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-teal-600 h-2 rounded-full" style={{ width: '45%' }}></div>
+                <div className="bg-teal-600 h-2 rounded-full" style={{ width: channelPct(finances.upi) }}></div>
               </div>
             </div>
 
@@ -354,11 +366,11 @@ export default function AdminDashboard() {
                   <span>Cash Collections (Front Desk)</span>
                 </span>
                 <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
-                  ₹{finances.cash.toLocaleString('en-IN')} (35%)
+                  ₹{finances.cash.toLocaleString('en-IN')} ({channelPct(finances.cash)})
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-600 h-2 rounded-full" style={{ width: '35%' }}></div>
+                <div className="bg-emerald-600 h-2 rounded-full" style={{ width: channelPct(finances.cash) }}></div>
               </div>
             </div>
 
@@ -370,11 +382,11 @@ export default function AdminDashboard() {
                   <span>Debit / Credit Cards</span>
                 </span>
                 <span className="font-mono font-bold text-sky-700 dark:text-sky-300">
-                  ₹{finances.card.toLocaleString('en-IN')} (20%)
+                  ₹{finances.card.toLocaleString('en-IN')} ({channelPct(finances.card)})
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div className="bg-sky-600 h-2 rounded-full" style={{ width: '20%' }}></div>
+                <div className="bg-sky-600 h-2 rounded-full" style={{ width: channelPct(finances.card) }}></div>
               </div>
             </div>
           </div>
@@ -416,6 +428,13 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
+                {departments.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="text-center text-[var(--color-text-muted)] py-6">
+                      No department statistics available.
+                    </td>
+                  </tr>
+                )}
                 {departments.map(dept => {
                   return (
                     <tr key={dept.id} className="hover:bg-[var(--color-surface-hover)] transition-colors">

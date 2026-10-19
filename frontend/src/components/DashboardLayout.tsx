@@ -59,7 +59,7 @@ export function resolveWorkspace(pathname: string, search: string, role: string)
   if (rawRole !== 'doctor' && rawRole !== 'clinicadmin') return 'all'
   const param = new URLSearchParams(search).get('domain')
   if (param === 'all' || param === 'clinical' || param === 'pharmacy' || param === 'admin') return param
-  return getDomainFromPath(pathname) ?? (rawRole === 'doctor' ? 'clinical' : 'admin')
+  return getDomainFromPath(pathname) ?? 'all'
 }
 
 const CATEGORY_TO_DOMAIN: Record<string, WorkspaceDomain> = {
@@ -206,7 +206,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { branding } = useBranding()
-  const { user, logout } = useAuth()
+  const { user, logout, impersonation, endImpersonation } = useAuth()
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
   const searchParams = new URLSearchParams(location.search)
@@ -282,13 +282,14 @@ export default function DashboardLayout() {
       )}
 
       {/* Desktop & Mobile Sidebar */}
+      {/* Desktop & Mobile Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0f172a] text-slate-200 flex flex-col border-r border-slate-800 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0F172A] text-slate-200 flex flex-col border-r border-slate-800/80 transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-2xl lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-[#0b1322]/80 backdrop-blur-md">
+        <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-[#0B1322]/90 backdrop-blur-md">
           <BrandLogo
             size="md"
             theme="dark"
@@ -299,7 +300,7 @@ export default function DashboardLayout() {
           {sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
               aria-label="Close sidebar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,12 +312,12 @@ export default function DashboardLayout() {
 
         {/* Workspace Domain Selector for Multi-Domain Roles */}
         {isMultiDomainRole && (
-          <div className="px-3 pt-3 pb-2.5 border-b border-slate-800 bg-[#0c1424]">
+          <div className="px-3 pt-2.5 pb-2 border-b border-slate-800/80 bg-[#0B1322]/60">
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="workspace-domain-select" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+              <label htmlFor="workspace-domain-select" className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Workspace Domain
               </label>
-              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-teal-500/10 text-teal-400 font-mono font-bold border border-teal-500/20">
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-teal-500/15 text-teal-300 font-mono font-bold border border-teal-500/30">
                 {activeWorkspace === 'clinical' ? 'Clinical' : activeWorkspace === 'pharmacy' ? 'Pharmacy' : activeWorkspace === 'admin' ? 'Operations' : 'All'}
               </span>
             </div>
@@ -326,7 +327,7 @@ export default function DashboardLayout() {
                 value={activeWorkspace}
                 onChange={(e) => handleDomainChange(e.target.value as WorkspaceDomain)}
                 aria-label="Select workspace domain"
-                className="w-full appearance-none bg-slate-900/90 text-slate-200 text-xs font-semibold px-2.5 py-1.5 pr-7 rounded-lg border border-slate-700 hover:border-teal-500/70 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 transition-colors cursor-pointer"
+                className="w-full appearance-none bg-slate-900/90 text-slate-200 text-xs font-semibold px-2.5 py-1.5 pr-7 rounded-lg border border-slate-700/80 hover:border-teal-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors cursor-pointer shadow-2xs"
               >
                 <option value="clinical">Clinical Care</option>
                 <option value="pharmacy">Pharmacy Services</option>
@@ -354,8 +355,8 @@ export default function DashboardLayout() {
             if (visibleItems.length === 0) return null
 
             return (
-              <div key={section.category} className="space-y-1">
-                <div className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+              <div key={section.category} className="space-y-0.5">
+                <div className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                   {section.category}
                 </div>
                 {visibleItems.map((item) => (
@@ -366,8 +367,8 @@ export default function DashboardLayout() {
                     className={({ isActive }) =>
                       `relative flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
                         isActive
-                          ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          ? 'bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/40 shadow-2xs'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
                       }`
                     }
                   >
@@ -376,7 +377,9 @@ export default function DashboardLayout() {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <item.icon
                             className={`w-4 h-4 shrink-0 transition-colors ${
-                              isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-200'
+                              isActive
+                                ? 'text-teal-400'
+                                : 'text-slate-400 group-hover:text-slate-200'
                             }`}
                           />
                           <span className="truncate">{item.name}</span>
@@ -398,14 +401,14 @@ export default function DashboardLayout() {
 
         {/* Persistent Settings Link for Authorized Roles */}
         {['clinicadmin', 'doctor', 'receptionist', 'pharmacist'].includes(effectiveRole) && (
-          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-[#0b1322]/50">
+          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-[#0B1322]/50">
             <NavLink
               to="/dashboard/settings"
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
                   isActive
-                    ? 'bg-teal-500/15 text-teal-300 font-semibold shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    ? 'bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/40 shadow-2xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
                 }`
               }
             >
@@ -424,16 +427,16 @@ export default function DashboardLayout() {
         )}
 
         {/* Refined User Footer Card */}
-        <div className="p-3 border-t border-slate-800 bg-[#0b1322]/80">
-          <div className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-800/40 border border-slate-800/80">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+        <div className="p-2.5 border-t border-slate-800/80 bg-[#0B1322]/90">
+          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xs">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-slate-200 truncate">
+              <div className="text-xs font-bold text-slate-200 truncate">
                 {user?.name || 'Staff Member'}
               </div>
-              <div className="text-[10px] text-slate-400 capitalize truncate">
+              <div className="text-[10px] text-slate-400 capitalize truncate font-medium">
                 {displayRole}
               </div>
             </div>
@@ -544,6 +547,30 @@ export default function DashboardLayout() {
             </div>
           </div>
         </header>
+
+        {impersonation && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="sticky top-16 z-20 border-b border-amber-300 bg-amber-50 px-4 py-2 text-amber-900 lg:px-8"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm">
+                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <span>
+                  <strong>Impersonating {impersonation.targetUser.name}</strong>
+                  <span className="hidden sm:inline"> ({impersonation.targetUser.role}) - read-only, ends {formatLocalTime(new Date(impersonation.expiresAt), effectiveTimezone)}</span>
+                </span>
+                <span className="badge badge-warning">Reason: {impersonation.reason}</span>
+              </div>
+              <button onClick={endImpersonation} className="btn btn-secondary btn-sm">
+                End session
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Page Main Content with Mobile Bottom Padding */}
         <main className="flex-1 p-3.5 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8">

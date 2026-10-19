@@ -492,7 +492,7 @@ export default function Billing() {
             <input
               type="text"
               {...register('patientName')}
-              placeholder="e.g. Ramesh Verma"
+              placeholder="e.g. patient name"
               className="form-input"
             />
             {errors.patientName && <p className="form-error">{errors.patientName.message}</p>}

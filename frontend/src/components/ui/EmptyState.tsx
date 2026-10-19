@@ -204,13 +204,17 @@ export function SkeletonCard({ className = '' }: { className?: string }) {
   )
 }
 
+// Must be a <tr>: every caller renders it inside a <tbody>, and a <div> there is
+// invalid HTML (React 19 warns and the browser hoists it out of the table).
 export function SkeletonTableRow({ columns = 5 }: { columns?: number }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: '16px', padding: '12px 0' }}>
+    <tr>
       {Array.from({ length: columns }).map((_, i) => (
-        <Skeleton key={i} height="16px" width="80%" />
+        <td key={i} style={{ padding: '12px 8px' }}>
+          <Skeleton height="16px" width="80%" />
+        </td>
       ))}
-    </div>
+    </tr>
   )
 }
 

@@ -28,6 +28,23 @@ interface PrecheckItem {
   status: 'pending' | 'reviewed'
 }
 
+// Development-only demo fallbacks. Kept out of production builds: each literal is the
+// true branch of a condition that compiles to `false`, so the bundler drops it entirely.
+const DEMO_PATIENTS: VitalsPatient[] = import.meta.env.DEV
+  ? [
+      { id: 'pat-1', appointmentId: 'apt-1', patientName: 'Aarav Sharma', age: 38, gender: 'Male', doctorName: 'Dr. Sarah Jenkins', tokenNumber: 'A-01', vitalsRecorded: true, bp: '124/82', pulse: 76, spo2: 99, temp: 98.6 },
+      { id: 'pat-2', appointmentId: 'apt-2', patientName: 'Priya Patel', age: 29, gender: 'Female', doctorName: 'Dr. Rajiv Mehta', tokenNumber: 'A-02', vitalsRecorded: false },
+      { id: 'pat-3', appointmentId: 'apt-3', patientName: 'Rohan Gupta', age: 52, gender: 'Male', doctorName: 'Dr. Aisha Khan', tokenNumber: 'A-03', vitalsRecorded: false },
+    ]
+  : []
+
+const DEMO_PRECHECKS: PrecheckItem[] = import.meta.env.DEV
+  ? [
+      { id: 'pc-1', patientName: 'Aarav Sharma', submittedAt: '10 mins ago', allergies: 'Penicillin (Severe rash)', conditions: 'Hypertension (Grade 1)', status: 'pending' },
+      { id: 'pc-2', patientName: 'Sunita Patel', submittedAt: '25 mins ago', allergies: 'Sulfa Drugs', conditions: 'Type 2 Diabetes', status: 'reviewed' },
+    ]
+  : []
+
 export default function NurseDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -63,25 +80,19 @@ export default function NurseDashboard() {
           gender: a.patient?.gender || 'Adult',
           doctorName: a.doctorName || a.doctor?.name || 'Dr. Practitioner',
           tokenNumber: a.queueToken ? `A-${String(a.queueToken).padStart(2, '0')}` : a.time || '09:00',
-          vitalsRecorded: idx === 0, // demo: first is recorded
-          bp: idx === 0 ? '122/82' : undefined,
-          pulse: idx === 0 ? 76 : undefined,
-          spo2: idx === 0 ? 99 : undefined,
-          temp: idx === 0 ? 98.4 : undefined,
+          // Only the dev demo fabricates vitals; production shows them as not yet recorded.
+          vitalsRecorded: import.meta.env.DEV && idx === 0,
+          bp: import.meta.env.DEV && idx === 0 ? '122/82' : undefined,
+          pulse: import.meta.env.DEV && idx === 0 ? 76 : undefined,
+          spo2: import.meta.env.DEV && idx === 0 ? 99 : undefined,
+          temp: import.meta.env.DEV && idx === 0 ? 98.4 : undefined,
         }))
         setPatients(mapped)
       } else {
-        setPatients([
-          { id: 'pat-1', appointmentId: 'apt-1', patientName: 'Aarav Sharma', age: 38, gender: 'Male', doctorName: 'Dr. Sarah Jenkins', tokenNumber: 'A-01', vitalsRecorded: true, bp: '124/82', pulse: 76, spo2: 99, temp: 98.6 },
-          { id: 'pat-2', appointmentId: 'apt-2', patientName: 'Priya Patel', age: 29, gender: 'Female', doctorName: 'Dr. Rajiv Mehta', tokenNumber: 'A-02', vitalsRecorded: false },
-          { id: 'pat-3', appointmentId: 'apt-3', patientName: 'Rohan Gupta', age: 52, gender: 'Male', doctorName: 'Dr. Aisha Khan', tokenNumber: 'A-03', vitalsRecorded: false },
-        ])
+        setPatients(DEMO_PATIENTS)
       }
 
-      setPrechecks([
-        { id: 'pc-1', patientName: 'Aarav Sharma', submittedAt: '10 mins ago', allergies: 'Penicillin (Severe rash)', conditions: 'Hypertension (Grade 1)', status: 'pending' },
-        { id: 'pc-2', patientName: 'Sunita Patel', submittedAt: '25 mins ago', allergies: 'Sulfa Drugs', conditions: 'Type 2 Diabetes', status: 'reviewed' },
-      ])
+      setPrechecks(DEMO_PRECHECKS)
     } catch {
       // Fallback
     } finally {
