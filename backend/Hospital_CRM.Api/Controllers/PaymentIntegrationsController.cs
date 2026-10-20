@@ -233,22 +233,193 @@ public class PaymentIntegrationsController : ControllerBase
     // ----- B2.9 Android notification bridge (fallback) -----
 
     /// <summary>
-    /// Fallback for clinics whose UPI ID exposes no PSP webhook: the receptionist's
-    /// Android device reads the bank SMS / soundbox notification and posts it here.
-    /// The tenant is taken from the session, never from the payload, and the raw
-    /// notification text is never trusted for amounts beyond what the body states.
-    /// There is no HMAC here because the device holds no merchant secret; the JWT
-    /// (a clinic user on that device) is the credential.
+    /// Creates an unpaired device row and returns a one-time six-digit code. The clinic
+    /// admin reads the code aloud (or types it on the handset); it expires in ten
+    /// minutes and is useless without an account in the same tenant.
     /// </summary>
-    [HttpPost("integrations/payments/bridge/notifications")]
-    [AuthorizeRoles("ClinicAdmin", "Receptionist")]
-    public async Task<IActionResult> IngestDeviceNotification([FromBody] DevicePaymentNotification request, CancellationToken ct)
+    [HttpPost("integrations/payments/bridge/devices/pairing-code")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> CreatePairingCode([FromBody] CreatePairingCodeRequest request, CancellationToken ct)
     {
         var tenantId = User.GetTenantId();
         if (tenantId is null) return Forbid();
 
-        if (string.IsNullOrWhiteSpace(request.EventId) || request.Amount is null or <= 0)
+        var name = string.IsNullOrWhiteSpace(request.Name) ? "Clinic device" : request.Name.Trim();
+        if (name.Length > 120) name = name[..120];
+
+        var device = new PaymentBridgeDevice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId.Value,
+            Name = name,
+            PairingExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            CreatedByUserId = User.GetUserId()
+        };
+        var code = DeviceSignature.NewPairingCode();
+        device.PairingCodeHash = DeviceSignature.HashPairingCode(device.Id.ToString(), code);
+
+        _db.PaymentBridgeDevices.Add(device);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            deviceId = device.Id,
+            pairingCode = code,
+            expiresAt = device.PairingExpiresAt
+        });
+    }
+
+    /// <summary>
+    /// Exchanges a pairing code for the device secret. The secret is returned exactly
+    /// once and stored on the handset; the server keeps only a protected copy.
+    /// </summary>
+    [HttpPost("integrations/payments/bridge/devices/pair")]
+    [AuthorizeRoles("ClinicAdmin", "Receptionist")]
+    public async Task<IActionResult> PairDevice([FromBody] PairDeviceRequest request, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId is null) return Forbid();
+        if (string.IsNullOrWhiteSpace(request.PairingCode))
+            return BadRequest(new { error = "pairing_code_required" });
+
+        var now = DateTimeOffset.UtcNow;
+        var code = request.PairingCode.Trim();
+
+        var pending = await _db.PaymentBridgeDevices
+            .Where(d => d.TenantId == tenantId.Value
+                        && d.PairedAt == null
+                        && d.RevokedAt == null
+                        && d.PairingExpiresAt > now
+                        && d.PairingAttempts < 5)
+            .ToListAsync(ct);
+
+        if (pending.Count == 0)
+            return BadRequest(new { error = "no_pending_pairing" });
+
+        var device = pending.FirstOrDefault(d =>
+            d.PairingCodeHash is not null &&
+            DeviceSignature.HashPairingCode(d.Id.ToString(), code) == d.PairingCodeHash);
+
+        if (device is null)
+        {
+            // Bound the guesses on every outstanding code, not just the one aimed at.
+            foreach (var candidate in pending) candidate.PairingAttempts++;
+            await _db.SaveChangesAsync(ct);
+            return BadRequest(new { error = "invalid_pairing_code" });
+        }
+
+        var secret = DeviceSignature.NewSecret();
+        device.SecretProtected = _secretProtector.Protect(secret);
+        device.PairedAt = now;
+        device.PairingCodeHash = null;
+        device.PairingExpiresAt = null;
+        device.PairingAttempts = 0;
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            var name = request.Name.Trim();
+            device.Name = name.Length > 120 ? name[..120] : name;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Payment bridge device {DeviceId} paired for tenant {TenantId}", device.Id, tenantId);
+
+        return Ok(new { deviceId = device.Id, device.Name, secret });
+    }
+
+    [HttpGet("integrations/payments/bridge/devices")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> ListDevices(CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId is null) return Forbid();
+
+        var devices = await _db.PaymentBridgeDevices
+            .Where(d => d.TenantId == tenantId.Value)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new
+            {
+                id = d.Id,
+                name = d.Name,
+                paired = d.PairedAt != null,
+                pairedAt = d.PairedAt,
+                lastSeenAt = d.LastSeenAt,
+                revoked = d.RevokedAt != null
+            })
+            .ToListAsync(ct);
+
+        return Ok(new { devices });
+    }
+
+    [HttpPost("integrations/payments/bridge/devices/{id:guid}/revoke")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> RevokeDevice(Guid id, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId is null) return Forbid();
+
+        var device = await _db.PaymentBridgeDevices
+            .FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId.Value, ct);
+        if (device is null) return NotFound(new { error = "device_not_found" });
+
+        device.RevokedAt = DateTimeOffset.UtcNow;
+        device.SecretProtected = null;
+        device.PairingCodeHash = null;
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Payment bridge device {DeviceId} revoked for tenant {TenantId}", id, tenantId);
+        return Ok(new { status = "revoked" });
+    }
+
+    /// <summary>
+    /// Fallback for clinics whose UPI ID exposes no PSP webhook: the receptionist's
+    /// Android device reads the bank SMS / soundbox notification and posts it here.
+    /// The tenant is taken from the session, never from the payload.
+    ///
+    /// A paired handset also signs the request body with its own secret. Once a tenant
+    /// has a paired device the signature is mandatory, so a clinic login on its own can
+    /// no longer manufacture a receipt. Tenants with no device yet still post with the
+    /// JWT alone, which is what the rollout depends on.
+    /// </summary>
+    [HttpPost("integrations/payments/bridge/notifications")]
+    [AuthorizeRoles("ClinicAdmin", "Receptionist")]
+    public async Task<IActionResult> IngestDeviceNotification(CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId is null) return Forbid();
+
+        // A bank alert is a few hundred bytes; anything larger is not a receipt.
+        const int maxBodyBytes = 8 * 1024;
+        if (Request.ContentLength > maxBodyBytes)
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "payload_too_large" });
+
+        string body;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+            body = await reader.ReadToEndAsync(ct);
+
+        if (Encoding.UTF8.GetByteCount(body) > maxBodyBytes)
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "payload_too_large" });
+
+        var device = await VerifyDeviceAsync(tenantId.Value, body, ct);
+        if (device.Error is not null) return device.Error;
+
+        DevicePaymentNotification? request;
+        try
+        {
+            request = JsonSerializer.Deserialize<DevicePaymentNotification>(
+                body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { error = "invalid_payload" });
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.EventId) || request.Amount is null or <= 0)
             return BadRequest(new { error = "event_id_and_amount_required" });
+
+        // Defence in depth: the device already filters, but a debit message must never
+        // close an invoice, whatever the handset sent.
+        if (IsDebitOnly(request.RawText ?? request.Reference))
+            return Ok(new { status = "ignored" });
 
         var provider = ("bridge:" + (request.Source ?? "unknown").Trim().ToLowerInvariant());
         if (provider.Length > 50)
@@ -275,6 +446,12 @@ public class PaymentIntegrationsController : ControllerBase
             ReceivedAt = DateTimeOffset.UtcNow
         };
 
+        if (device.Device is not null)
+        {
+            device.Device.LastSeenAt = DateTimeOffset.UtcNow;
+            _db.PaymentBridgeDevices.Update(device.Device);
+        }
+
         if (invoice is null)
         {
             record.Status = ProcessedWebhookEvent.Unmatched;
@@ -290,6 +467,67 @@ public class PaymentIntegrationsController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { status = "ok", paymentId = payment.Id });
+    }
+
+    private readonly record struct DeviceCheck(PaymentBridgeDevice? Device, IActionResult? Error);
+
+    /// <summary>
+    /// Resolves the calling handset. A tenant that has any paired device must sign;
+    /// before the first pairing the JWT is the only credential (rollout window).
+    /// </summary>
+    private async Task<DeviceCheck> VerifyDeviceAsync(Guid tenantId, string body, CancellationToken ct)
+    {
+        var deviceIdHeader = Request.Headers[DeviceSignature.DeviceHeader].ToString();
+        var signature = Request.Headers[DeviceSignature.Header].ToString();
+
+        if (string.IsNullOrWhiteSpace(deviceIdHeader))
+        {
+            var hasPairedDevice = await _db.PaymentBridgeDevices
+                .AnyAsync(d => d.TenantId == tenantId && d.PairedAt != null && d.RevokedAt == null, ct);
+
+            if (hasPairedDevice)
+                return new DeviceCheck(null, Unauthorized(new { error = "device_signature_required" }));
+
+            _logger.LogWarning("Unsigned payment bridge signal accepted for tenant {TenantId}: no paired device", tenantId);
+            return new DeviceCheck(null, null);
+        }
+
+        if (!Guid.TryParse(deviceIdHeader, out var deviceId))
+            return new DeviceCheck(null, Unauthorized(new { error = "invalid_device" }));
+
+        if (!long.TryParse(Request.Headers[DeviceSignature.TimestampHeader].ToString(), out var timestampMs)
+            || !DeviceSignature.IsFresh(timestampMs, DateTimeOffset.UtcNow))
+            return new DeviceCheck(null, Unauthorized(new { error = "stale_device_signature" }));
+
+        var device = await _db.PaymentBridgeDevices
+            .FirstOrDefaultAsync(d => d.Id == deviceId
+                                      && d.TenantId == tenantId
+                                      && d.PairedAt != null
+                                      && d.RevokedAt == null, ct);
+
+        if (device is null)
+            return new DeviceCheck(null, Unauthorized(new { error = "unknown_device" }));
+
+        var secret = _secretProtector.Unprotect(device.SecretProtected);
+        if (string.IsNullOrEmpty(secret)
+            || !DeviceSignature.Verify(secret, deviceIdHeader, timestampMs, body, signature))
+            return new DeviceCheck(null, Unauthorized(new { error = "invalid_device_signature" }));
+
+        return new DeviceCheck(device, null);
+    }
+
+    /// <summary>
+    /// "Rs 500 debited" must never be read as income. Kept server-side as well so an
+    /// older handset cannot close an invoice with a debit alert.
+    /// </summary>
+    private static bool IsDebitOnly(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var lower = text.ToLowerInvariant();
+        var debit = lower.Contains("debited") || lower.Contains("withdrawn") || lower.Contains("deducted")
+                    || lower.Contains("paid to") || lower.Contains("sent to") || lower.Contains("spent");
+        var credit = lower.Contains("credited") || lower.Contains("received") || lower.Contains("deposited");
+        return debit && !credit;
     }
 
     /// <summary>
@@ -502,3 +740,7 @@ public record DevicePaymentNotification(
     string? Reference = null,
     string? Source = null,
     string? RawText = null);
+
+public record CreatePairingCodeRequest(string? Name);
+
+public record PairDeviceRequest(string PairingCode, string? Name = null);

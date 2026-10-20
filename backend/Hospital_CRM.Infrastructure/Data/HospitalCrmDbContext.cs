@@ -53,6 +53,7 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<TenantFeatureFlag> TenantFeatureFlags => Set<TenantFeatureFlag>();
     public DbSet<TenantIntegration> TenantIntegrations => Set<TenantIntegration>();
     public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents => Set<ProcessedWebhookEvent>();
+    public DbSet<PaymentBridgeDevice> PaymentBridgeDevices => Set<PaymentBridgeDevice>();
     public DbSet<NurseProfile> NurseProfiles => Set<NurseProfile>();
     public DbSet<NurseAvailability> NurseAvailabilities => Set<NurseAvailability>();
     public DbSet<NurseShift> NurseShifts => Set<NurseShift>();
@@ -476,6 +477,15 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.MerchantId).HasMaxLength(255);
             e.Property(x => x.SecretProtected).HasMaxLength(2000);
             e.Property(x => x.WebhookPathToken).HasMaxLength(64).IsRequired();
+        });
+
+        modelBuilder.Entity<PaymentBridgeDevice>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.RevokedAt });
+            e.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            e.Property(x => x.SecretProtected).HasMaxLength(2000);
+            e.Property(x => x.PairingCodeHash).HasMaxLength(64);
         });
 
         modelBuilder.Entity<ProcessedWebhookEvent>(e =>
