@@ -29,7 +29,6 @@ export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | '
   if (
     pathname.startsWith('/dashboard/billing') ||
     pathname.startsWith('/dashboard/inventory') ||
-    pathname.startsWith('/dashboard/wishlist') ||
     pathname.startsWith('/dashboard/reports') ||
     pathname.startsWith('/dashboard/messages') ||
     pathname.startsWith('/dashboard/staff') ||
@@ -43,7 +42,8 @@ export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | '
     pathname.startsWith('/dashboard/patients') ||
     pathname.startsWith('/dashboard/queue') ||
     pathname.startsWith('/dashboard/consultations') ||
-    pathname.startsWith('/dashboard/lab-orders')
+    pathname.startsWith('/dashboard/lab-orders') ||
+    pathname.startsWith('/dashboard/wishlist')
   ) {
     return 'clinical'
   }
@@ -111,6 +111,12 @@ const NAV_SECTIONS: NavSection[] = [
         roles: ['doctor', 'clinicadmin', 'nurse'],
         icon: FlaskIcon,
       },
+      {
+        name: 'Wishlist',
+        href: '/dashboard/wishlist',
+        roles: ['clinicadmin', 'doctor'],
+        icon: ClipboardListIcon,
+      },
     ],
   },
   {
@@ -150,12 +156,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/inventory',
         roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
         icon: BoxIcon,
-      },
-      {
-        name: 'Wishlist',
-        href: '/dashboard/wishlist',
-        roles: ['clinicadmin', 'doctor'],
-        icon: ClipboardListIcon,
       },
       {
         name: 'Reports',
