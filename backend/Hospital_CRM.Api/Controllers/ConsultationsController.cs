@@ -135,13 +135,13 @@ public class ConsultationsController : ControllerBase
         // Role-based access check
         if (string.Equals(userRole, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
-            if (consultation.DoctorId != User.GetUserId().Value)
+            if (consultation.DoctorId != userId.Value)
                 return Forbid();
         }
         else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
         {
-            var user = await _db.Users.FindAsync([User.GetUserId().Value], ct);
+            var user = await _db.Users.FindAsync([userId.Value], ct);
             if (user?.ClinicId != null && consultation.Appointment.ClinicId != user.ClinicId)
                 return Forbid();
         }
@@ -202,13 +202,13 @@ public class ConsultationsController : ControllerBase
         // Role-based access check
         if (string.Equals(userRole, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
-            if (consultation.DoctorId != User.GetUserId().Value)
+            if (consultation.DoctorId != userId.Value)
                 return Forbid();
         }
         else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
         {
-            var user = await _db.Users.FindAsync([User.GetUserId().Value], ct);
+            var user = await _db.Users.FindAsync([userId.Value], ct);
             if (user?.ClinicId != null && consultation.Appointment.ClinicId != user.ClinicId)
                 return Forbid();
         }

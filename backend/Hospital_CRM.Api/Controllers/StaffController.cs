@@ -77,25 +77,25 @@ public class StaffController : ControllerBase
 
         if (request.Role.Equals("Nurse", StringComparison.OrdinalIgnoreCase))
         {
-            invite.LicenseNumber = request.LicenseNumber;
-            invite.LicenseAuthority = request.LicenseAuthority;
+            invite.LicenseNumber = request.LicenseNumber ?? string.Empty;
+            invite.LicenseAuthority = request.LicenseAuthority ?? string.Empty;
             invite.LicenseIssueDate = request.LicenseIssueDate;
             invite.LicenseExpiryDate = request.LicenseExpiryDate;
-            invite.NursingQualification = request.NursingQualification;
-            invite.Institution = request.Institution;
+            invite.NursingQualification = request.NursingQualification ?? string.Empty;
+            invite.Institution = request.Institution ?? string.Empty;
             invite.GraduationYear = request.GraduationYear ?? 0;
-            invite.Specialization = request.Specialization;
+            invite.Specialization = request.Specialization ?? string.Empty;
             invite.YearsExperience = request.YearsExperience ?? 0;
-            invite.Skills = request.Skills;
-            invite.Languages = request.Languages;
-            invite.EmergencyContactName = request.EmergencyContactName;
-            invite.EmergencyContactPhone = request.EmergencyContactPhone;
-            invite.EmergencyContactRelation = request.EmergencyContactRelation;
-            invite.ShiftPreferencesJson = request.ShiftPreferencesJson;
-            invite.WorkRestrictionsJson = request.WorkRestrictionsJson;
+            invite.Skills = request.Skills ?? string.Empty;
+            invite.Languages = request.Languages ?? string.Empty;
+            invite.EmergencyContactName = request.EmergencyContactName ?? string.Empty;
+            invite.EmergencyContactPhone = request.EmergencyContactPhone ?? string.Empty;
+            invite.EmergencyContactRelation = request.EmergencyContactRelation ?? string.Empty;
+            invite.ShiftPreferencesJson = request.ShiftPreferencesJson ?? string.Empty;
+            invite.WorkRestrictionsJson = request.WorkRestrictionsJson ?? string.Empty;
             invite.DepartmentId = request.DepartmentId;
             invite.WardId = request.WardId;
-            invite.Designation = request.Designation;
+            invite.Designation = request.Designation ?? string.Empty;
             invite.EmploymentType = request.EmploymentType ?? EmploymentType.FullTime;
             invite.EmploymentStatus = request.EmploymentStatus ?? EmploymentStatus.Active;
         }

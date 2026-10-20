@@ -110,7 +110,7 @@ public class ReportsController : ControllerBase
         var startDt = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var endDt = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-        var clinicId = await GetUserClinicId(User.GetUserId().Value, ct);
+        var clinicId = await GetUserClinicId(userId.Value, ct);
 
         var payments = await QueryPayments(startDt, endDt, clinicId).ToListAsync(ct);
 
@@ -143,7 +143,7 @@ public class ReportsController : ControllerBase
         var startDt = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var endDt = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-        var clinicId = await GetUserClinicId(User.GetUserId().Value, ct);
+        var clinicId = await GetUserClinicId(userId.Value, ct);
 
         var invoices = await QueryInvoices(startDt, endDt, clinicId)
             .Include(i => i.LineItems)
@@ -280,7 +280,7 @@ public class ReportsController : ControllerBase
     private IQueryable<Invoice> QueryInvoices(DateTime startDt, DateTime endDt, Guid? clinicId)
     {
         var query = _db.Invoices
-            .Include(i => i.Appointment).ThenInclude(a => a.Patient)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
             .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt && i.Status != InvoiceStatus.Cancelled);
 
         // See QueryPayments: walk-in invoices have no appointment to scope by.

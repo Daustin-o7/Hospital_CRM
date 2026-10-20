@@ -296,7 +296,7 @@ public class NurseController : ControllerBase
             NightShiftWilling = request.NightShiftWilling,
             WeekendWilling = request.WeekendWilling,
             OvertimeWilling = request.OvertimeWilling,
-            Notes = request.Notes,
+            Notes = request.Notes ?? string.Empty,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -327,7 +327,7 @@ public class NurseController : ControllerBase
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             Type = request.Type,
-            Reason = request.Reason,
+            Reason = request.Reason ?? string.Empty,
             Status = LeaveStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
