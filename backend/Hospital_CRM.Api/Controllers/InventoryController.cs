@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -11,6 +12,7 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/inventory")]
+[RequireModule(ModuleRegistry.Inventory)]
 public class InventoryController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { useBranding } from '../../context/BrandingContext'
 import { Skeleton } from '../../components/ui/EmptyState'
 import { CLINICAL_SPECIALTIES } from '../Appointments'
 
@@ -49,7 +50,9 @@ const DEMO_LAB_ALERTS: LabAlert[] = import.meta.env.DEV
 
 export default function DoctorDashboard() {
   const { user } = useAuth()
+  const { branding, loading: brandingLoading } = useBranding()
   const navigate = useNavigate()
+  const labEnabled = !branding.enabledModules || branding.enabledModules.includes('lab')
 
   const [loading, setLoading] = useState(true)
   const [appointments, setAppointments] = useState<DoctorPatientAppt[]>([])
@@ -83,7 +86,8 @@ export default function DoctorDashboard() {
       const todayISO = new Date().toISOString().split('T')[0]
       const [apptRes, labRes] = await Promise.allSettled([
         api.get(`/appointments?date=${todayISO}`),
-        api.get('/lab-orders'),
+        // Skip the call when the tenant has no lab module: it would 403 and fall back to demo alerts.
+        labEnabled ? api.get('/lab-orders') : Promise.resolve({ data: [] as unknown[] }),
       ])
 
       if (apptRes.status === 'fulfilled' && Array.isArray(apptRes.value.data)) {
@@ -141,11 +145,13 @@ export default function DoctorDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, labEnabled])
 
   useEffect(() => {
+    // Wait for entitlements: the first pass would otherwise call a gated endpoint blind.
+    if (brandingLoading) return
     fetchDoctorData()
-  }, [fetchDoctorData])
+  }, [fetchDoctorData, brandingLoading])
 
   const waitingPatients = useMemo(() => {
     return appointments.filter(p => p.status === 'waiting')
@@ -547,7 +553,7 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Abnormal Lab Results / Clinical Alerts (4 cols) */}
-        <div className="lg:col-span-4 card p-5 space-y-4">
+        {labEnabled && <div className="lg:col-span-4 card p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
             <div>
               <h2 className="text-sm font-bold text-[var(--color-text)] font-heading">
@@ -594,7 +600,7 @@ export default function DoctorDashboard() {
               Order New Investigation →
             </button>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* ── Doctor Clinical Shortcuts ── */}
@@ -615,14 +621,14 @@ export default function DoctorDashboard() {
             <div className="text-[10.5px] text-[var(--color-text-muted)]">Odontogram, VAS, ROM &amp; SOAP</div>
           </button>
 
-          <button
+          {labEnabled && <button
             onClick={() => navigate('/dashboard/lab-orders')}
             className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-teal-500 hover:bg-[var(--color-surface-hover)] text-left transition-all"
           >
             <div className="text-lg">🧪</div>
             <div className="text-xs font-bold text-[var(--color-text)] mt-1">Lab Requisition</div>
             <div className="text-[10.5px] text-[var(--color-text-muted)]">Order pathology &amp; imaging</div>
-          </button>
+          </button>}
 
           <button
             onClick={() => navigate('/dashboard/patients')}

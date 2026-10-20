@@ -5,7 +5,7 @@ verified against a running API and the dev database.
 `Platform-Admin-Master-TODO.md` §3 remains the requirement text; this file is the
 build order, the findings and the evidence.
 
-**State at this update:** `dotnet build` green · `dotnet test` **190 passed / 0 failed**
+**State at this update:** `dotnet build` green · `dotnet test` **194 passed / 0 failed**
 · frontend builds · Android app compiles (`:app:compileDebugJavaWithJavac` BUILD
 SUCCESSFUL). Branch: `feat/platform-commercialisation` (cut from `main` after
 `feat/platform-admin-console` was merged and pushed).
@@ -36,13 +36,16 @@ query filter (`BypassTenantFilter || e.TenantId == CurrentTenantId`),
 | # | Finding | Status |
 |---|---|---|
 | **F1** | An invited user was locked out: `accept-invite` never set `User.TenantId`, and the anonymous accept then failed RLS on the `StaffInvites` update. | **Fixed.** `User.TenantId` set from the invite; accept runs in a transaction with `set_config(..., true)` + `PushTenant` so the `WITH CHECK` passes. Verified live. |
-| **F2** | 11 `TenantId = Guid.Empty` writes and 1 read predicate. | **Fixed** for the 5 inventory + 2 lab-order + 1 ledger + 1 shift read predicates. Inserts were already corrected by the `EnforceTenantScopedInserts` hook; the static shift-audit helper still writes `Guid.Empty` and relies on that hook. |
+| **F2** | 11 `TenantId = Guid.Empty` writes and 1 read predicate. | **Fixed** for the 5 inventory + 2 lab-order + 1 ledger + 1 shift read predicates. Inserts were already corrected by the `EnforceTenantScopedInserts` hook; the shift-audit helper now takes the caller's tenant id instead of relying on that hook. |
 | **F3** | `TenantConnectionInterceptor` used `SET`, never `SET LOCAL`. | **Fixed.** Connection open still sets the baseline (needed outside transactions); `TransactionStarted` now re-applies `SET LOCAL`. Verified that transactional webhooks still pass RLS. |
 | **F4** | `NotificationRulesWorker` hardcoded `Guid.Empty`. | **Fixed.** Iterates tenants with `PushTenant`. |
 | **F5** | `Payment` had no `TenantId`; not covered by RLS. | **Fixed.** Column + backfill + RLS policy. `InvoiceLineItem`/`NotificationLog` remain uncovered (noted, not needed by B2). |
 | **F6** | Razorpay branch never created an order or stored `RazorpayPaymentId`. | **Fixed.** Real order creation; `503 razorpay_not_configured` when unset; webhook matches by payment id or order id. |
 | **F7** | Invite accepted `"0"`/`PlatformAdmin`; `ClinicAdmin` not restricted. | **Fixed.** `StaffRolePolicy`; `ClinicAdmin` only via provisioning. |
 | **F8** | Invite expiry 7 days vs 72 h in FR-04. | **Fixed.** 72 h. |
+| **F9** | Entitlements were only enforced for pharmacy: wishlist, lab, inventory, finance and precheck answered every tenant, and the nav showed modules nobody had bought. | **Fixed.** Shared `RequireModuleAttribute` (ActivatedModules + feature-flag overrides), applied to wishlist/lab/inventory/ledger + the precheck endpoints; precheck links are only generated when the module is on; `/clinic/profile` returns `activatedModules`; nav and dashboards hide what is not entitled. Verified live: 403 `module_not_activated` on revoke, 200 after restore, nav hides/reappears. New `RequireModuleAttributeTests` (4 cases). |
+| **F10** | Idempotency keys were global - the same key on another route or from another tenant replayed that other response - and 4xx responses were cached for 24 h. `GET /appointments` needed only authentication, so any role could list them. The nurse audit helper wrote `TenantId = Guid.Empty`. | **Fixed.** Cache key is `tenant:method:path:key`, only 2xx is replayed, middleware moved after `UseAuthentication`; appointment list restricted to Receptionist/Doctor/ClinicAdmin/Nurse; audit helper takes the caller's tenant. |
+| **F11** | `/auth/refresh` with no credential returned 401, so every first visit logged a console error. Dev DB credentials were committed in `appsettings.json`. | **Fixed.** 204 when nothing was presented (401 still for a bad token); connection strings moved to user-secrets with a startup guard, documented in `AGENTS.md`. |
 
 ---
 

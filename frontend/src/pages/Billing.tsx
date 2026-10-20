@@ -3,6 +3,8 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
+import { useBranding } from '../context/BrandingContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Modal } from '../components/ui/Modal'
@@ -44,6 +46,11 @@ interface LedgerSummary {
 }
 
 export default function Billing() {
+  const { user } = useAuth()
+  const { branding } = useBranding()
+  // Ledger is the "finance" module and the API is ClinicAdmin-only; invoices stay on core.
+  const ledgerEnabled = user?.role === 'clinicadmin' &&
+    (!branding.enabledModules || branding.enabledModules.includes('finance'))
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [summary, setSummary] = useState<LedgerSummary>({
@@ -82,8 +89,9 @@ export default function Billing() {
     try {
       const [invRes, expRes, sumRes] = await Promise.allSettled([
         api.get('/invoices'),
-        api.get('/ledger/expenses'),
-        api.get('/ledger/daily')
+        // Ledger 403s for non-admins and without the finance module - don't issue the call.
+        ledgerEnabled ? api.get('/ledger/expenses') : Promise.reject(new Error('module_disabled')),
+        ledgerEnabled ? api.get('/ledger/daily') : Promise.reject(new Error('module_disabled'))
       ])
 
       if (invRes.status === 'fulfilled') {
@@ -107,7 +115,7 @@ export default function Billing() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [ledgerEnabled])
 
   useEffect(() => {
     fetchData()

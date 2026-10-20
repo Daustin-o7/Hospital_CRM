@@ -134,8 +134,10 @@ public class AuthController : ControllerBase
             ? request.RefreshToken
             : Request.Cookies["refreshToken"];
 
+        // No credential at all (fresh visitor, or cookie cleared): nothing to refresh.
+        // 204 keeps the boot probe out of the console; a presented-but-invalid token still gets 401.
         if (string.IsNullOrWhiteSpace(rawToken))
-            return Unauthorized(new { error = "invalid_refresh_token" });
+            return NoContent();
 
         var candidateTokens = await _db.RefreshTokens
             .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow && t.RevokedAt == null)

@@ -62,7 +62,7 @@ public class ShiftsController : ControllerBase
         _db.NurseShifts.Add(shift);
         await _db.SaveChangesAsync(ct);
         await LogAudit(_db, "NurseShift", shift.Id, nurseProfileId, "created", null,
-            $"{shift.Date:yyyy-MM-dd} {shift.ShiftType}" + (nurseProfileId.HasValue ? " assigned" : " open"), caller.Id, ct);
+            $"{shift.Date:yyyy-MM-dd} {shift.ShiftType}" + (nurseProfileId.HasValue ? " assigned" : " open"), caller.Id, caller.TenantId ?? Guid.Empty, ct);
 
         return Ok(new { shiftId = shift.Id, status = shift.Status.ToString() });
     }
@@ -151,7 +151,7 @@ public class ShiftsController : ControllerBase
         shift.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await LogAudit(_db, "NurseShift", shift.Id, shift.NurseProfileId, "updated", old,
-            $"{shift.Status}/{shift.NurseProfileId}", caller.Id, ct);
+            $"{shift.Status}/{shift.NurseProfileId}", caller.Id, caller.TenantId ?? Guid.Empty, ct);
 
         return Ok(new { shiftId = shift.Id, status = shift.Status.ToString(), nurseProfileId = shift.NurseProfileId });
     }
@@ -186,7 +186,7 @@ public class ShiftsController : ControllerBase
                 existing.AppliedAt = DateTimeOffset.UtcNow;
                 existing.UpdatedAt = DateTimeOffset.UtcNow;
                 await _db.SaveChangesAsync(ct);
-                await LogAudit(_db, "NurseShiftApplication", existing.Id, profileId, "reapplied", "Withdrawn", "Applied", caller.Id, ct);
+                await LogAudit(_db, "NurseShiftApplication", existing.Id, profileId, "reapplied", "Withdrawn", "Applied", caller.Id, caller.TenantId ?? Guid.Empty, ct);
                 return Ok(new { applicationId = existing.Id });
             }
             return Conflict(new { error = "already_applied" });
@@ -204,7 +204,7 @@ public class ShiftsController : ControllerBase
         };
         _db.NurseShiftApplications.Add(application);
         await _db.SaveChangesAsync(ct);
-        await LogAudit(_db, "NurseShiftApplication", application.Id, profileId, "created", null, $"applied:{id}", caller.Id, ct);
+        await LogAudit(_db, "NurseShiftApplication", application.Id, profileId, "created", null, $"applied:{id}", caller.Id, caller.TenantId ?? Guid.Empty, ct);
 
         return Ok(new { applicationId = application.Id });
     }
@@ -230,7 +230,7 @@ public class ShiftsController : ControllerBase
         application.Status = ShiftApplicationStatus.Withdrawn;
         application.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
-        await LogAudit(_db, "NurseShiftApplication", application.Id, profileId, "withdrawn", "Applied", "Withdrawn", caller.Id, ct);
+        await LogAudit(_db, "NurseShiftApplication", application.Id, profileId, "withdrawn", "Applied", "Withdrawn", caller.Id, caller.TenantId ?? Guid.Empty, ct);
 
         return Ok(new { applicationId = application.Id, status = "Withdrawn" });
     }
@@ -299,7 +299,7 @@ public class ShiftsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
         await LogAudit(_db, "NurseShift", shift.Id, shift.NurseProfileId, "assigned", null,
-            $"application:{applicationId}", caller.Id, ct);
+            $"application:{applicationId}", caller.Id, caller.TenantId ?? Guid.Empty, ct);
 
         return Ok(new { shiftId = shift.Id, nurseProfileId = shift.NurseProfileId, rejected = others.Count });
     }
@@ -340,12 +340,12 @@ public class ShiftsController : ControllerBase
     }
 
     internal static async Task LogAudit(HospitalCrmDbContext db, string entityType, Guid entityId, Guid? nurseProfileId,
-        string action, string? oldValue, string newValue, Guid changedBy, CancellationToken ct)
+        string action, string? oldValue, string newValue, Guid changedBy, Guid tenantId, CancellationToken ct)
     {
         db.NurseAuditLogs.Add(new NurseAuditLog
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = tenantId,
             EntityType = entityType,
             EntityId = entityId,
             NurseProfileId = nurseProfileId,

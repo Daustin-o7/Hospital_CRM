@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import api, { getAccessToken } from '../services/api'
+import { useAuth } from './AuthContext'
 import {
   BrandingContext,
   SAMSTACK_DEFAULTS,
@@ -52,12 +53,14 @@ function applyDocumentBranding(branding: OrganizationBranding) {
 }
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const [branding, setBranding] = useState<OrganizationBranding>(SAMSTACK_DEFAULTS)
   const [loading, setLoading] = useState(true)
 
   const fetchBranding = useCallback(async () => {
     const token = getAccessToken()
     if (!token) {
+      setBranding(SAMSTACK_DEFAULTS)
       setLoading(false)
       return
     }
@@ -85,6 +88,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         currency:         data.currency,
         dateFormat:       data.dateFormat,
         timeFormat:       data.timeFormat,
+        enabledModules:   Array.isArray(data.activatedModules) ? data.activatedModules : null,
       }
       setBranding(resolved)
       applyBrandColors(resolved.primaryColor, resolved.secondaryColor)
@@ -98,7 +102,9 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchBranding()
-  }, [fetchBranding])
+    // Refetch when the signed-in user changes: the profile (and its module entitlements) is
+    // only readable with a token, so the boot call runs before login.
+  }, [fetchBranding, user?.id])
 
   return (
     <BrandingContext.Provider value={{ branding, loading, refresh: fetchBranding }}>

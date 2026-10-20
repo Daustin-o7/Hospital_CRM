@@ -60,7 +60,12 @@ public class IdempotencyMiddleware
             return;
         }
 
-        var cacheKey = $"idemp:{key}";
+        // Scope by tenant, method and path: the same client key on a different endpoint - or the
+        // same key from a different tenant - must never replay another request's response.
+        var scope = context.User.FindFirst("tenant_id")?.Value
+                 ?? context.User.FindFirst("tenantId")?.Value
+                 ?? "anon";
+        var cacheKey = $"idemp:{context.Request.Method}:{context.Request.Path}:{scope}:{key}";
 
         // Check cache for existing record
         if (_cache.TryGetValue(cacheKey, out object? cachedObj))
@@ -104,8 +109,9 @@ public class IdempotencyMiddleware
             memoryStream.Seek(0, SeekOrigin.Begin);
             var responseBytes = memoryStream.ToArray();
 
-            // Cache successful or deterministic client error responses (< 500)
-            if (context.Response.StatusCode < StatusCodes.Status500InternalServerError)
+            // Only successful responses are replayed. Caching 4xx would freeze a transient
+            // failure (expired token, suspended tenant) for the life of the key.
+            if (context.Response.StatusCode < StatusCodes.Status300MultipleChoices)
             {
                 var cached = new CachedIdempotentResponse
                 {

@@ -40,8 +40,17 @@ builder.Host.UseSerilog();
 builder.Services.AddScoped<TenantConnectionInterceptor>();
 
 // EF Core
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(defaultConnection))
+{
+    // Credentials are never committed; development reads them from user-secrets.
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is not configured. Set it with:\n" +
+        "  dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"<connection>\" --project backend/Hospital_CRM.Api");
+}
+
 builder.Services.AddDbContext<HospitalCrmDbContext>((sp, options) =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(defaultConnection)
            .AddInterceptors(sp.GetRequiredService<TenantConnectionInterceptor>())
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
@@ -469,7 +478,6 @@ app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseSecurityHeaders();
 app.UseMiddleware<PlatformAdminIpAllowlistMiddleware>();
-app.UseMiddleware<IdempotencyMiddleware>();
 
 
 // MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
@@ -480,6 +488,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<ImpersonationEnforcementMiddleware>();
 app.UseMiddleware<SubscriptionEnforcementMiddleware>();
+// After authentication so the cache key can include the tenant; before endpoints so a replay
+// short-circuits the handler.
+app.UseMiddleware<IdempotencyMiddleware>();
 
 // SEC-002: Lab file static middleware MUST run AFTER UseAuthentication/UseAuthorization
 // so that JWT is parsed before OnPrepareResponse fires. Also short-circuit the response
@@ -557,7 +568,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Demo Health Organization",
         SubscriptionTier = SubscriptionTier.Starter,
         SubscriptionStatus = SubscriptionStatus.Trial,
-        ActivatedModules = "core,pharmacy",
+        ActivatedModules = "core,pharmacy,lab,inventory,finance,wishlist,precheck",
         SubscriptionEndsAt = DateTimeOffset.UtcNow.AddDays(30),
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow

@@ -15,6 +15,8 @@ export interface NavItem {
   roles: string[]
   icon: (props: { className?: string }) => React.JSX.Element
   liveIndicator?: boolean
+  /** Module code required to show this item (ModuleRegistry). Omitted = always available. */
+  module?: string
 }
 
 export interface NavSection {
@@ -110,12 +112,14 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/lab-orders',
         roles: ['doctor', 'clinicadmin', 'nurse'],
         icon: FlaskIcon,
+        module: 'lab',
       },
       {
         name: 'Wishlist',
         href: '/dashboard/wishlist',
         roles: ['clinicadmin', 'doctor'],
         icon: ClipboardListIcon,
+        module: 'wishlist',
       },
     ],
   },
@@ -156,6 +160,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/inventory',
         roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
         icon: BoxIcon,
+        module: 'inventory',
       },
       {
         name: 'Reports',
@@ -359,6 +364,7 @@ export default function DashboardLayout() {
             // The Home item (end) stays visible in every workspace so there is always a way back to the hub.
             const visibleItems = section.items.filter(item =>
               item.roles.includes(effectiveRole) &&
+              (!item.module || !branding.enabledModules || branding.enabledModules.includes(item.module)) &&
               (activeWorkspace === 'all' || item.end || !sectionDomain || sectionDomain === activeWorkspace)
             )
             if (visibleItems.length === 0) return null

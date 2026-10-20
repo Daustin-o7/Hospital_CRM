@@ -63,7 +63,7 @@ public class NurseCareController : ControllerBase
         _db.PatientNurseAssignments.Add(assignment);
         await _db.SaveChangesAsync(ct);
         await ShiftsController.LogAudit(_db, "PatientNurseAssignment", assignment.Id, request.NurseProfileId,
-            "created", null, $"patient:{request.PatientId}", callerId.Value, ct);
+            "created", null, $"patient:{request.PatientId}", callerId.Value, User.GetTenantId() ?? Guid.Empty, ct);
 
         return Ok(new { assignmentId = assignment.Id, status = assignment.Status.ToString() });
     }
@@ -136,7 +136,7 @@ public class NurseCareController : ControllerBase
         assignment.CompletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await ShiftsController.LogAudit(_db, "PatientNurseAssignment", assignment.Id, assignment.NurseProfileId,
-            "completed", "Active", "Completed", callerId.Value, ct);
+            "completed", "Active", "Completed", callerId.Value, User.GetTenantId() ?? Guid.Empty, ct);
 
         return Ok(new { assignmentId = assignment.Id, status = assignment.Status.ToString() });
     }
@@ -183,7 +183,7 @@ public class NurseCareController : ControllerBase
         _db.ShiftHandovers.Add(handover);
         await _db.SaveChangesAsync(ct);
         await ShiftsController.LogAudit(_db, "ShiftHandover", handover.Id, own.Id, "created", null,
-            $"patient:{request.PatientId}", callerId.Value, ct);
+            $"patient:{request.PatientId}", callerId.Value, User.GetTenantId() ?? Guid.Empty, ct);
 
         return Ok(new { handoverId = handover.Id });
     }

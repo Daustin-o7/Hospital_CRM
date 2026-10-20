@@ -101,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sessionStorage.getItem('samstack_impersonation')) return
         const refreshToken = getRefreshToken()
         const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        if (res.status === 204 || !res.data?.accessToken) return
         const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
         setAccessToken(accessToken)
         if (newRefreshToken) {
@@ -188,6 +189,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const refreshToken = getRefreshToken()
       try {
         const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        if (res.status === 204 || !res.data?.accessToken) {
+          // No session on this device (204) - stay signed out without an error.
+          setLoading(false)
+          return
+        }
         const { accessToken, refreshToken: newRefreshToken, expiresIn, user: userData } = res.data
         setAccessToken(accessToken)
         if (newRefreshToken) {
