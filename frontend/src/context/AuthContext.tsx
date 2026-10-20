@@ -73,6 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearTokens()
     setUser(null)
+    // Unsaved consultation drafts hold patient data; never leave them on a shared device.
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('hospital_crm_draft_'))
+      .forEach(k => localStorage.removeItem(k))
     sessionStorage.removeItem('samstack_impersonation')
     sessionStorage.removeItem('samstack_admin_backup')
     setImpersonation(null)
