@@ -12,7 +12,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
-  const { login, loginWithEntra, isEntraEnabled } = useAuth()
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null)
+  const [mfaCode, setMfaCode]     = useState('')
+  const { login, loginWithEntra, isEntraEnabled, completeMfa } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,7 +29,29 @@ export default function Login() {
     }
     setLoading(true)
     try {
-      await login(email.trim(), password)
+      const result = await login(email.trim(), password)
+      // A1: a password with TOTP enrolled only yields a challenge token.
+      if (result.mfaRequired && result.challengeToken) {
+        setMfaChallenge(result.challengeToken)
+        setMfaCode('')
+      }
+    } catch (err: any) {
+      setError(friendlyError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!/^\d{6}$/.test(mfaCode.trim())) {
+      setError('Enter the 6-digit code from your authenticator app.')
+      return
+    }
+    setLoading(true)
+    try {
+      await completeMfa(mfaChallenge!, mfaCode.trim())
     } catch (err: any) {
       setError(friendlyError(err))
     } finally {
@@ -207,6 +231,45 @@ export default function Login() {
               </div>
             )}
 
+            {mfaChallenge ? (
+              <form onSubmit={handleMfaSubmit} noValidate>
+                <p style={{ fontSize: 13.5, color: 'var(--color-text-muted)', marginBottom: 18 }}>
+                  Enter the 6-digit code from your authenticator app to finish signing in.
+                </p>
+                <div style={{ marginBottom: 24 }}>
+                  <label htmlFor="login-mfa" className="form-label">Authenticator code</label>
+                  <input
+                    id="login-mfa"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    className="form-input text-center font-mono"
+                    style={{ letterSpacing: '0.4em' }}
+                    value={mfaCode}
+                    onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    required
+                    disabled={loading}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading}
+                  style={{ width: '100%', justifyContent: 'center', padding: '11px 20px', fontSize: 14 }}
+                >
+                  {loading ? 'Verifying…' : 'Verify and sign in'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMfaChallenge(null); setMfaCode(''); setError('') }}
+                  className="mt-3 w-full text-center text-xs font-semibold text-[var(--color-text-muted)] hover:underline"
+                >
+                  Use a different account
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} noValidate>
               {/* Email */}
               <div style={{ marginBottom: 16 }}>
@@ -287,6 +350,7 @@ export default function Login() {
                 )}
               </button>
             </form>
+            )}
 
             {/* Secure workspace note */}
             <p

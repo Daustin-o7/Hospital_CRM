@@ -5,7 +5,7 @@ verified against a running API and the dev database.
 `Platform-Admin-Master-TODO.md` §3 remains the requirement text; this file is the
 build order, the findings and the evidence.
 
-**State at this update:** `dotnet build` green · `dotnet test` **194 passed / 0 failed**
+**State at this update:** `dotnet build` green · `dotnet test` **200 passed / 0 failed**
 · frontend builds · Android app compiles (`:app:compileDebugJavaWithJavac` BUILD
 SUCCESSFUL). Branch: `feat/platform-commercialisation` (cut from `main` after
 `feat/platform-admin-console` was merged and pushed).

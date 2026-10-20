@@ -486,6 +486,8 @@ Directory.CreateDirectory(labUploadDir);
 
 app.UseAuthentication();
 app.UseAuthorization();
+// A1: blocks a bootstrapped admin (temp password / missing MFA) from every other endpoint.
+app.UseMiddleware<AccountSetupEnforcementMiddleware>();
 app.UseMiddleware<ImpersonationEnforcementMiddleware>();
 app.UseMiddleware<SubscriptionEnforcementMiddleware>();
 // After authentication so the cache key can include the tenant; before endpoints so a replay
@@ -558,7 +560,92 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// A1: production has no seed. These run instead of the web host and exit.
+//   dotnet run --project backend/Hospital_CRM.Api -- --bootstrap-platform-admin <email>
+//   dotnet run --project backend/Hospital_CRM.Api -- --reset-mfa <email>
+if (args.Contains("--bootstrap-platform-admin") || args.Contains("--reset-mfa"))
+{
+    using var cliScope = app.Services.CreateScope();
+    var cliDb = cliScope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
+    return args.Contains("--bootstrap-platform-admin")
+        ? await BootstrapPlatformAdminAsync(cliDb, args)
+        : await ResetPlatformAdminMfaAsync(cliDb, args);
+}
+
 app.Run();
+return 0;
+
+static string? ArgumentValue(string[] args, string name)
+{
+    var index = Array.IndexOf(args, name);
+    return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+}
+
+static async Task<int> BootstrapPlatformAdminAsync(HospitalCrmDbContext db, string[] args)
+{
+    var email = ArgumentValue(args, "--bootstrap-platform-admin")?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Usage: --bootstrap-platform-admin <email>");
+        return 2;
+    }
+
+    if (await db.Users.AnyAsync(u => u.Email == email))
+    {
+        Console.Error.WriteLine($"A user with {email} already exists; nothing was created.");
+        return 3;
+    }
+
+    var fromEnvironment = Environment.GetEnvironmentVariable("PLATFORM_ADMIN_PASSWORD");
+    var generated = string.IsNullOrWhiteSpace(fromEnvironment);
+    var password = generated
+        ? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(18))
+        : fromEnvironment!;
+
+    db.Users.Add(new User
+    {
+        Id = Guid.NewGuid(),
+        Name = "Platform Administrator",
+        Email = email,
+        PasswordHash = password.HashPassword(),
+        Role = UserRole.PlatformAdmin,
+        MustChangePassword = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"PlatformAdmin created: {email}");
+    if (generated)
+        Console.WriteLine($"One-time password (shown once): {password}");
+    Console.WriteLine("First sign-in forces a password change, then MFA enrolment.");
+    return 0;
+}
+
+static async Task<int> ResetPlatformAdminMfaAsync(HospitalCrmDbContext db, string[] args)
+{
+    var email = ArgumentValue(args, "--reset-mfa")?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Usage: --reset-mfa <email>");
+        return 2;
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.Role == UserRole.PlatformAdmin);
+    if (user is null)
+    {
+        Console.Error.WriteLine($"No PlatformAdmin with email {email}.");
+        return 3;
+    }
+
+    user.MfaEnabled = false;
+    user.MfaSecret = null;
+    user.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"MFA reset for {email}; it must be enrolled again at next sign-in.");
+    return 0;
+}
 
 static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
 {

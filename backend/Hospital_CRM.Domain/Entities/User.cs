@@ -29,6 +29,16 @@ public class User
 
     public DateTimeOffset? LockedUntil { get; set; }
 
+    /// <summary>A1: set by the production bootstrap command; cleared when the password is changed.</summary>
+    public bool MustChangePassword { get; set; }
+
+    /// <summary>A1: TOTP is required before a PlatformAdmin may use the console.</summary>
+    public bool MfaEnabled { get; set; }
+
+    /// <summary>Protected TOTP secret (ISecretProtector); pending until MfaEnabled is set.</summary>
+    [MaxLength(512)]
+    public string? MfaSecret { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; }

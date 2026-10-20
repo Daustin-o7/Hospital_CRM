@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Controllers;
 using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
@@ -7,7 +8,11 @@ using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -145,8 +150,7 @@ public class PharmacyGateEndpointTests
 
         db.SaveChanges();
 
-        var gateService = new ModuleGateService(db);
-        var controller = new PharmacyComplianceController(db, NullLogger<PharmacyComplianceController>.Instance, gateService);
+        var controller = new PharmacyComplianceController(db, NullLogger<PharmacyComplianceController>.Instance);
 
         var claims = new[]
         {
@@ -163,41 +167,54 @@ public class PharmacyGateEndpointTests
         return (controller, db, tenantId, doctorId, prescription.Id);
     }
 
-    [Fact]
-    public async Task Dispense_Returns_403_Pharmacy_Feature_Disabled_When_Module_Off()
+    private static async Task<bool> ModuleGateAllows(ControllerBase controller, HospitalCrmDbContext db)
     {
-        // Tenant does NOT have pharmacy in ActivatedModules
-        var (controller, db, tenantId, doctorId, prescriptionId) = CreateControllerWithFixture(
-            activatedModules: "core",
-            pharmacyFlagOverride: null);
+        var services = new ServiceCollection()
+            .AddSingleton(db)
+            .AddSingleton<IModuleGateService, ModuleGateService>()
+            .BuildServiceProvider();
+        controller.ControllerContext.HttpContext.RequestServices = services;
 
-        var req = new DispensePrescriptionRequest(prescriptionId, null, null, null, null, null);
-        var result = await controller.DispensePrescription(req, CancellationToken.None);
+        var actionContext = new ActionContext(controller.ControllerContext.HttpContext, new RouteData(), new ActionDescriptor());
+        var context = new ActionExecutingContext(actionContext, [], new Dictionary<string, object?>(), controller);
+        var executed = false;
 
-        var objResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(403, objResult.StatusCode);
+        await new RequireModuleAttribute(ModuleRegistry.Pharmacy).OnActionExecutionAsync(context, () =>
+        {
+            executed = true;
+            return Task.FromResult(new ActionExecutedContext(actionContext, [], controller));
+        });
 
-        // Verify the RFC payload contains "pharmacy_feature_disabled"
-        var errorJson = System.Text.Json.JsonSerializer.Serialize(objResult.Value);
-        Assert.Contains("pharmacy_feature_disabled", errorJson);
+        if (!executed)
+        {
+            var result = Assert.IsType<ObjectResult>(context.Result);
+            Assert.Equal(403, result.StatusCode);
+            Assert.Contains("module_not_activated", System.Text.Json.JsonSerializer.Serialize(result.Value));
+        }
+
+        return executed;
     }
 
     [Fact]
-    public async Task Dispense_Returns_403_When_Module_Entitled_But_Flag_Overridden_Off()
+    public async Task Module_Attribute_Blocks_When_Module_Off()
+    {
+        // Tenant does NOT have pharmacy in ActivatedModules
+        var (controller, db, _, _, _) = CreateControllerWithFixture(
+            activatedModules: "core",
+            pharmacyFlagOverride: null);
+
+        Assert.False(await ModuleGateAllows(controller, db));
+    }
+
+    [Fact]
+    public async Task Module_Attribute_Blocks_When_Flag_Overridden_Off()
     {
         // Tenant has pharmacy entitled, but kill-switch override set to false
-        var (controller, db, tenantId, doctorId, prescriptionId) = CreateControllerWithFixture(
+        var (controller, db, _, _, _) = CreateControllerWithFixture(
             activatedModules: "core,pharmacy",
             pharmacyFlagOverride: false);
 
-        var req = new DispensePrescriptionRequest(prescriptionId, null, null, null, null, null);
-        var result = await controller.DispensePrescription(req, CancellationToken.None);
-
-        var objResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(403, objResult.StatusCode);
-
-        var errorJson = System.Text.Json.JsonSerializer.Serialize(objResult.Value);
-        Assert.Contains("pharmacy_feature_disabled", errorJson);
+        Assert.False(await ModuleGateAllows(controller, db));
     }
 
     [Fact]
@@ -207,6 +224,8 @@ public class PharmacyGateEndpointTests
         var (controller, db, tenantId, doctorId, prescriptionId) = CreateControllerWithFixture(
             activatedModules: "core,pharmacy",
             pharmacyFlagOverride: true);
+
+        Assert.True(await ModuleGateAllows(controller, db));
 
         var req = new DispensePrescriptionRequest(prescriptionId, null, null, null, null, null);
         var result = await controller.DispensePrescription(req, CancellationToken.None);

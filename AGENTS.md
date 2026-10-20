@@ -52,6 +52,14 @@ dotnet build
 # Run API (assumes HTTPS dev cert trusted)
 dotnet run --project backend/Hospital_CRM.Api
 
+# Production PlatformAdmin bootstrap (production has no seed). Prints a one-time
+# password once (set PLATFORM_ADMIN_PASSWORD to supply your own); first login forces
+# a password change, then TOTP enrolment. Refuses an email that already exists.
+dotnet run --project backend/Hospital_CRM.Api -- --bootstrap-platform-admin admin@example.com
+
+# Lost authenticator: clear MFA for a PlatformAdmin, then enrol again at next login
+dotnet run --project backend/Hospital_CRM.Api -- --reset-mfa admin@example.com
+
 # EF Core migrations
 # NOTE: the CLI uses DefaultConnection (app_user), which cannot create tables. Pass the owner
 # connection explicitly or the update fails with "permission denied for schema public".

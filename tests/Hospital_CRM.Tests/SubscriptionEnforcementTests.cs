@@ -300,7 +300,7 @@ public class SubscriptionEnforcementTests
         var env = new FakeHostEnv();
         var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
-        var controller = new AuthController(db, config, keyService, env);
+        var controller = new AuthController(db, config, keyService, env, new TestSecretProtector());
         var result = await controller.Login(new LoginRequest("doctor@suspended.com", "Password123!"), CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
@@ -348,7 +348,7 @@ public class SubscriptionEnforcementTests
         var env = new FakeHostEnv();
         var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
-        var controller = new AuthController(db, config, keyService, env);
+        var controller = new AuthController(db, config, keyService, env, new TestSecretProtector());
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
 
         var result = await controller.Refresh(new RefreshRequest(rawToken), CancellationToken.None);

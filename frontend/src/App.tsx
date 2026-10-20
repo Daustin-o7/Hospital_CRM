@@ -20,8 +20,11 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AcceptInvite from './pages/AcceptInvite'
 import Wishlist from './pages/Wishlist'
+import ChangePassword from './pages/ChangePassword'
+import MfaSetup from './pages/MfaSetup'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
+import { useBranding } from './context/BrandingContext'
 import { SkeletonCard } from './components/ui/Skeleton'
 
 // Heavy pages - lazy loaded
@@ -50,6 +53,25 @@ function PlatformAdminOnly({ children }: { children: React.ReactNode }) {
     : <Navigate to="/dashboard" replace />
 }
 
+// A direct URL to a module the tenant has not bought used to render the API's 403.
+// Unknown entitlements (null) render the page: the server is still the authority.
+function RequireModule({ module, children }: { module: string; children: React.ReactNode }) {
+  const { branding } = useBranding()
+  const modules = branding.enabledModules
+  return modules && !modules.includes(module)
+    ? <Navigate to="/dashboard" replace />
+    : <>{children}</>
+}
+
+// A1: a session holding a temporary password, or a PlatformAdmin without TOTP,
+// may not use the app shell until the setup step is done.
+function AccountSetupGate({ children }: { children: React.ReactNode }) {
+  const { mustChangePassword, mfaSetupRequired } = useAuth()
+  if (mustChangePassword) return <Navigate to="/change-password" replace />
+  if (mfaSetupRequired) return <Navigate to="/mfa-setup" replace />
+  return <>{children}</>
+}
+
 function App() {
   return (
     <Routes>
@@ -58,9 +80,11 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
+      <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
+      <Route path="/mfa-setup" element={<ProtectedRoute><MfaSetup /></ProtectedRoute>} />
       <Route path="/intake/:token" element={<Intake />} />
       <Route path="/queue-status/:token" element={<QueueStatus />} />
-      <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><AccountSetupGate><DashboardLayout /></AccountSetupGate></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/patients" element={<Patients />} />
         <Route path="/dashboard/appointments" element={<Appointments />} />
@@ -70,7 +94,7 @@ function App() {
             <Consultations />
           </Suspense>
         } />
-        <Route path="/dashboard/lab-orders" element={<LabOrders />} />
+        <Route path="/dashboard/lab-orders" element={<RequireModule module="lab"><LabOrders /></RequireModule>} />
         <Route path="/dashboard/billing" element={
           <Suspense fallback={<SkeletonCard />}>
             <Billing />
@@ -78,13 +102,13 @@ function App() {
         } />
         <Route path="/dashboard/pharmacy/pos" element={
           <Suspense fallback={<SkeletonCard />}>
-            <PharmacyPOS />
+            <RequireModule module="pharmacy"><PharmacyPOS /></RequireModule>
           </Suspense>
         } />
-        <Route path="/dashboard/pharmacy/batches" element={<PharmacyBatches />} />
-        <Route path="/dashboard/pharmacy/compliance" element={<PharmacyCompliance />} />
-        <Route path="/dashboard/inventory" element={<Inventory />} />
-        <Route path="/dashboard/wishlist" element={<Wishlist />} />
+        <Route path="/dashboard/pharmacy/batches" element={<RequireModule module="pharmacy"><PharmacyBatches /></RequireModule>} />
+        <Route path="/dashboard/pharmacy/compliance" element={<RequireModule module="pharmacy"><PharmacyCompliance /></RequireModule>} />
+        <Route path="/dashboard/inventory" element={<RequireModule module="inventory"><Inventory /></RequireModule>} />
+        <Route path="/dashboard/wishlist" element={<RequireModule module="wishlist"><Wishlist /></RequireModule>} />
         <Route path="/dashboard/reports" element={
           <Suspense fallback={<SkeletonCard />}>
             <Reports />
