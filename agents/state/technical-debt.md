@@ -45,10 +45,10 @@ Covers technical debt and unconfirmed items across Phase 1 specifications and im
    - *Status*: Accepted for one job. Stdlib, zero new deps. Acceptable for pilot.
    - *Action*: Migrate to Hangfire when scheduled job count > 3 (likely after MOD-08 adds lab-result notification rules, or MOD-11 ledger reconciliation).
 
-6. **WhatsApp / Razorpay / Entra External ID all stub**:
-   - *Item*: `StubNotificationService` logs to console; Razorpay keys empty; Entra External ID not configured.
-   - *Status*: Known stub for pilot. Real integrations deferred until pilot clinic names vendor accounts.
-   - *Action*: Replace stubs per `samstack-implementation-reference.md` patterns before pilot launch.
+6. **WhatsApp / Razorpay stub (OpenIddict in-house OIDC resolved)**:
+   - *Item*: `StubNotificationService` logs to console; Razorpay keys empty. Entra External ID has been replaced with in-house OpenIddict OIDC server (ADR-13).
+   - *Status*: Stubs remain for 3rd-party vendor messaging and PSP keys until pilot setup.
+   - *Action*: Configure live vendor keys before pilot launch.
 
 7. **Offline sync (FR-22) not built**:
    - *Item*: No IndexedDB queue in frontend; no idempotency-key handling for offline registration/billing.

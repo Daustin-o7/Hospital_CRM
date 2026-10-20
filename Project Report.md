@@ -31,7 +31,7 @@ Roles: ClinicAdmin, Doctor, Reception, Nurse, Pharmacist, PlatformAdmin — serv
 
 - **Backend**: .NET 10 (ASP.NET Core minimal APIs, C# 14), EF Core 10, PostgreSQL 16. `DbContext` in `Hospital_CRM.Infrastructure`, hot paths use compiled queries, cancellation tokens on async I/O, RFC 7807-style typed errors.
 - **Frontend**: React 19 + Vite + Tailwind CSS v4 (mobile-first PWA), React Hook Form + Zod, local state by default, OIDC (`oidc-client-ts`) with in-memory tokens; role gating via `useAuth().hasRole()`.
-- **Auth**: local dev = JWT RS256 with persistent PEM key + `/.well-known/jwks.json`; production target = Azure Entra External ID (not yet configured).
+- **Auth**: in-house OpenIddict OIDC server (.NET 10, RS256 persistent PEM key + `/.well-known/openid-configuration` & `jwks.json`, PKCE client auth); replaces Azure Entra External ID via ADR-13.
 - **Background work**: Hangfire (Postgres storage, in-process) + `BackgroundService` for notification rules (ADR-09).
 - **Messaging/payments**: WhatsApp via `StubNotificationService` (console) behind a channel interface; Razorpay signature verification implemented, keys empty.
 - **Conventions**: UUID PKs, dormant `tenant_id` on tenant-scoped tables, append-only audit (DB-role `REVOKE UPDATE, DELETE`), amendments-never-overwrites on clinical data, feature-branch git flow with explicit-approval commits.
@@ -94,7 +94,7 @@ E2E execution against live servers not yet run — see Pending Works §2.
 ## 7. Security posture
 
 - Server-side RBAC on every mutating endpoint; roles never trusted from the client.
-- JWT RS256 with persistent key + JWKS endpoint; Entra External ID ready (config pending).
+- JWT RS256 with persistent key + JWKS endpoint; in-house OpenIddict OIDC server integrated.
 - Razorpay webhook HMAC verification with constant-time comparison.
 - Public token endpoints (`/precheck/{token}`, `/queue-status/{token}`) return no PHI; identity verified by DOB on intake.
 - Password reset issues an opaque single-use token; request endpoint always returns 200 (no account enumeration).
@@ -104,7 +104,7 @@ E2E execution against live servers not yet run — see Pending Works §2.
 
 ## 8. Known limitations
 
-Full list in [`Pending Works.md`](Pending%20Works.md). Headlines: stub WhatsApp/Razorpay/Entra until vendor config; expenses reported per-tenant only (no `ClinicId` on ledger); queue priority trail is session-local; offline sync (FR-22) partial; mobile app held; PlatformAdmin Tier-2 features deliberately unbuilt; 30s polling instead of SignalR.
+Full list in [`Pending Works.md`](Pending%20Works.md). Headlines: stub WhatsApp/Razorpay until vendor config; expenses reported per-tenant only (no `ClinicId` on ledger); queue priority trail is session-local; offline sync (FR-22) partial; mobile app held; PlatformAdmin Tier-2 features deliberately unbuilt; 30s polling instead of SignalR.
 
 ---
 

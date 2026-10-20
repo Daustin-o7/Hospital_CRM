@@ -22,6 +22,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -165,6 +168,52 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Hospital_CRM.Api.JwtBearerOptionsConfig>();
 
 builder.Services.AddAuthorization();
+
+// OpenIddict in-house OIDC server & token engine
+builder.Services.AddOpenIddict()
+    .AddCore(options =>
+    {
+        options.UseEntityFrameworkCore()
+               .UseDbContext<HospitalCrmDbContext>();
+    })
+    .AddServer(options =>
+    {
+        options.SetAuthorizationEndpointUris("/connect/authorize")
+               .SetTokenEndpointUris("/connect/token")
+               .SetUserInfoEndpointUris("/connect/userinfo")
+               .SetEndSessionEndpointUris("/connect/logout");
+
+        options.AllowAuthorizationCodeFlow()
+               .RequireProofKeyForCodeExchange()
+               .AllowRefreshTokenFlow()
+               .AllowPasswordFlow();
+
+        options.RegisterScopes(
+            OpenIddictConstants.Scopes.OpenId,
+            OpenIddictConstants.Scopes.Profile,
+            OpenIddictConstants.Scopes.Email,
+            OpenIddictConstants.Scopes.Roles,
+            OpenIddictConstants.Scopes.OfflineAccess,
+            "api"
+        );
+
+        options.AddDevelopmentEncryptionCertificate()
+               .AddDevelopmentSigningCertificate();
+
+        options.DisableAccessTokenEncryption();
+
+        options.UseAspNetCore()
+               .EnableAuthorizationEndpointPassthrough()
+               .EnableTokenEndpointPassthrough()
+               .EnableUserInfoEndpointPassthrough()
+               .EnableEndSessionEndpointPassthrough()
+               .DisableTransportSecurityRequirement();
+    })
+    .AddValidation(options =>
+    {
+        options.UseLocalServer();
+        options.UseAspNetCore();
+    });
 
 // CORS for React frontend (supports dev defaults + configured origins)
 var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]
@@ -348,6 +397,7 @@ if (autoMigrate)
     {
         Log.Information("Applying database migrations...");
         await db.Database.MigrateAsync();
+        await SeedOpenIddictClientsAsync(app.Services);
 
         if (app.Environment.IsDevelopment())
         {
@@ -1236,4 +1286,81 @@ static List<string> ParseCsvLine(string line)
     }
     result.Add(current.ToString());
     return result;
+}
+
+static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)
+{
+    using var scope = serviceProvider.CreateScope();
+    var appManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+    var scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+    if (await scopeManager.FindByNameAsync("api") is null)
+    {
+        await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
+        {
+            Name = "api",
+            DisplayName = "Hospital CRM API",
+            Resources = { "api" }
+        });
+    }
+
+    var pwaClient = await appManager.FindByClientIdAsync("hospital-crm-pwa");
+    if (pwaClient is null)
+    {
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = "hospital-crm-pwa",
+            DisplayName = "Hospital CRM PWA",
+            ClientType = OpenIddictConstants.ClientTypes.Public,
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+            Requirements =
+            {
+                OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange
+            },
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Authorization,
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.EndSession,
+                OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                OpenIddictConstants.Permissions.GrantTypes.Password,
+                OpenIddictConstants.Permissions.ResponseTypes.Code,
+                OpenIddictConstants.Permissions.Scopes.Email,
+                OpenIddictConstants.Permissions.Scopes.Profile,
+                OpenIddictConstants.Permissions.Scopes.Roles,
+                OpenIddictConstants.Permissions.Prefixes.Scope + "api"
+            }
+        };
+
+        var redirectUris = new[]
+        {
+            "http://localhost:5173/auth/callback",
+            "https://localhost:5173/auth/callback",
+            "http://localhost:8080/auth/callback",
+            "https://localhost:8080/auth/callback",
+            "http://localhost/auth/callback",
+            "https://localhost/auth/callback",
+            "capacitor://localhost/auth/callback"
+        };
+        foreach (var uri in redirectUris)
+        {
+            descriptor.RedirectUris.Add(new Uri(uri));
+        }
+
+        var postLogoutRedirectUris = new[]
+        {
+            "http://localhost:5173/login",
+            "https://localhost:5173/login",
+            "http://localhost:8080/login",
+            "http://localhost/login"
+        };
+        foreach (var uri in postLogoutRedirectUris)
+        {
+            descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
+        }
+
+        await appManager.CreateAsync(descriptor);
+        Log.Information("OpenIddict client 'hospital-crm-pwa' registered successfully.");
+    }
 }

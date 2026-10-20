@@ -23,7 +23,7 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 #### ADR-01: Managed Identity Provider (Azure Entra External ID) over Self-Hosted Duende
 - **Decision**: Use Azure Entra External ID (OIDC) instead of self-hosted Duende IdentityServer.
 - **Rationale**: Replaces single point of failure and maintenance overhead of self-hosted auth, directly addressing reliability risks flagged in validation report (§9 Resolution #1).
-- **Status**: Finalized.
+- **Status**: Superseded by ADR-13 (2026-10-20).
 
 #### ADR-02: RS256 Asymmetric JWT Tokens over HS256 Symmetric Secrets
 - **Decision**: Enforce RS256 asymmetric signing for all JWT access tokens.
@@ -107,6 +107,11 @@ Covers all core system decisions across authentication, multi-tenancy, database 
                      (Razorpay / WhatsApp)
 ```
 
+#### ADR-13: In-House OpenIddict Identity Center (.NET 10)
+- **Decision**: Replace Azure Entra External ID with an in-house OpenID Connect (OIDC) identity center built on OpenIddict (.NET 10, ASP.NET Core Minimal APIs / Controllers, EF Core 10).
+- **Rationale**: Eliminates vendor lock-in to Microsoft Azure, eliminates external per-MAU subscription costs, guarantees data residency compliance in regional clinic deployments, and provides a standalone, reusable identity center (`E:\Company\Samstack.Identity`) for all current and future Samstack company products.
+- **Status**: Finalized (2026-10-20).
+
 ---
 
 ## Important Files
@@ -118,7 +123,7 @@ Covers all core system decisions across authentication, multi-tenancy, database 
 
 ## Dependencies
 
-- Azure Entra External ID OIDC
+- In-House OpenIddict (.NET 10) OIDC Engine
 - PostgreSQL Role Permission Engine
 - Browser IndexedDB API
 

@@ -80,7 +80,7 @@ Covers Phase 1 (FR-01–22, complete) and Phase 2 Track 1 Fast-Follow modules in
 
 - .NET 10 SDK & Node.js environment ✅
 - PostgreSQL 16+ database host ✅
-- Azure Entra External ID OIDC (not yet configured — stub auth via local JWT)
+- OpenIddict In-House OIDC Identity Center (.NET 10, ADR-13) ✅
 - Razorpay Merchant Account (not yet — stub)
 - Meta / BSP WhatsApp Business API Account (not yet — stub)
 

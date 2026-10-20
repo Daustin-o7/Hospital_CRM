@@ -25,7 +25,7 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 
 ## 1. Pilot launch configuration (not code — vendor/portal setup)
 
-- [ ] **Azure Entra External ID**: tenant, redirect URIs, role-claim mapping. Blocker for production auth; local dev uses JWT RS256 with persistent key.
+- [x] **OpenIddict Identity Center**: In-house OIDC server configured (.NET 10, OpenIddict, PKCE, JWKS discovery). Replaces external Azure Entra dependency with full self-hosted identity center; zero vendor lock-in.
 - [ ] **Razorpay**: merchant account, `Razorpay:KeySecret`, webhook URL in Razorpay dashboard. Worker runs but keys are empty.
 - [ ] **WhatsApp Business API**: Meta/BSP account + template approval. Notifications currently go through `StubNotificationService` (console log).
 - [ ] **S3-compatible blob storage** for MOD-08 lab uploads (currently local disk `lab-uploads/`) — swap via `AzureStorage__ConnectionString`, per TRD-Phase2 §3.

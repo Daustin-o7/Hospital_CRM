@@ -77,6 +77,7 @@ public class HospitalCrmDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.UseOpenIddict();
         ApplyConfigurations(modelBuilder);
         ApplyTenantFilters(modelBuilder);
     }

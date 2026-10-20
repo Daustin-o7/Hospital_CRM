@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userManager) {
       await userManager.signinRedirect()
     } else {
-      throw new Error('Azure Entra External ID is not configured.')
+      throw new Error('Single Sign-On (OIDC) identity provider is not configured.')
     }
   }, [])
 

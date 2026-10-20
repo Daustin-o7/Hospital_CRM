@@ -14,7 +14,7 @@ Build what's in them; don't build what isn't. If a task seems to need something 
 - Backend: .NET 10 (ASP.NET Core, C# 14) — Minimal APIs, EF Core 10
 - Frontend: React 19 (responsive PWA, mobile-first — front desks use phones/tablets)
 - Database: PostgreSQL 16+
-- Identity: Azure Entra External ID (managed OIDC — deliberately not self-hosted Duende)
+- Identity: OpenIddict (in-house OIDC server & token issuer, .NET 10)
 - Payments: Razorpay
 - Messaging: WhatsApp Business API (via BSP or Meta Cloud API)
 
@@ -141,7 +141,7 @@ docker compose build
 ### Backend
 - **Minimal APIs** — no controllers unless project pattern demands
 - **EF Core** — `DbContext` in `Infrastructure`, compiled queries for hot paths
-- **Auth** — JWT RS256 validation against Azure Entra External ID JWKS; roles as claims
+- **Auth** — In-house OpenIddict OIDC server (JWT RS256 validation against internal JWKS endpoint); roles as claims
 - **RBAC** — server-side only; never trust client-supplied role
 - **Error handling** — typed result objects / structured HTTP error payloads (RFC 7807), no silent failures
 - **Cancellation tokens** — pass through all async I/O
@@ -175,7 +175,7 @@ docker compose build
 ---
 
 ## Common Gotchas
-- **Azure Entra External ID** — configure redirect URIs, token validation parameters, and role claims mapping in portal *before* coding FR-01
+- **OpenIddict Identity Center** — in-house OIDC server configured with OpenIddict for token issuance, JWT RS256 validation, and standard OIDC discovery (`/.well-known/openid-configuration`); client apps (PWA) registered with PKCE
 - **Razorpay webhooks** — verify signature (`X-Razorpay-Signature` header) with constant-time HMAC as implemented in `InvoicesController.cs` (BUG-032)
 - **WhatsApp** — build against channel interface from day 1 (SMS/email fallback later = config change)
 - **Offline sync** — idempotency keys on registration/billing mutations; conflict resolution = server wins on clinical data, last-write-wins on demographic

@@ -27,7 +27,7 @@ Hospital CRM (Samstack AI)
     └── PharmacyComplianceController (MOD-16/17 Rx Dispensing, Schedule Registers & Suppliers)
 ```
 
-**Stack:** .NET 10 (Minimal APIs, EF Core 10) · React 19 PWA · PostgreSQL 16 · Azure Entra External ID · Razorpay · WhatsApp Business API
+**Stack:** .NET 10 (Minimal APIs, EF Core 10) · React 19 PWA · PostgreSQL 16 · OpenIddict (In-House OIDC) · Razorpay · WhatsApp Business API
 
 ---
 
@@ -802,7 +802,7 @@ PHARMACY COMPLIANCE & DISPENSING (PharmacyComplianceController)
 - **UAE adapter** — International
 - **Voice Agent** (MOD-27) — Phase 3 per FRD-Phase2 §9
 - **Offline sync** (FR-22) — deferred (see state/technical-debt.md item 7)
-- **Real WhatsApp / Razorpay / Entra** — stubs, awaiting pilot vendor accounts
+- **Real WhatsApp / Razorpay** — stubs, awaiting pilot vendor accounts (OpenIddict in-house OIDC active)
 - **S3 blob storage** for MOD-08 — local disk `lab-uploads/` for now
 
 ---

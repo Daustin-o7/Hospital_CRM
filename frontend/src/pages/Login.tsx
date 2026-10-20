@@ -64,7 +64,7 @@ export default function Login() {
     try {
       await loginWithEntra()
     } catch (err: any) {
-      setError(err.message || 'Failed to initialize Microsoft Entra sign in')
+      setError(err.message || 'Failed to initialize Single Sign-On (OIDC)')
     }
   }
 
@@ -221,7 +221,7 @@ export default function Login() {
                     <path fill="#05a6f0" d="M1 12h10v10H1z"/>
                     <path fill="#ffba08" d="M12 12h10v10H12z"/>
                   </svg>
-                  Sign in with Microsoft / Entra ID
+                  Sign in with Single Sign-On (OIDC)
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>
                   <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
