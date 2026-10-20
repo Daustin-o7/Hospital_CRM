@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Suppress EF Design tooling transitive vulnerability warnings (build-time only) -->
     <NoWarn>$(NoWarn);NU1608;NU1903</NoWarn>
+    <UserSecretsId>hospital-crm-api-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

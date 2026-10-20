@@ -56,7 +56,11 @@ dotnet run --project backend/Hospital_CRM.Api
 # NOTE: the CLI uses DefaultConnection (app_user), which cannot create tables. Pass the owner
 # connection explicitly or the update fails with "permission denied for schema public".
 dotnet ef migrations add <Name> --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api
-dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api --connection "<MigrationsConnection from appsettings.json>"
+dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api --connection "<owner connection string>"
+
+# Connection strings are NOT committed. Development reads them from user-secrets:
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=hospital_crm;Username=app_user;Password=<pw>" --project backend/Hospital_CRM.Api
+dotnet user-secrets set "ConnectionStrings:MigrationsConnection" "Host=localhost;Port=5432;Database=hospital_crm;Username=postgres;Password=<pw>" --project backend/Hospital_CRM.Api
 
 # Test
 dotnet test
