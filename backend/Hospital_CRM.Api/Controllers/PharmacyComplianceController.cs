@@ -14,39 +14,22 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pharmacy")]
+[RequireModule(ModuleRegistry.Pharmacy)]
 public class PharmacyComplianceController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly ILogger<PharmacyComplianceController> _logger;
-    private readonly IModuleGateService _moduleGate;
 
     public PharmacyComplianceController(
         HospitalCrmDbContext db,
-        ILogger<PharmacyComplianceController> logger,
-        IModuleGateService moduleGate)
+        ILogger<PharmacyComplianceController> logger)
     {
         _db = db;
         _logger = logger;
-        _moduleGate = moduleGate;
     }
 
-    private async Task<(bool enabled, Guid tenantId)> EnsurePharmacyEnabledAsync(CancellationToken ct)
-    {
-        var tenantId = User.GetTenantId();
-        if (tenantId == null)
-        {
-            var userId = User.GetUserId();
-            if (userId.HasValue)
-                tenantId = await _db.Users.AsNoTracking().Where(u => u.Id == userId.Value).Select(u => (Guid?)u.TenantId).FirstOrDefaultAsync(ct);
-        }
-
-        if (tenantId == null || !await _moduleGate.IsModuleEnabledAsync(tenantId.Value, ModuleRegistry.Pharmacy, ct))
-        {
-            return (false, Guid.Empty);
-        }
-
-        return (true, tenantId.Value);
-    }
+    // [RequireModule] already rejected callers without the pharmacy entitlement.
+    private Guid TenantId => User.GetTenantId()!.Value;
 
     [HttpPost("dispense")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
@@ -62,11 +45,7 @@ public class PharmacyComplianceController : ControllerBase
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
 
-        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
-        if (!enabled)
-        {
-            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
-        }
+        var tenantId = TenantId;
 
         // Idempotency check
         if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
@@ -246,11 +225,7 @@ public class PharmacyComplianceController : ControllerBase
         [FromQuery] int pageSize = 100,
         CancellationToken ct = default)
     {
-        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
-        if (!enabled)
-        {
-            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
-        }
+        var tenantId = TenantId;
 
         var q = _db.ControlledSubstanceRegisters
             .Include(r => r.Drug)

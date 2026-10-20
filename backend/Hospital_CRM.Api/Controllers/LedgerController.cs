@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -11,6 +12,7 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/ledger")]
+[RequireModule(ModuleRegistry.Finance)]
 public class LedgerController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
@@ -142,7 +144,7 @@ public class LedgerController : ControllerBase
     public async Task<IActionResult> ListExpenses([FromQuery] string? month, CancellationToken ct)
     {
         var (year, monthNum) = ParseMonth(month);
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 

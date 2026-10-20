@@ -208,7 +208,7 @@ frontend/src/
 | FR-22 Offline Sync | ⏳ Deferred | IndexedDB queue + idempotency keys not built |
 | Real WhatsApp | ⏳ Stub | `StubNotificationService` logs to console |
 | Real Razorpay | ⏳ Stub | Keys empty, no webhook hits |
-| Real Azure Entra | ⏳ Stub | Local JWT RS256 with persistent key |
+| OpenIddict OIDC | ✅ In-House | OpenIddict .NET 10 server + PKCE + JWKS (ADR-13) |
 
 ### ✅ Phase 2 — DONE (10/10 modules)
 | Module | Status |
@@ -253,9 +253,9 @@ frontend/src/
 | **Razorpay** | | | ⏳ |
 | ├─ Merchant account + live keys | | `Razorpay:KeyId`, `KeySecret` in env | ⏳ |
 | ├─ Webhook URL at Razorpay dashboard | | | ⏳ |
-| **Azure Entra External ID** | | | ⏳ |
-| ├─ Tenant configuration | | Redirect URIs, role claims mapping | ⏳ |
-| ├─ JWT validation against Entra JWKS | | Replace local RS256 key | ⏳ |
+| **OpenIddict Identity Center** | | | ✅ |
+| ├─ In-house OIDC server & PKCE | | `hospital-crm-pwa` client registration | ✅ |
+| ├─ JWT RS256 token issuance & JWKS | | Internal OpenIddict discovery & token endpoints | ✅ |
 | **Blob Storage (MOD-08)** | | | ⏳ |
 | ├─ S3-compatible bucket (MinIO/AWS/GCS) | | TRD-Phase2 §3 | ⏳ |
 | ├─ Swap `lab-uploads/` local → S3 | | Config + DI change only | ⏳ |
@@ -293,7 +293,7 @@ frontend/src/
 | In-code RBAC → DB permissions | Accepted | Refactor when Pharmacist/Nurse roles added (Track 2) |
 | HTTP polling → WebSockets | Accepted | Evaluate if MOD-25 needs sub-second |
 | `NotificationRulesWorker` on BackgroundService | Accepted | Migrate to Hangfire when jobs > 3 |
-| Stubs (WhatsApp/Razorpay/Entra) | Known | Replace before pilot (see §3) |
+| Stubs (WhatsApp/Razorpay) | Known | Replace before pilot (see §3; Entra replaced by OpenIddict) |
 | Offline sync (FR-22) | Deferred | Build when pilot needs it |
 | Pre-check token discarded after WhatsApp send | Accepted | Add outbox if loss-rate high in pilot |
 | Orphan `DispenseRecord` entity | Known | Wire Rx-to-Dispense endpoint in Track 2b or drop |
@@ -313,7 +313,7 @@ frontend/src/
 **If pilot prep:**
 1. **Pilot Prep Sprint 1** — WhatsApp Meta/BSP account + template approval submission
 2. **Pilot Prep Sprint 2** — Razorpay merchant account + webhook
-3. **Pilot Prep Sprint 3** — Azure Entra External ID tenant + role claims
+3. **Pilot Prep Sprint 3** — In-house OpenIddict OIDC center verified (ADR-13)
 4. **Pilot Prep Sprint 4** — S3-compatible blob storage for MOD-08
 
 **If starting Phase 3 (Voice Agent):**

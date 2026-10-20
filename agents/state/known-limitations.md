@@ -37,7 +37,7 @@ Covers all 22 functional requirements (FR-01 to FR-22), module exclusions, inter
 
 - **WhatsApp**: `StubNotificationService` — logs to console, no actual Meta/BSP API call
 - **Razorpay**: `RazorpayReconciliationWorker` runs but `_keyId/_keySecret` empty, no real webhook endpoint hits
-- **Azure Entra External ID**: not configured; local JWT RS256 with persistent key
+- **OpenIddict Identity Center**: In-house OIDC server (.NET 10, ADR-13), fully configured with RS256 signing and PKCE; Azure Entra dependency retired
 - **Offline sync (FR-22)**: not built; no IndexedDB queue in frontend yet
 - **Lab file storage**: local disk `lab-uploads/`; S3 swap deferred per TRD-Phase2 §3
 - **Platform Admin**: endpoints built and tested; functionally idle until Tier 2 tenancy activates

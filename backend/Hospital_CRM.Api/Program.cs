@@ -22,6 +22,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,8 +43,17 @@ builder.Host.UseSerilog();
 builder.Services.AddScoped<TenantConnectionInterceptor>();
 
 // EF Core
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(defaultConnection))
+{
+    // Credentials are never committed; development reads them from user-secrets.
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is not configured. Set it with:\n" +
+        "  dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"<connection>\" --project backend/Hospital_CRM.Api");
+}
+
 builder.Services.AddDbContext<HospitalCrmDbContext>((sp, options) =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(defaultConnection)
            .AddInterceptors(sp.GetRequiredService<TenantConnectionInterceptor>())
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
@@ -156,6 +168,52 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Hospital_CRM.Api.JwtBearerOptionsConfig>();
 
 builder.Services.AddAuthorization();
+
+// OpenIddict in-house OIDC server & token engine
+builder.Services.AddOpenIddict()
+    .AddCore(options =>
+    {
+        options.UseEntityFrameworkCore()
+               .UseDbContext<HospitalCrmDbContext>();
+    })
+    .AddServer(options =>
+    {
+        options.SetAuthorizationEndpointUris("/connect/authorize")
+               .SetTokenEndpointUris("/connect/token")
+               .SetUserInfoEndpointUris("/connect/userinfo")
+               .SetEndSessionEndpointUris("/connect/logout");
+
+        options.AllowAuthorizationCodeFlow()
+               .RequireProofKeyForCodeExchange()
+               .AllowRefreshTokenFlow()
+               .AllowPasswordFlow();
+
+        options.RegisterScopes(
+            OpenIddictConstants.Scopes.OpenId,
+            OpenIddictConstants.Scopes.Profile,
+            OpenIddictConstants.Scopes.Email,
+            OpenIddictConstants.Scopes.Roles,
+            OpenIddictConstants.Scopes.OfflineAccess,
+            "api"
+        );
+
+        options.AddDevelopmentEncryptionCertificate()
+               .AddDevelopmentSigningCertificate();
+
+        options.DisableAccessTokenEncryption();
+
+        options.UseAspNetCore()
+               .EnableAuthorizationEndpointPassthrough()
+               .EnableTokenEndpointPassthrough()
+               .EnableUserInfoEndpointPassthrough()
+               .EnableEndSessionEndpointPassthrough()
+               .DisableTransportSecurityRequirement();
+    })
+    .AddValidation(options =>
+    {
+        options.UseLocalServer();
+        options.UseAspNetCore();
+    });
 
 // CORS for React frontend (supports dev defaults + configured origins)
 var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]
@@ -339,6 +397,7 @@ if (autoMigrate)
     {
         Log.Information("Applying database migrations...");
         await db.Database.MigrateAsync();
+        await SeedOpenIddictClientsAsync(app.Services);
 
         if (app.Environment.IsDevelopment())
         {
@@ -469,7 +528,6 @@ app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseSecurityHeaders();
 app.UseMiddleware<PlatformAdminIpAllowlistMiddleware>();
-app.UseMiddleware<IdempotencyMiddleware>();
 
 
 // MOD-08: serve uploaded lab result files from local disk (S3 swap in TRD-Phase2)
@@ -478,8 +536,13 @@ Directory.CreateDirectory(labUploadDir);
 
 app.UseAuthentication();
 app.UseAuthorization();
+// A1: blocks a bootstrapped admin (temp password / missing MFA) from every other endpoint.
+app.UseMiddleware<AccountSetupEnforcementMiddleware>();
 app.UseMiddleware<ImpersonationEnforcementMiddleware>();
 app.UseMiddleware<SubscriptionEnforcementMiddleware>();
+// After authentication so the cache key can include the tenant; before endpoints so a replay
+// short-circuits the handler.
+app.UseMiddleware<IdempotencyMiddleware>();
 
 // SEC-002: Lab file static middleware MUST run AFTER UseAuthentication/UseAuthorization
 // so that JWT is parsed before OnPrepareResponse fires. Also short-circuit the response
@@ -547,7 +610,92 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// A1: production has no seed. These run instead of the web host and exit.
+//   dotnet run --project backend/Hospital_CRM.Api -- --bootstrap-platform-admin <email>
+//   dotnet run --project backend/Hospital_CRM.Api -- --reset-mfa <email>
+if (args.Contains("--bootstrap-platform-admin") || args.Contains("--reset-mfa"))
+{
+    using var cliScope = app.Services.CreateScope();
+    var cliDb = cliScope.ServiceProvider.GetRequiredService<HospitalCrmDbContext>();
+    return args.Contains("--bootstrap-platform-admin")
+        ? await BootstrapPlatformAdminAsync(cliDb, args)
+        : await ResetPlatformAdminMfaAsync(cliDb, args);
+}
+
 app.Run();
+return 0;
+
+static string? ArgumentValue(string[] args, string name)
+{
+    var index = Array.IndexOf(args, name);
+    return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+}
+
+static async Task<int> BootstrapPlatformAdminAsync(HospitalCrmDbContext db, string[] args)
+{
+    var email = ArgumentValue(args, "--bootstrap-platform-admin")?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Usage: --bootstrap-platform-admin <email>");
+        return 2;
+    }
+
+    if (await db.Users.AnyAsync(u => u.Email == email))
+    {
+        Console.Error.WriteLine($"A user with {email} already exists; nothing was created.");
+        return 3;
+    }
+
+    var fromEnvironment = Environment.GetEnvironmentVariable("PLATFORM_ADMIN_PASSWORD");
+    var generated = string.IsNullOrWhiteSpace(fromEnvironment);
+    var password = generated
+        ? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(18))
+        : fromEnvironment!;
+
+    db.Users.Add(new User
+    {
+        Id = Guid.NewGuid(),
+        Name = "Platform Administrator",
+        Email = email,
+        PasswordHash = password.HashPassword(),
+        Role = UserRole.PlatformAdmin,
+        MustChangePassword = true,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"PlatformAdmin created: {email}");
+    if (generated)
+        Console.WriteLine($"One-time password (shown once): {password}");
+    Console.WriteLine("First sign-in forces a password change, then MFA enrolment.");
+    return 0;
+}
+
+static async Task<int> ResetPlatformAdminMfaAsync(HospitalCrmDbContext db, string[] args)
+{
+    var email = ArgumentValue(args, "--reset-mfa")?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        Console.Error.WriteLine("Usage: --reset-mfa <email>");
+        return 2;
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.Role == UserRole.PlatformAdmin);
+    if (user is null)
+    {
+        Console.Error.WriteLine($"No PlatformAdmin with email {email}.");
+        return 3;
+    }
+
+    user.MfaEnabled = false;
+    user.MfaSecret = null;
+    user.UpdatedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"MFA reset for {email}; it must be enrolled again at next sign-in.");
+    return 0;
+}
 
 static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
 {
@@ -557,7 +705,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Demo Health Organization",
         SubscriptionTier = SubscriptionTier.Starter,
         SubscriptionStatus = SubscriptionStatus.Trial,
-        ActivatedModules = "core,pharmacy",
+        ActivatedModules = "core,pharmacy,lab,inventory,finance,wishlist,precheck",
         SubscriptionEndsAt = DateTimeOffset.UtcNow.AddDays(30),
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
@@ -1138,4 +1286,81 @@ static List<string> ParseCsvLine(string line)
     }
     result.Add(current.ToString());
     return result;
+}
+
+static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)
+{
+    using var scope = serviceProvider.CreateScope();
+    var appManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+    var scopeManager = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+    if (await scopeManager.FindByNameAsync("api") is null)
+    {
+        await scopeManager.CreateAsync(new OpenIddictScopeDescriptor
+        {
+            Name = "api",
+            DisplayName = "Hospital CRM API",
+            Resources = { "api" }
+        });
+    }
+
+    var pwaClient = await appManager.FindByClientIdAsync("hospital-crm-pwa");
+    if (pwaClient is null)
+    {
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = "hospital-crm-pwa",
+            DisplayName = "Hospital CRM PWA",
+            ClientType = OpenIddictConstants.ClientTypes.Public,
+            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+            Requirements =
+            {
+                OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange
+            },
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Authorization,
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.Endpoints.EndSession,
+                OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                OpenIddictConstants.Permissions.GrantTypes.Password,
+                OpenIddictConstants.Permissions.ResponseTypes.Code,
+                OpenIddictConstants.Permissions.Scopes.Email,
+                OpenIddictConstants.Permissions.Scopes.Profile,
+                OpenIddictConstants.Permissions.Scopes.Roles,
+                OpenIddictConstants.Permissions.Prefixes.Scope + "api"
+            }
+        };
+
+        var redirectUris = new[]
+        {
+            "http://localhost:5173/auth/callback",
+            "https://localhost:5173/auth/callback",
+            "http://localhost:8080/auth/callback",
+            "https://localhost:8080/auth/callback",
+            "http://localhost/auth/callback",
+            "https://localhost/auth/callback",
+            "capacitor://localhost/auth/callback"
+        };
+        foreach (var uri in redirectUris)
+        {
+            descriptor.RedirectUris.Add(new Uri(uri));
+        }
+
+        var postLogoutRedirectUris = new[]
+        {
+            "http://localhost:5173/login",
+            "https://localhost:5173/login",
+            "http://localhost:8080/login",
+            "http://localhost/login"
+        };
+        foreach (var uri in postLogoutRedirectUris)
+        {
+            descriptor.PostLogoutRedirectUris.Add(new Uri(uri));
+        }
+
+        await appManager.CreateAsync(descriptor);
+        Log.Information("OpenIddict client 'hospital-crm-pwa' registered successfully.");
+    }
 }

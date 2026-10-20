@@ -89,7 +89,7 @@
 
 1. WhatsApp Meta/BSP account + template approval
 2. Razorpay merchant account + webhook URL config
-3. Azure Entra External ID tenant + role claim mapping + OIDC
+3. In-house OpenIddict OIDC server integration (completed on feature/openiddict-identity-center)
 4. S3-compatible blob storage for MOD-08 file uploads
 5. Observability: structured logging, metrics, health endpoints
 6. Docker (3-day effort)
@@ -99,7 +99,7 @@
 ## ⚙️ Working Conventions (from AGENTS.md + memory)
 
 - **Stack:** .NET 10 (Minimal APIs, EF Core 10), React 19 PWA, PostgreSQL 16+
-- **Auth:** Azure Entra External ID (managed OIDC, not Duende)
+- **Auth:** In-house OpenIddict (.NET 10 OIDC server + PKCE + standard discovery, superseded Azure Entra External ID via ADR-13)
 - **Payments:** Razorpay — **SUPERSEDED by D7 (2026-10-19):** patient payment capture is **hybrid direct-to-clinic** (PSP business webhooks primary, Android notification bridge fallback, manual "Mark as Paid" + UTR). SAMSTACK never holds patient funds; Razorpay remains optional for remote SMS payment links only. Razorpay still bills *SAMSTACK's own* subscription invoices (B4).
 - **Messaging:** WhatsApp Business API
 - ~~**tenant_id** dormant in Phase 1, use `Guid.Empty`~~ → **SUPERSEDED by D1 (2026-10-19):** `TenantId` is the key everywhere; `Guid.Empty` is retired. A real `tenants` table is introduced now.
@@ -125,7 +125,7 @@
 **If pilot prep:**
 1. WhatsApp Meta/BSP account + template approval submission
 2. Razorpay merchant account + webhook
-3. Azure Entra External ID tenant + role claims
+3. OpenIddict identity center verification (in-house OIDC, ADR-13)
 4. S3-compatible blob storage for MOD-08
 
 **If starting Phase 3 (Voice Agent):**

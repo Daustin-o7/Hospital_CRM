@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -83,9 +84,17 @@ public class ClinicController : ControllerBase
         var holidays = clinic.Holidays ?? new List<ClinicHoliday>();
         var specialHours = clinic.SpecialHours ?? new List<ClinicSpecialHour>();
 
+        // Entitlements come from the Tenant row (the module gate reads the same value).
+        var activatedModules = ModuleRegistry.Parse(
+            await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == clinic.TenantId)
+                .Select(t => t.ActivatedModules)
+                .FirstOrDefaultAsync(ct));
+
         return Ok(new
         {
             clinicId = clinic.Id,
+            activatedModules,
             name = clinic.Name,
             organizationType = clinic.OrganizationType,
             legalName = clinic.LegalName,

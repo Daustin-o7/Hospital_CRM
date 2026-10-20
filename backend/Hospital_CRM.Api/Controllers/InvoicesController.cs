@@ -307,7 +307,7 @@ public class InvoicesController : ControllerBase
             return Unauthorized(new { error = "invalid_token" });
 
         var query = _db.Invoices
-            .Include(i => i.Appointment).ThenInclude(a => a.Patient)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
             .AsQueryable();
 
         // Doctor sees only their invoices; Receptionist & Admin can view list (FR-17/18/19)

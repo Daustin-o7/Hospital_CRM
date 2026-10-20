@@ -93,14 +93,14 @@ Real integration configuration (not code) needed before pilot.
 | Webhook URL configuration at Razorpay dashboard | ⏳ | `POST /api/v1/invoices/webhooks/razorpay` (already implemented) |
 | Test payment flow end-to-end | ⏳ | Verify HMAC verification + reconciliation worker |
 
-### 3.3 Azure Entra External ID
+### 3.3 OpenIddict Identity Center (In-House OIDC)
 
 | Task | Status | Notes |
 |---|---|---|
-| Tenant configuration in Azure portal | ⏳ | App registration, redirect URIs |
-| Role claim mapping | ⏳ | Map Entra groups → `UserRole` enum |
-| JWT validation against Entra JWKS | ⏳ | Replace local RS256 key with `AzureKeyVaultKeyService` (ADR-07) |
-| Test OIDC login flow | ⏳ | Frontend OIDC integration |
+| OpenIddict Server & Validation configuration | ✅ | In-house OIDC server in .NET 10 (ADR-13) |
+| Client registration (`hospital-crm-pwa` with PKCE) | ✅ | Seeded at startup with authorization code + PKCE flow |
+| Token issuance & JWKS endpoint | ✅ | RS256 signing, standard `/.well-known/openid-configuration` |
+| Role claims & RBAC integration | ✅ | Server-side role mapping to standard `UserRole` claims |
 
 ### 3.4 Blob Storage (MOD-08)
 
@@ -224,7 +224,7 @@ Per FRD §5.2 and AGENTS.md:
 | TD-3 | In-code RBAC → DB permissions | Accepted | Refactor when Pharmacist/Nurse roles added (Track 2) |
 | TD-4 | HTTP polling vs WebSockets | Accepted | Re-evaluate if MOD-25 needs sub-second updates |
 | TD-5 | `NotificationRulesWorker` on `BackgroundService` | Accepted | Migrate to Hangfire when scheduled jobs > 3 |
-| TD-6 | Stubs: WhatsApp/Razorpay/Entra | Known | Replace before pilot (see §3) |
+| TD-6 | Stubs: WhatsApp/Razorpay | Known | Replace before pilot (see §3; Entra replaced by OpenIddict) |
 | TD-7 | Offline sync (FR-22) | Deferred | Build when pilot connectivity issues arise |
 | TD-8 | Pre-check token discarded after WhatsApp send | Accepted | Add outbox if patient loss-rate high |
 | TD-9 | Orphan `DispenseRecord` entity (no API endpoint writes it) | Known | Wire Rx-to-Dispense endpoint in Track 2b or drop |
@@ -244,7 +244,7 @@ Per FRD §5.2 and AGENTS.md:
 **If pilot is imminent:**
 1. Start with §3.1 WhatsApp setup (most blocking — templates need approval)
 2. Parallel: §3.2 Razorpay (quick win, webhook already implemented)
-3. Then §3.3 Entra External ID (security-critical, needs Azure tenant)
+3. In-house OpenIddict identity center verified (in-house OIDC, ADR-13)
 4. Finally §3.4 S3 for MOD-08 file uploads
 
 **If starting Phase 3 (Voice Agent):**

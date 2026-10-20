@@ -13,52 +13,31 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pharmacy")]
+[RequireModule(ModuleRegistry.Pharmacy)]
 public class PharmacyPosController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
     private readonly ILogger<PharmacyPosController> _logger;
     private readonly ITimezoneService _timezoneService;
-    private readonly IModuleGateService _moduleGate;
 
     public PharmacyPosController(
         HospitalCrmDbContext db,
         ILogger<PharmacyPosController> logger,
-        ITimezoneService timezoneService,
-        IModuleGateService moduleGate)
+        ITimezoneService timezoneService)
     {
         _db = db;
         _logger = logger;
         _timezoneService = timezoneService;
-        _moduleGate = moduleGate;
     }
 
-    private async Task<(bool enabled, Guid tenantId)> EnsurePharmacyEnabledAsync(CancellationToken ct)
-    {
-        var tenantId = User.GetTenantId();
-        if (tenantId == null)
-        {
-            var userId = User.GetUserId();
-            if (userId.HasValue)
-                tenantId = await _db.Users.AsNoTracking().Where(u => u.Id == userId.Value).Select(u => (Guid?)u.TenantId).FirstOrDefaultAsync(ct);
-        }
-
-        if (tenantId == null || !await _moduleGate.IsModuleEnabledAsync(tenantId.Value, ModuleRegistry.Pharmacy, ct))
-        {
-            return (false, Guid.Empty);
-        }
-
-        return (true, tenantId.Value);
-    }
+    // [RequireModule] already rejected callers without the pharmacy entitlement.
+    private Guid TenantId => User.GetTenantId()!.Value;
 
     [HttpPost("checkout")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> CheckoutPos([FromBody] PosCheckoutRequest req, CancellationToken ct)
     {
-        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
-        if (!enabled)
-        {
-            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
-        }
+        var tenantId = TenantId;
 
         if (req.Items == null || req.Items.Count == 0)
             return BadRequest(new { error = "no_items_in_cart" });
@@ -290,11 +269,7 @@ public class PharmacyPosController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> ProcessReturn(Guid invoiceId, [FromBody] ReturnRequest req, CancellationToken ct)
     {
-        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
-        if (!enabled)
-        {
-            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
-        }
+        var tenantId = TenantId;
         var invoice = await _db.Invoices
             .Include(i => i.LineItems)
                 .ThenInclude(li => li.DrugBatch!)
@@ -414,11 +389,7 @@ public class PharmacyPosController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
     public async Task<IActionResult> GetPharmacyStats(CancellationToken ct)
     {
-        var (enabled, tenantId) = await EnsurePharmacyEnabledAsync(ct);
-        if (!enabled)
-        {
-            return StatusCode(403, new { error = "pharmacy_feature_disabled", message = "Pharmacy feature is disabled for this tenant. Contact PlatformAdmin to enable." });
-        }
+        var tenantId = TenantId;
         var clinic = await _db.Clinics.FirstOrDefaultAsync(ct);
         var today = _timezoneService.GetClinicToday(clinic?.Timezone, HttpContext);
         var startOfTodayUtc = _timezoneService.GetStartOfDayUtc(today, clinic?.Timezone);

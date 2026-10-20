@@ -169,7 +169,25 @@ export default function Consultations() {
     if (!selectedAppointment?.patientId) return
 
     let isMounted = true
+    // The DEV demo queue carries placeholder ids; those rows use the appointment data.
+    const fallbackDetails: PatientDetails = {
+      id: selectedAppointment.patientId,
+      name: selectedAppointment.patientName,
+      phone: selectedAppointment.patientPhone && selectedAppointment.patientPhone !== '—'
+        ? selectedAppointment.patientPhone
+        : '+91 98765 43210',
+      gender: selectedAppointment.patientGender || 'Female',
+      approxAge: selectedAppointment.patientAge || 28,
+      bloodGroup: 'B+',
+      allergies: 'NKDA (No known drug allergies)'
+    }
+
     const loadPatientDetails = async () => {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.patientId)) {
+        if (isMounted) setPatientDetails(fallbackDetails)
+        return
+      }
+
       try {
         const res = await api.get(`/patients/${selectedAppointment.patientId}`)
         if (isMounted && res.data) {
@@ -186,17 +204,7 @@ export default function Consultations() {
         }
       } catch {
         if (isMounted) {
-          setPatientDetails({
-            id: selectedAppointment.patientId,
-            name: selectedAppointment.patientName,
-            phone: selectedAppointment.patientPhone && selectedAppointment.patientPhone !== '—'
-              ? selectedAppointment.patientPhone
-              : '+91 98765 43210',
-            gender: selectedAppointment.patientGender || 'Female',
-            approxAge: selectedAppointment.patientAge || 28,
-            bloodGroup: 'B+',
-            allergies: 'NKDA (No known drug allergies)'
-          })
+          setPatientDetails(fallbackDetails)
         }
       }
     }

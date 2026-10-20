@@ -30,7 +30,7 @@ These are not in `state/pending.md` as a feature backlog because they're real-ve
 
 - [ ] **WhatsApp Business API**: Meta/BSP account, template submission for approval (status defaults to `pending` in our DB until Meta confirms)
 - [ ] **Razorpay**: Merchant account, webhook secret in `Razorpay:KeySecret`, webhook URL configured at Razorpay dashboard
-- [ ] **Azure Entra External ID**: tenant config, role claim mapping, redirect URIs
+- [x] **OpenIddict Identity Center**: in-house OIDC server configured, client app registered with PKCE, JWT RS256 token issuance (ADR-13)
 - [ ] **S3-compatible blob storage**: for MOD-08 file uploads (currently local disk `lab-uploads/`), TRD-Phase2 §3
 
 ### Already Shipped (see `completed.md`)

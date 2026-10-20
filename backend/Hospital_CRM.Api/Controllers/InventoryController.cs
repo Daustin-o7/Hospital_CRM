@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -11,6 +12,7 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/inventory")]
+[RequireModule(ModuleRegistry.Inventory)]
 public class InventoryController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
@@ -23,7 +25,7 @@ public class InventoryController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Receptionist", "Doctor")]
     public async Task<IActionResult> ListItems([FromQuery] bool? activeOnly, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var query = _db.InventoryItems.Where(i => i.TenantId == tenantId);
         if (activeOnly ?? true) query = query.Where(i => i.Active);
 
@@ -68,7 +70,7 @@ public class InventoryController : ControllerBase
         var item = new InventoryItem
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             Name = request.Name,
             Tier = tier,
             Unit = request.Unit,
@@ -93,7 +95,7 @@ public class InventoryController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Receptionist")]
     public async Task<IActionResult> UpdateItem(Guid id, [FromBody] UpdateInventoryItemRequest request, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var item = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
         if (item is null)
             return NotFound(new { error = "item_not_found" });
@@ -129,7 +131,7 @@ public class InventoryController : ControllerBase
         if (!Enum.TryParse<MovementDirection>(request.Direction, true, out var direction))
             return BadRequest(new { error = "invalid_direction" });
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var item = await _db.InventoryItems.FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
         if (item is null)
             return NotFound(new { error = "item_not_found" });
@@ -195,7 +197,7 @@ public class InventoryController : ControllerBase
     [AuthorizeRoles("ClinicAdmin", "Receptionist", "Doctor")]
     public async Task<IActionResult> ListMovements(Guid id, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var movements = await _db.StockMovements
             .Where(m => m.TenantId == tenantId && m.ItemId == id)
             .OrderByDescending(m => m.RecordedAt)
@@ -218,7 +220,7 @@ public class InventoryController : ControllerBase
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> LowStock(CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var items = await _db.InventoryItems
             .Where(i => i.TenantId == tenantId && i.Active && i.LowStockThreshold > 0)
             .ToListAsync(ct);

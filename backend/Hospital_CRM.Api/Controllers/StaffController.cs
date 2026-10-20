@@ -4,6 +4,7 @@ using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Services;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,13 @@ namespace Hospital_CRM.Api.Controllers;
 public class StaffController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<StaffController> _logger;
 
-    public StaffController(HospitalCrmDbContext db, ILogger<StaffController> logger)
+    public StaffController(HospitalCrmDbContext db, ITenantContext tenantContext, ILogger<StaffController> logger)
     {
         _db = db;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -74,25 +77,25 @@ public class StaffController : ControllerBase
 
         if (request.Role.Equals("Nurse", StringComparison.OrdinalIgnoreCase))
         {
-            invite.LicenseNumber = request.LicenseNumber;
-            invite.LicenseAuthority = request.LicenseAuthority;
+            invite.LicenseNumber = request.LicenseNumber ?? string.Empty;
+            invite.LicenseAuthority = request.LicenseAuthority ?? string.Empty;
             invite.LicenseIssueDate = request.LicenseIssueDate;
             invite.LicenseExpiryDate = request.LicenseExpiryDate;
-            invite.NursingQualification = request.NursingQualification;
-            invite.Institution = request.Institution;
+            invite.NursingQualification = request.NursingQualification ?? string.Empty;
+            invite.Institution = request.Institution ?? string.Empty;
             invite.GraduationYear = request.GraduationYear ?? 0;
-            invite.Specialization = request.Specialization;
+            invite.Specialization = request.Specialization ?? string.Empty;
             invite.YearsExperience = request.YearsExperience ?? 0;
-            invite.Skills = request.Skills;
-            invite.Languages = request.Languages;
-            invite.EmergencyContactName = request.EmergencyContactName;
-            invite.EmergencyContactPhone = request.EmergencyContactPhone;
-            invite.EmergencyContactRelation = request.EmergencyContactRelation;
-            invite.ShiftPreferencesJson = request.ShiftPreferencesJson;
-            invite.WorkRestrictionsJson = request.WorkRestrictionsJson;
+            invite.Skills = request.Skills ?? string.Empty;
+            invite.Languages = request.Languages ?? string.Empty;
+            invite.EmergencyContactName = request.EmergencyContactName ?? string.Empty;
+            invite.EmergencyContactPhone = request.EmergencyContactPhone ?? string.Empty;
+            invite.EmergencyContactRelation = request.EmergencyContactRelation ?? string.Empty;
+            invite.ShiftPreferencesJson = request.ShiftPreferencesJson ?? string.Empty;
+            invite.WorkRestrictionsJson = request.WorkRestrictionsJson ?? string.Empty;
             invite.DepartmentId = request.DepartmentId;
             invite.WardId = request.WardId;
-            invite.Designation = request.Designation;
+            invite.Designation = request.Designation ?? string.Empty;
             invite.EmploymentType = request.EmploymentType ?? EmploymentType.FullTime;
             invite.EmploymentStatus = request.EmploymentStatus ?? EmploymentStatus.Active;
         }
@@ -183,7 +186,16 @@ public class StaffController : ControllerBase
 
         invite.AcceptedAt = DateTimeOffset.UtcNow;
 
+        // Anonymous accept: StaffInvites' WITH CHECK requires a tenant, so scope the
+        // transaction to the invite's tenant before the update. set_config(..., true)
+        // is transaction-local and cannot leak to a pooled connection.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT set_config('app.current_tenant_id', {invite.TenantId.ToString()}, true)", ct);
+        using var tenantScope = _tenantContext.PushTenant(invite.TenantId);
+
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         return Ok(new { message = "invite_accepted", userId = user.Id });
     }

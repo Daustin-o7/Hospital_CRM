@@ -20,10 +20,47 @@ export interface ImpersonationSession {
   accessToken: string
 }
 
+export interface LoginResult {
+  mfaRequired: boolean
+  challengeToken?: string
+}
+
+interface SessionPayload {
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+  user: User
+}
+
+function claimsFromToken(token: string | null): Record<string, unknown> {
+  if (!token) return {}
+  try {
+    const payload = token.split('.')[1]
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return {}
+  }
+}
+
+// A1 flags live in the token, so a reload restores the same gate without another call.
+function accountFlagsFrom(token: string | null) {
+  const claims = claimsFromToken(token)
+  return {
+    mustChangePassword: claims.must_change_password === 'true',
+    mfaSetupRequired:
+      String(claims.role ?? '').toLowerCase() === 'platformadmin' && claims.mfa_enabled !== 'true',
+  }
+}
+
 export interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<LoginResult>
+  completeMfa: (challengeToken: string, code: string) => Promise<void>
+  adoptSession: (session: SessionPayload) => void
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  mustChangePassword: boolean
+  mfaSetupRequired: boolean
   loginWithEntra: () => Promise<void>
   logout: () => void
   isAuthenticated: boolean
@@ -46,6 +83,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [accountFlags, setAccountFlags] = useState({ mustChangePassword: false, mfaSetupRequired: false })
   const [impersonation, setImpersonation] = useState<ImpersonationSession | null>(() => {
     try {
       const raw = sessionStorage.getItem('samstack_impersonation')
@@ -73,6 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearTokens()
     setUser(null)
+    setAccountFlags({ mustChangePassword: false, mfaSetupRequired: false })
+    // Unsaved consultation drafts hold patient data; never leave them on a shared device.
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('hospital_crm_draft_'))
+      .forEach(k => localStorage.removeItem(k))
     sessionStorage.removeItem('samstack_impersonation')
     sessionStorage.removeItem('samstack_admin_backup')
     setImpersonation(null)
@@ -97,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (sessionStorage.getItem('samstack_impersonation')) return
         const refreshToken = getRefreshToken()
         const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        if (res.status === 204 || !res.data?.accessToken) return
         const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
         setAccessToken(accessToken)
         if (newRefreshToken) {
@@ -115,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userManager) {
       await userManager.signinRedirect()
     } else {
-      throw new Error('Azure Entra External ID is not configured.')
+      throw new Error('Single Sign-On (OIDC) identity provider is not configured.')
     }
   }, [])
 
@@ -123,16 +167,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post('/auth/login', { email, password })
-    const { accessToken, refreshToken, expiresIn, user: userData } = res.data
+  const adoptSession = useCallback((session: SessionPayload) => {
+    setAccessToken(session.accessToken)
+    if (session.refreshToken) setRefreshToken(session.refreshToken)
+    if (session.user) setUser(session.user)
+    setAccountFlags(accountFlagsFrom(session.accessToken))
+    scheduleProactiveRefresh(session.expiresIn || 900)
+  }, [scheduleProactiveRefresh])
 
-    setAccessToken(accessToken)
-    setRefreshToken(refreshToken)
-    setUser(userData)
-    scheduleProactiveRefresh(expiresIn || 900)
-    navigate(String(userData?.role || '').toLowerCase() === 'platformadmin' ? '/dashboard/platform-admin' : '/dashboard')
-  }, [navigate, scheduleProactiveRefresh])
+  // A1: send the user where the token says they must go (password, MFA, or the app).
+  const routeAfterSession = useCallback((session: SessionPayload) => {
+    const flags = accountFlagsFrom(session.accessToken)
+    if (flags.mustChangePassword) {
+      navigate('/change-password')
+      return
+    }
+    if (flags.mfaSetupRequired) {
+      navigate('/mfa-setup')
+      return
+    }
+    navigate(String(session.user?.role || '').toLowerCase() === 'platformadmin' ? '/dashboard/platform-admin' : '/dashboard')
+  }, [navigate])
+
+  const completeMfa = useCallback(async (challengeToken: string, code: string) => {
+    const res = await api.post('/auth/mfa/verify', { challengeToken, code })
+    adoptSession(res.data)
+    routeAfterSession(res.data)
+  }, [adoptSession, routeAfterSession])
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const res = await api.post('/auth/change-password', { currentPassword, newPassword })
+    adoptSession(res.data)
+    routeAfterSession(res.data)
+  }, [adoptSession, routeAfterSession])
+
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    const res = await api.post('/auth/login', { email, password })
+
+    // A1: with TOTP enrolled the password only buys a 5-minute challenge.
+    if (res.data?.mfaRequired) {
+      return { mfaRequired: true, challengeToken: res.data.challengeToken }
+    }
+
+    adoptSession(res.data)
+    routeAfterSession(res.data)
+    return { mfaRequired: false }
+  }, [adoptSession, routeAfterSession])
 
   useEffect(() => {
     const initAuth = async () => {
@@ -184,12 +264,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const refreshToken = getRefreshToken()
       try {
         const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        if (res.status === 204 || !res.data?.accessToken) {
+          // No session on this device (204) - stay signed out without an error.
+          setLoading(false)
+          return
+        }
         const { accessToken, refreshToken: newRefreshToken, expiresIn, user: userData } = res.data
         setAccessToken(accessToken)
         if (newRefreshToken) {
           setRefreshToken(newRefreshToken)
         }
         setUser(userData)
+        setAccountFlags(accountFlagsFrom(accessToken))
         scheduleProactiveRefresh(expiresIn || 900)
       } catch {
         clearTokens()
@@ -233,6 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 3. Set API access token and active user
     setAccessToken(session.accessToken)
     setUser(session.targetUser)
+    setAccountFlags(accountFlagsFrom(session.accessToken))
 
     // 4. Navigate to dashboard as impersonated user
     navigate('/dashboard')
@@ -289,6 +376,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         login,
+        completeMfa,
+        adoptSession,
+        changePassword,
+        mustChangePassword: accountFlags.mustChangePassword,
+        mfaSetupRequired: accountFlags.mfaSetupRequired,
         loginWithEntra,
         logout,
         isAuthenticated: !!user && !!getAccessToken(),

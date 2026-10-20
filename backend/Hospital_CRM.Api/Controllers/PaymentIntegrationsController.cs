@@ -222,14 +222,90 @@ public class PaymentIntegrationsController : ControllerBase
         if (invoice is null) return NotFound(new { error = "invoice_not_found" });
         if (invoice.Status == InvoiceStatus.Paid) return BadRequest(new { error = "invoice_already_paid" });
 
-        var payment = new Payment
+        var payment = CloseInvoice(invoice, tenantId.Value, evt.Amount, evt.Utr);
+        evt.Status = ProcessedWebhookEvent.Processed;
+        evt.PaymentId = payment.Id;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { status = "matched", paymentId = payment.Id });
+    }
+
+    // ----- B2.9 Android notification bridge (fallback) -----
+
+    /// <summary>
+    /// Fallback for clinics whose UPI ID exposes no PSP webhook: the receptionist's
+    /// Android device reads the bank SMS / soundbox notification and posts it here.
+    /// The tenant is taken from the session, never from the payload, and the raw
+    /// notification text is never trusted for amounts beyond what the body states.
+    /// There is no HMAC here because the device holds no merchant secret; the JWT
+    /// (a clinic user on that device) is the credential.
+    /// </summary>
+    [HttpPost("integrations/payments/bridge/notifications")]
+    [AuthorizeRoles("ClinicAdmin", "Receptionist")]
+    public async Task<IActionResult> IngestDeviceNotification([FromBody] DevicePaymentNotification request, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId();
+        if (tenantId is null) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(request.EventId) || request.Amount is null or <= 0)
+            return BadRequest(new { error = "event_id_and_amount_required" });
+
+        var provider = ("bridge:" + (request.Source ?? "unknown").Trim().ToLowerInvariant());
+        if (provider.Length > 50)
+            return BadRequest(new { error = "source_too_long" });
+
+        var already = await _db.ProcessedWebhookEvents
+            .AnyAsync(e => e.TenantId == tenantId.Value && e.Provider == provider && e.EventId == request.EventId, ct);
+        if (already)
+            return Ok(new { status = "duplicate" });
+
+        var evt = new PaymentEvent(request.EventId, request.Amount, request.Utr, request.Reference);
+        var invoice = await MatchInvoiceAsync(tenantId.Value, evt, ct);
+
+        var record = new ProcessedWebhookEvent
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId.Value,
+            Provider = provider,
+            EventId = request.EventId,
+            Amount = request.Amount,
+            Utr = request.Utr,
+            Reference = request.Reference,
+            RawPayload = request.RawText is { Length: > 0 } raw ? (raw.Length > 4000 ? raw[..4000] : raw) : null,
+            ReceivedAt = DateTimeOffset.UtcNow
+        };
+
+        if (invoice is null)
+        {
+            record.Status = ProcessedWebhookEvent.Unmatched;
+            _db.ProcessedWebhookEvents.Add(record);
+            await _db.SaveChangesAsync(ct);
+            return Ok(new { status = "unmatched" });
+        }
+
+        var payment = CloseInvoice(invoice, tenantId.Value, request.Amount, request.Utr);
+        record.Status = ProcessedWebhookEvent.Processed;
+        record.PaymentId = payment.Id;
+        _db.ProcessedWebhookEvents.Add(record);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { status = "ok", paymentId = payment.Id });
+    }
+
+    /// <summary>
+    /// The single place a payment closes an invoice, shared by the PSP webhook, the
+    /// device bridge and the manual review queue.
+    /// </summary>
+    private Payment CloseInvoice(Invoice invoice, Guid tenantId, decimal? amount, string? utr)
+    {
+        var payment = new Payment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
             InvoiceId = invoice.Id,
             Method = PaymentMethod.UPI,
-            Amount = evt.Amount ?? invoice.Total,
-            Utr = evt.Utr,
+            Amount = amount ?? invoice.Total,
+            Utr = utr,
             Status = PaymentStatus.Completed,
             PaidAt = DateTimeOffset.UtcNow,
             CreatedAt = DateTimeOffset.UtcNow
@@ -237,11 +313,7 @@ public class PaymentIntegrationsController : ControllerBase
         _db.Payments.Add(payment);
         invoice.Status = InvoiceStatus.Paid;
         invoice.UpdatedAt = DateTimeOffset.UtcNow;
-        evt.Status = ProcessedWebhookEvent.Processed;
-        evt.PaymentId = payment.Id;
-
-        await _db.SaveChangesAsync(ct);
-        return Ok(new { status = "matched", paymentId = payment.Id });
+        return payment;
     }
 
     // ----- PSP webhook receiver (anonymous) -----
@@ -417,3 +489,16 @@ public record UpsertIntegrationRequest(
     bool? Enabled);
 
 public record MatchUnmatchedRequest(Guid InvoiceId);
+
+/// <summary>
+/// B2.9 bridge payload. Amount comes from the parsed bank SMS / soundbox text on the
+/// device; the server still matches it against an open invoice and never trusts the
+/// device for the tenant.
+/// </summary>
+public record DevicePaymentNotification(
+    string EventId,
+    decimal? Amount,
+    string? Utr = null,
+    string? Reference = null,
+    string? Source = null,
+    string? RawText = null);

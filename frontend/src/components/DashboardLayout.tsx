@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { BrandLogo } from './ui/BrandLogo'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone'
+import { drainPaymentBridge, isPaymentBridgeAvailable } from '../services/paymentBridge'
 
 // ── Categorized Healthcare Navigation ──────────────────────────────────────────
 export interface NavItem {
@@ -14,6 +15,8 @@ export interface NavItem {
   roles: string[]
   icon: (props: { className?: string }) => React.JSX.Element
   liveIndicator?: boolean
+  /** Module code required to show this item (ModuleRegistry). Omitted = always available. */
+  module?: string
 }
 
 export interface NavSection {
@@ -28,7 +31,6 @@ export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | '
   if (
     pathname.startsWith('/dashboard/billing') ||
     pathname.startsWith('/dashboard/inventory') ||
-    pathname.startsWith('/dashboard/wishlist') ||
     pathname.startsWith('/dashboard/reports') ||
     pathname.startsWith('/dashboard/messages') ||
     pathname.startsWith('/dashboard/staff') ||
@@ -42,7 +44,8 @@ export function getDomainFromPath(pathname: string): 'clinical' | 'pharmacy' | '
     pathname.startsWith('/dashboard/patients') ||
     pathname.startsWith('/dashboard/queue') ||
     pathname.startsWith('/dashboard/consultations') ||
-    pathname.startsWith('/dashboard/lab-orders')
+    pathname.startsWith('/dashboard/lab-orders') ||
+    pathname.startsWith('/dashboard/wishlist')
   ) {
     return 'clinical'
   }
@@ -109,6 +112,14 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/lab-orders',
         roles: ['doctor', 'clinicadmin', 'nurse'],
         icon: FlaskIcon,
+        module: 'lab',
+      },
+      {
+        name: 'Wishlist',
+        href: '/dashboard/wishlist',
+        roles: ['clinicadmin', 'doctor'],
+        icon: ClipboardListIcon,
+        module: 'wishlist',
       },
     ],
   },
@@ -120,18 +131,21 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/pharmacy/pos',
         roles: ['clinicadmin', 'pharmacist', 'doctor', 'receptionist'],
         icon: ShoppingBagIcon,
+        module: 'pharmacy',
       },
       {
         name: 'Drug Batches',
         href: '/dashboard/pharmacy/batches',
         roles: ['clinicadmin', 'pharmacist', 'doctor'],
         icon: PillIcon,
+        module: 'pharmacy',
       },
       {
         name: 'Drug Compliance',
         href: '/dashboard/pharmacy/compliance',
         roles: ['clinicadmin', 'pharmacist', 'doctor'],
         icon: ShieldCheckIcon,
+        module: 'pharmacy',
       },
     ],
   },
@@ -149,12 +163,7 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/dashboard/inventory',
         roles: ['clinicadmin', 'doctor', 'receptionist', 'nurse'],
         icon: BoxIcon,
-      },
-      {
-        name: 'Wishlist',
-        href: '/dashboard/wishlist',
-        roles: ['clinicadmin', 'doctor'],
-        icon: ClipboardListIcon,
+        module: 'inventory',
       },
       {
         name: 'Reports',
@@ -265,6 +274,14 @@ export default function DashboardLayout() {
     return () => clearInterval(timer)
   }, [])
 
+  // B2.9: push any queued bank-SMS / soundbox signals while we hold a session.
+  useEffect(() => {
+    if (!isPaymentBridgeAvailable()) return
+    void drainPaymentBridge()
+    const timer = setInterval(() => void drainPaymentBridge(), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
   const effectiveTimezone = branding.timezone || undefined
   const todayFormatted = formatLocalDate(currentDate, effectiveTimezone)
   const timeFormatted = formatLocalTime(currentDate, effectiveTimezone)
@@ -350,6 +367,7 @@ export default function DashboardLayout() {
             // The Home item (end) stays visible in every workspace so there is always a way back to the hub.
             const visibleItems = section.items.filter(item =>
               item.roles.includes(effectiveRole) &&
+              (!item.module || !branding.enabledModules || branding.enabledModules.includes(item.module)) &&
               (activeWorkspace === 'all' || item.end || !sectionDomain || sectionDomain === activeWorkspace)
             )
             if (visibleItems.length === 0) return null

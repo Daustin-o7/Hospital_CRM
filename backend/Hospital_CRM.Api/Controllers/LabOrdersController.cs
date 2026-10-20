@@ -1,5 +1,6 @@
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -10,6 +11,7 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1")]
+[RequireModule(ModuleRegistry.Lab)]
 public class LabOrdersController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
@@ -47,7 +49,7 @@ public class LabOrdersController : ControllerBase
         var order = new LabOrder
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.Empty,
+            TenantId = User.GetTenantId() ?? Guid.Empty,
             ConsultationId = consultation.Id,
             PatientId = consultation.Appointment.PatientId,
             DoctorId = doctorId.Value,
@@ -94,7 +96,7 @@ public class LabOrdersController : ControllerBase
                 return BadRequest(new { error = "file_type_not_allowed", allowedExtensions = AllowedExtensions });
         }
 
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var order = await _db.LabOrders.FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tenantId, ct);
         if (order is null)
             return NotFound(new { error = "order_not_found" });
@@ -157,7 +159,7 @@ public class LabOrdersController : ControllerBase
     [AuthorizeRoles("Doctor", "ClinicAdmin")]
     public async Task<IActionResult> Worklist([FromQuery] string? status, CancellationToken ct)
     {
-        var tenantId = Guid.Empty;
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var query = _db.LabOrders.Where(o => o.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(status) &&

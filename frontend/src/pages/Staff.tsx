@@ -446,7 +446,7 @@ export default function Staff() {
           <div className="flex items-center gap-2">
             <span className="badge badge-brand">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
-              Azure Entra External ID Role Governance
+              Centralized OIDC Role Governance
             </span>
             <span className="text-xs font-mono text-[var(--color-text-muted)]">Module 01 &amp; 08</span>
           </div>
@@ -653,7 +653,7 @@ export default function Staff() {
         open={showModal}
         onClose={() => { setShowModal(false); reset({ name: '', email: '', role: 'Doctor', specialty: 'general' }); setSubmitError('') }}
         title="Invite Clinic Team Member"
-        description="An invitation email with Azure Entra External ID onboarding will be dispatched."
+        description="An invitation email with Single Sign-On onboarding will be dispatched."
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => { setShowModal(false); reset() }} disabled={isSubmitting}>Cancel</button>

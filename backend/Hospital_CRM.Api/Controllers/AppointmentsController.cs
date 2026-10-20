@@ -5,6 +5,7 @@ using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -23,17 +24,20 @@ public class AppointmentsController : ControllerBase
     private readonly INotificationService _notificationService;
     private readonly PrecheckService _precheckService;
     private readonly ITimezoneService _timezoneService;
+    private readonly IModuleGateService _moduleGate;
 
     public AppointmentsController(
         HospitalCrmDbContext db,
         INotificationService notificationService,
         PrecheckService precheckService,
-        ITimezoneService timezoneService)
+        ITimezoneService timezoneService,
+        IModuleGateService moduleGate)
     {
         _db = db;
         _notificationService = notificationService;
         _precheckService = precheckService;
         _timezoneService = timezoneService;
+        _moduleGate = moduleGate;
     }
 
     [HttpPost]
@@ -173,13 +177,16 @@ public class AppointmentsController : ControllerBase
             // FR-23-01: pre-check token generation inside the transaction,
             // committed atomically with the appointment via the single transaction.
             string? precheckPlaintext = null;
-            var (plaintext, precheckSubmission) = await _precheckService.GenerateForAppointmentAsync(
-                appointment.Id, clinic.TenantId, ct);
-            precheckPlaintext = plaintext;
-            if (precheckSubmission is not null)
+            if (await _moduleGate.IsModuleEnabledAsync(clinic.TenantId, ModuleRegistry.Precheck, ct))
             {
-                _db.PrecheckSubmissions.Add(precheckSubmission);
-                await _db.SaveChangesAsync(ct);
+                var (plaintext, precheckSubmission) = await _precheckService.GenerateForAppointmentAsync(
+                    appointment.Id, clinic.TenantId, ct);
+                precheckPlaintext = plaintext;
+                if (precheckSubmission is not null)
+                {
+                    _db.PrecheckSubmissions.Add(precheckSubmission);
+                    await _db.SaveChangesAsync(ct);
+                }
             }
             await transaction.CommitAsync(ct);
 
@@ -283,6 +290,7 @@ public class AppointmentsController : ControllerBase
 
     [HttpGet]
     [Authorize]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Nurse")]
     public async Task<IActionResult> List([FromQuery] string? date, [FromQuery] Guid? doctorId, CancellationToken ct)
     {
         var query = _db.Appointments
@@ -386,6 +394,7 @@ public class AppointmentsController : ControllerBase
     /// <summary>FR-23-03 — Doctor reviews pre-check submission inline in consult flow.</summary>
     [HttpGet("{id:guid}/precheck")]
     [AuthorizeRoles("Doctor", "ClinicAdmin")]
+    [RequireModule(ModuleRegistry.Precheck)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPrecheckSubmission(Guid id, CancellationToken ct)
@@ -428,6 +437,10 @@ public class AppointmentsController : ControllerBase
 
         if (submission is null)
             return BadRequest(new { error = "invalid_token" });
+
+        if (!await _moduleGate.IsModuleEnabledAsync(submission.TenantId, ModuleRegistry.Precheck, ct))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { error = "module_not_activated", module = ModuleRegistry.Precheck });
 
         if (submission.SubmittedAt is not null)
             return Ok(new { message = "already_submitted" });
@@ -476,6 +489,10 @@ public class AppointmentsController : ControllerBase
 
         if (submission is null)
             return BadRequest(new { error = "invalid_token" });
+
+        if (!await _moduleGate.IsModuleEnabledAsync(submission.TenantId, ModuleRegistry.Precheck, ct))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { error = "module_not_activated", module = ModuleRegistry.Precheck });
 
         if (submission.SubmittedAt is not null)
             return Ok(new { message = "already_submitted" });

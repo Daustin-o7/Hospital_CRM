@@ -1,18 +1,44 @@
 import { UserManager, WebStorageStateStore } from 'oidc-client-ts'
 
-const tenantId = import.meta.env.VITE_ENTRA_TENANT_ID || ''
-const subdomain = import.meta.env.VITE_ENTRA_TENANT_SUBDOMAIN || ''
-const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID || ''
-const redirectUri = import.meta.env.VITE_ENTRA_REDIRECT_URI || `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`
-const apiScope = import.meta.env.VITE_ENTRA_API_SCOPE || ''
+// In-house OpenIddict Authority (.NET 10) with backward-compatible fallbacks
+const authority =
+  import.meta.env.VITE_AUTH_AUTHORITY ||
+  import.meta.env.VITE_OIDC_AUTHORITY ||
+  (import.meta.env.VITE_ENTRA_TENANT_SUBDOMAIN
+    ? `https://${import.meta.env.VITE_ENTRA_TENANT_SUBDOMAIN}.ciamlogin.com/${import.meta.env.VITE_ENTRA_TENANT_ID || import.meta.env.VITE_ENTRA_TENANT_SUBDOMAIN}/v2.0`
+    : import.meta.env.VITE_ENTRA_TENANT_ID
+    ? `https://login.microsoftonline.com/${import.meta.env.VITE_ENTRA_TENANT_ID}/v2.0`
+    : `${typeof window !== 'undefined' ? window.location.origin : ''}`)
 
-export const isEntraConfigured = Boolean(clientId && (subdomain || tenantId))
+const clientId =
+  import.meta.env.VITE_AUTH_CLIENT_ID ||
+  import.meta.env.VITE_CLIENT_ID ||
+  import.meta.env.VITE_ENTRA_CLIENT_ID ||
+  'hospital-crm-pwa'
 
-const authority = subdomain
-  ? `https://${subdomain}.ciamlogin.com/${tenantId || subdomain}/v2.0`
-  : `https://login.microsoftonline.com/${tenantId}/v2.0`
+const redirectUri =
+  import.meta.env.VITE_AUTH_REDIRECT_URI ||
+  import.meta.env.VITE_ENTRA_REDIRECT_URI ||
+  `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`
 
-export const userManager: UserManager | null = isEntraConfigured
+const apiScope =
+  import.meta.env.VITE_AUTH_SCOPE ||
+  import.meta.env.VITE_ENTRA_API_SCOPE ||
+  'api roles'
+
+export const isOidcConfigured = Boolean(
+  authority &&
+  clientId &&
+  (import.meta.env.VITE_AUTH_AUTHORITY ||
+   import.meta.env.VITE_OIDC_AUTHORITY ||
+   import.meta.env.VITE_AUTH_CLIENT_ID ||
+   import.meta.env.VITE_ENTRA_CLIENT_ID)
+)
+
+// Backward-compatible alias
+export const isEntraConfigured = isOidcConfigured
+
+export const userManager: UserManager | null = isOidcConfigured
   ? new UserManager({
       authority,
       client_id: clientId,

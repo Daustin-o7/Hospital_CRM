@@ -14,7 +14,7 @@ Build what's in them; don't build what isn't. If a task seems to need something 
 - Backend: .NET 10 (ASP.NET Core, C# 14) — Minimal APIs, EF Core 10
 - Frontend: React 19 (responsive PWA, mobile-first — front desks use phones/tablets)
 - Database: PostgreSQL 16+
-- Identity: Azure Entra External ID (managed OIDC — deliberately not self-hosted Duende)
+- Identity: OpenIddict (in-house OIDC server & token issuer, .NET 10)
 - Payments: Razorpay
 - Messaging: WhatsApp Business API (via BSP or Meta Cloud API)
 
@@ -52,11 +52,23 @@ dotnet build
 # Run API (assumes HTTPS dev cert trusted)
 dotnet run --project backend/Hospital_CRM.Api
 
+# Production PlatformAdmin bootstrap (production has no seed). Prints a one-time
+# password once (set PLATFORM_ADMIN_PASSWORD to supply your own); first login forces
+# a password change, then TOTP enrolment. Refuses an email that already exists.
+dotnet run --project backend/Hospital_CRM.Api -- --bootstrap-platform-admin admin@example.com
+
+# Lost authenticator: clear MFA for a PlatformAdmin, then enrol again at next login
+dotnet run --project backend/Hospital_CRM.Api -- --reset-mfa admin@example.com
+
 # EF Core migrations
 # NOTE: the CLI uses DefaultConnection (app_user), which cannot create tables. Pass the owner
 # connection explicitly or the update fails with "permission denied for schema public".
 dotnet ef migrations add <Name> --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api
-dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api --connection "<MigrationsConnection from appsettings.json>"
+dotnet ef database update --project backend/Hospital_CRM.Infrastructure --startup-project backend/Hospital_CRM.Api --connection "<owner connection string>"
+
+# Connection strings are NOT committed. Development reads them from user-secrets:
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=hospital_crm;Username=app_user;Password=<pw>" --project backend/Hospital_CRM.Api
+dotnet user-secrets set "ConnectionStrings:MigrationsConnection" "Host=localhost;Port=5432;Database=hospital_crm;Username=postgres;Password=<pw>" --project backend/Hospital_CRM.Api
 
 # Test
 dotnet test
@@ -129,7 +141,7 @@ docker compose build
 ### Backend
 - **Minimal APIs** — no controllers unless project pattern demands
 - **EF Core** — `DbContext` in `Infrastructure`, compiled queries for hot paths
-- **Auth** — JWT RS256 validation against Azure Entra External ID JWKS; roles as claims
+- **Auth** — In-house OpenIddict OIDC server (JWT RS256 validation against internal JWKS endpoint); roles as claims
 - **RBAC** — server-side only; never trust client-supplied role
 - **Error handling** — typed result objects / structured HTTP error payloads (RFC 7807), no silent failures
 - **Cancellation tokens** — pass through all async I/O
@@ -163,7 +175,7 @@ docker compose build
 ---
 
 ## Common Gotchas
-- **Azure Entra External ID** — configure redirect URIs, token validation parameters, and role claims mapping in portal *before* coding FR-01
+- **OpenIddict Identity Center** — in-house OIDC server configured with OpenIddict for token issuance, JWT RS256 validation, and standard OIDC discovery (`/.well-known/openid-configuration`); client apps (PWA) registered with PKCE
 - **Razorpay webhooks** — verify signature (`X-Razorpay-Signature` header) with constant-time HMAC as implemented in `InvoicesController.cs` (BUG-032)
 - **WhatsApp** — build against channel interface from day 1 (SMS/email fallback later = config change)
 - **Offline sync** — idempotency keys on registration/billing mutations; conflict resolution = server wins on clinical data, last-write-wins on demographic
