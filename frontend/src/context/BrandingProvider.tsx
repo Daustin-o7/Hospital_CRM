@@ -59,7 +59,10 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 
   const fetchBranding = useCallback(async () => {
     const token = getAccessToken()
-    if (!token) {
+    const isPlatformAdmin = String(user?.role).toLowerCase() === 'platformadmin'
+
+    // A PlatformAdmin has no clinic: /clinic/profile answers 403 by design, so don't ask.
+    if (!token || isPlatformAdmin) {
       setBranding(SAMSTACK_DEFAULTS)
       setLoading(false)
       return
@@ -98,7 +101,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     fetchBranding()
