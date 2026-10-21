@@ -50,10 +50,10 @@ Verdicts: **Verified** (works, evidence below) · **Fixed** (claim was wrong or 
 | Severity | Issue | Action |
 |----------|-------|--------|
 | High | The PWA service worker was registered inside the Capacitor shell and threw `Failed to register a ServiceWorker … unknown error when fetching sw.js` on every boot. | Fixed: `injectRegister: false` in `vite.config.ts`, guarded manual registration in `main.tsx` (web only). Logcat is clean. |
-| High (release gate) | `assembleRelease` uses `minifyEnabled false` and silently falls back to the **debug keystore** when `RELEASE_STORE_*` is absent. A release APK built that way is debug-signed and cannot be uploaded to Play; the table's "R8 shrinking / production ready" claim is inaccurate. | Open — require `RELEASE_STORE_FILE` for release builds and enable R8 before any store upload. |
-| High | Device pairing UI and request signing are not wired, so the backend's per-device HMAC is dormant. | Open — contract in `docs/technical/Payment-Bridge-Device-Enrolment.md`. Do not pair a phone until the client signs. |
-| Medium | The offline outbox stores patient names and amounts in plain `localStorage`. | Open — encrypt or drop the patient name once the outbox is final. |
-| Low | `MIXED_CONTENT_ALWAYS_ALLOW` is app-wide in the WebView. | Open — remove when the API is served over HTTPS. |
+| High (release gate) | `assembleRelease` used `minifyEnabled false` and silently fell back to the **debug keystore**, so a release APK was debug-signed and could not go to Play; the table's "R8 shrinking / production ready" claim was inaccurate. | Fixed: unsigned build + warning when no key is supplied, R8/shrinkResources on, keep rules for the plugin. 4 MB → 2 MB; release APK boots. |
+| High | Device pairing UI and request signing were not wired, so the backend's per-device HMAC was dormant. | Fixed: plugin `saveCredentials`/`signBody`/`clearCredentials` (Keystore-encrypted secret), signing in the drain, pairing card in Settings. Verified end to end — see `docs/technical/Mobile-Gap-TODO.md` (G3). |
+| Medium | The offline outbox stored patient names in plain `localStorage` with no expiry. | Fixed: shared `offlineOutbox` helper with a 24 h TTL, cleared on sign-out. Residual: plaintext while signed in. |
+| Low | `MIXED_CONTENT_ALWAYS_ALLOW` was app-wide in the WebView. | Fixed: debug builds only; release keeps the platform default and needs an HTTPS API. |
 | Low | A cold start with cleared state re-extracts the web assets and can ANR on a loaded emulator (seen once). Relaunch was clean. | Open — informational; the Maestro timeout was raised to 120 s. |
 
 ## Emulator run (`Medium_Phone_API_36`)

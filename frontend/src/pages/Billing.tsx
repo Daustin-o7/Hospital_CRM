@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import api from '../services/api'
+import { enqueueOutbox, outboxCount } from '../services/offlineOutbox'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
@@ -64,6 +65,10 @@ export default function Billing() {
   const [expenseModalOpen, setExpenseModalOpen] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type?: 'success' | 'err' } | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  // H6: invoices queued in the durable outbox while offline; surfaced so a failed
+  // push is never silently invisible.
+  const [pendingSync, setPendingSync] = useState(0)
+  const readOutboxCount = () => outboxCount()
 
   const [expCategory, setExpCategory] = useState('MedicalSupplies')
   const [expAmount, setExpAmount] = useState('1000')
@@ -121,7 +126,15 @@ export default function Billing() {
     fetchData()
   }, [fetchData])
 
+  useEffect(() => {
+    setPendingSync(readOutboxCount())
+    const sync = () => setPendingSync(readOutboxCount())
+    window.addEventListener('online', sync)
+    return () => window.removeEventListener('online', sync)
+  }, [])
+
   const handleCreateInvoice = async (data: InvoiceForm) => {
+    let syncItem: any = null
     try {
       setActionLoading('create-invoice')
       const sub = data.lineItems.reduce((acc, item) => acc + Number(item.amount || 0), 0)
@@ -129,7 +142,7 @@ export default function Billing() {
       const tot = sub + gstAmt
 
       // Push walk-in / patient invoice via sync push endpoint
-      const syncItem = {
+      syncItem = {
         id: crypto.randomUUID(),
         type: 2,
         idempotencyKey: `IDEMP-INV-${crypto.randomUUID()}`,
@@ -149,15 +162,13 @@ export default function Billing() {
       reset()
       await fetchData()
     } catch {
-      setInvoices(prev => [{
-        invoiceId: `inv-${Date.now()}`,
-        invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        patientName: data.patientName,
-        total: Math.round(data.lineItems.reduce((acc, item) => acc + Number(item.amount || 0), 0) * 1.18),
-        status: 'issued',
-        createdAt: new Date().toISOString()
-      }, ...prev])
-      showToast(`Invoice generated for ${data.patientName}.`)
+      try {
+        enqueueOutbox(syncItem)
+        setPendingSync(readOutboxCount())
+        showToast(`Offline mode: Invoice queued locally for ${data.patientName}. Will synchronize when connected.`)
+      } catch {
+        showToast('Network error: Unable to generate invoice. Please check connection.')
+      }
       setModalOpen(false)
       reset()
     } finally {
@@ -183,16 +194,9 @@ export default function Billing() {
       setExpNote('')
       await fetchData()
     } catch {
-      setExpenses(prev => [{
-        id: `exp-${Date.now()}`,
-        category: expCategory,
-        amount: Number(expAmount),
-        note: expNote || 'General expense',
-        expenseDate: new Date().toISOString().split('T')[0]
-      }, ...prev])
-      showToast('Expense recorded to clinic ledger.')
-      setExpenseModalOpen(false)
-      setExpNote('')
+      // H6: never invent an expense that the ledger does not hold. Expenses have no
+      // offline sync type, so the honest answer is "not recorded".
+      showToast('Network error: expense was not recorded. Retry when connected.', 'err')
     } finally {
       setActionLoading(null)
     }
@@ -226,6 +230,14 @@ export default function Billing() {
         </div>
 
         <div className="flex items-center gap-2">
+          {pendingSync > 0 && (
+            <span
+              className="badge badge-warning text-xs"
+              title="Invoices queued on this device and not yet synced"
+            >
+              {pendingSync} pending sync
+            </span>
+          )}
           <button
             onClick={() => setExpenseModalOpen(true)}
             className="btn btn-secondary"

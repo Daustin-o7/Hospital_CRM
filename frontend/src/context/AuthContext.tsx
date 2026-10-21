@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api, { setAccessToken, getAccessToken, setRefreshToken, getRefreshToken, clearTokens, refreshClient } from '../services/api'
+import { clearOutbox } from '../services/offlineOutbox'
 import { userManager, isEntraConfigured } from '../services/oidc'
 
 interface User {
@@ -116,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     Object.keys(localStorage)
       .filter(k => k.startsWith('hospital_crm_draft_'))
       .forEach(k => localStorage.removeItem(k))
+    // Queued invoices carry patient names too.
+    clearOutbox()
     sessionStorage.removeItem('samstack_impersonation')
     sessionStorage.removeItem('samstack_admin_backup')
     setImpersonation(null)

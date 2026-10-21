@@ -6,6 +6,8 @@ import { BrandLogo } from './ui/BrandLogo'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone'
 import { drainPaymentBridge, isPaymentBridgeAvailable } from '../services/paymentBridge'
+import { readOutbox, clearOutbox } from '../services/offlineOutbox'
+import api from '../services/api'
 
 // ── Categorized Healthcare Navigation ──────────────────────────────────────────
 export interface NavItem {
@@ -274,12 +276,33 @@ export default function DashboardLayout() {
     return () => clearInterval(timer)
   }, [])
 
-  // B2.9: push any queued bank-SMS / soundbox signals while we hold a session.
+  // B2.9: push any queued bank-SMS / soundbox signals while we hold a session with billing permissions.
   useEffect(() => {
     if (!isPaymentBridgeAvailable()) return
+    const isBillingRole = rawRole === 'clinicadmin' || rawRole === 'receptionist'
+    if (!isBillingRole) return
+
     void drainPaymentBridge()
     const timer = setInterval(() => void drainPaymentBridge(), 60_000)
     return () => clearInterval(timer)
+  }, [rawRole])
+
+  // FR-22: Flush durable offline outbox when network is reconnected
+  useEffect(() => {
+    const flushOutbox = async () => {
+      try {
+        const items = readOutbox()
+        if (items.length === 0) return
+        await api.post('/sync/push', { items })
+        clearOutbox()
+      } catch {
+        // Retry next time network is online
+      }
+    }
+
+    void flushOutbox()
+    window.addEventListener('online', flushOutbox)
+    return () => window.removeEventListener('online', flushOutbox)
   }, [])
 
   const effectiveTimezone = branding.timezone || undefined
@@ -475,7 +498,7 @@ export default function DashboardLayout() {
       {/* Main Layout Area */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0 min-h-screen">
         {/* Modern Theme-Aware Topbar */}
-        <header className="sticky top-0 z-30 h-16 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] px-4 lg:px-8 flex items-center justify-between gap-4 shadow-xs transition-colors">
+        <header className="sticky top-0 z-30 bg-[var(--color-surface)]/90 backdrop-blur-md border-b border-[var(--color-border)] px-4 lg:px-8 pt-[env(safe-area-inset-top)] h-[calc(4rem+env(safe-area-inset-top,0px))] flex items-center justify-between gap-4 shadow-xs transition-colors">
           <div className="flex items-center gap-3 flex-1 max-w-lg">
             <button
               onClick={() => setSidebarOpen(true)}

@@ -1,6 +1,6 @@
 # Payment bridge — device enrolment and request signing
 
-Status: backend + Android plugin shipped; web client signing and the pairing card are the remaining wiring.
+Status: backend, Android plugin, web-client signing and the pairing card are shipped and verified on an emulator.
 
 ## Why
 
@@ -42,14 +42,22 @@ Replayed bodies are stopped by the existing `(provider, eventId)` dedupe.
 - The parser on the device no longer treats "paid" as a credit word and no longer uploads the full SMS
   text; it sends `reference` only.
 
-## Remaining wiring
+## Client wiring
 
-1. `frontend/src/services/paymentBridge.ts`: before posting, ask the native plugin for the signature
-   (add `signBody(body)` to `PaymentBridgePlugin`, returning `{ deviceId, timestampMs, signature }`)
-   and send the three headers. Keep the secret in the plugin, never in JS.
-2. `frontend/src/components/MobilePaymentBridgeSettings.tsx`: a "Pair this phone" card that calls
-   endpoints 1 and 2 and hands `{ deviceId, secret }` to the plugin.
-3. Consider a per-device rate limit on `/pair` if pairing moves outside a clinic admin's control.
+1. `PaymentBridgePlugin.saveCredentials({ deviceId, secret })` stores the secret encrypted with an
+   AES key generated inside the Android Keystore (`PaymentBridgeCredentials`); the web layer drops it
+   immediately.
+2. `PaymentBridgePlugin.signBody({ body })` returns `{ deviceId, timestampMs, signature }` for the exact
+   JSON string about to be posted. `signBody` rejects when the phone is unpaired, so the drain falls back
+   to the JWT-only rollout path.
+3. Settings → **Device Signing**: an admin taps *Generate a code*, any billing user types the six digits
+   and taps *Pair this phone*. Admins also see *Paired devices* with a revoke action per device.
+4. If the server answers `unknown_device` (the device was revoked from another phone) the drain deletes
+   the local credential, so the next attempt posts with the JWT instead of looping on 401.
+
+Verified end to end on the emulator: unsigned post before pairing → `200 unmatched`; pairing → unsigned
+post → `401 device_signature_required`; a real emulator SMS was parsed, signed, accepted and the queue
+cleared; revoking the device restored the unsigned path (`200`).
 
 `shortcut: the 6-digit pairing code is hashed with the device id, not a server pepper; a database
 reader could brute-force an outstanding code. Upgrade if pairing ever leaves the same-tenant admin flow.`

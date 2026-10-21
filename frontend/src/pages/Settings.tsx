@@ -3,7 +3,8 @@ import api from '../services/api'
 import { useTheme, type ThemeMode } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import PaymentIntegrationSettings from '../components/PaymentIntegrationSettings'
-import { CLINICAL_SPECIALTIES } from './Appointments'
+import MobilePaymentBridgeSettings from '../components/MobilePaymentBridgeSettings'
+import { CLINICAL_SPECIALTIES } from '../constants/clinicalSpecialties'
 import { SkeletonCard } from '../components/ui/Skeleton'
 
 interface WorkingHour {
@@ -213,6 +214,9 @@ export default function Settings() {
 
       {/* ── B2: per-tenant PSP / WhatsApp connection ── */}
       {isAdmin && <PaymentIntegrationSettings />}
+
+      {/* ── B2.9: Android Hardware Payment Bridge (SMS & Soundbox) ── */}
+      <MobilePaymentBridgeSettings isAdmin={isAdmin} />
 
       <WorkingHoursEditor
         initialHours={profile.workingHours}
