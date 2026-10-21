@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { Skeleton } from '../../components/ui/EmptyState'
-import { CLINICAL_SPECIALTIES } from '../Appointments'
+import { CLINICAL_SPECIALTIES } from '../../constants/clinicalSpecialties'
 
 interface LobbyPatient {
   id: string

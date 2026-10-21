@@ -4,7 +4,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { useBranding } from '../../context/BrandingContext'
 import { Skeleton } from '../../components/ui/EmptyState'
-import { CLINICAL_SPECIALTIES } from '../Appointments'
+import { CLINICAL_SPECIALTIES } from '../../constants/clinicalSpecialties'
 
 interface DoctorPatientAppt {
   id: string

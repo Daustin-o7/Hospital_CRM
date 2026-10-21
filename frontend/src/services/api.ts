@@ -9,13 +9,30 @@ const resolveApiBaseUrl = (): string => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL
   }
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('hospital_crm_api_base_url')
+    if (custom && custom.trim()) {
+      return custom.trim()
+    }
+  }
   if (isCapacitorOrWebView) {
-    // In Android Emulator WebView, match protocol to prevent Mixed Content security blocking
-    return window.location.protocol === 'https:'
-      ? 'https://10.0.2.2:7001/api/v1'
-      : 'http://10.0.2.2:5000/api/v1'
+    return 'http://10.0.2.2:5000/api/v1'
   }
   return '/api/v1'
+}
+
+export function setCustomApiBaseUrl(url: string) {
+  if (typeof window === 'undefined') return
+  if (url && url.trim()) {
+    localStorage.setItem('hospital_crm_api_base_url', url.trim())
+  } else {
+    localStorage.removeItem('hospital_crm_api_base_url')
+  }
+}
+
+export function getCustomApiBaseUrl(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('hospital_crm_api_base_url') || ''
 }
 
 const API_BASE_URL = resolveApiBaseUrl()

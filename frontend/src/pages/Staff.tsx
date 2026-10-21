@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { SkeletonRow } from '../components/ui/Skeleton'
 import { fmtDate } from '../utils/format'
-import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from './Appointments'
+import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from '../constants/clinicalSpecialties'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const staffSchema = z.object({

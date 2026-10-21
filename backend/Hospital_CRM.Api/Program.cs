@@ -1341,7 +1341,9 @@ static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)
             "https://localhost:8080/auth/callback",
             "http://localhost/auth/callback",
             "https://localhost/auth/callback",
-            "capacitor://localhost/auth/callback"
+            "capacitor://localhost/auth/callback",
+            "http://10.0.2.2:5000/auth/callback",
+            "https://10.0.2.2:7001/auth/callback"
         };
         foreach (var uri in redirectUris)
         {
@@ -1353,7 +1355,11 @@ static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)
             "http://localhost:5173/login",
             "https://localhost:5173/login",
             "http://localhost:8080/login",
-            "http://localhost/login"
+            "http://localhost/login",
+            "https://localhost/login",
+            "capacitor://localhost/login",
+            "http://10.0.2.2:5000/login",
+            "https://10.0.2.2:7001/login"
         };
         foreach (var uri in postLogoutRedirectUris)
         {

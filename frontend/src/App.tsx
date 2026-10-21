@@ -4,36 +4,35 @@ import Login from './pages/Login'
 import AuthCallback from './pages/AuthCallback'
 import DashboardLayout from './components/DashboardLayout'
 import Dashboard from './pages/Dashboard'
-import Patients from './pages/Patients'
-import Appointments from './pages/Appointments'
-import Queue from './pages/Queue'
-import LabOrders from './pages/LabOrders'
-import PharmacyBatches from './pages/PharmacyBatches'
-import PharmacyCompliance from './pages/PharmacyCompliance'
-import Inventory from './pages/Inventory'
-import Messages from './pages/Messages'
-import Staff from './pages/Staff'
-import NurseRoster from './pages/NurseRoster'
-import Intake from './pages/Intake'
-import QueueStatus from './pages/QueueStatus'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
-import AcceptInvite from './pages/AcceptInvite'
-import Wishlist from './pages/Wishlist'
-import ChangePassword from './pages/ChangePassword'
-import MfaSetup from './pages/MfaSetup'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
 import { useBranding } from './context/BrandingContext'
 import { SkeletonCard } from './components/ui/Skeleton'
 
-// Heavy pages - lazy loaded
+// Lazy-loaded pages for mobile bundle optimization & fast cold start
+const Patients = lazy(() => import('./pages/Patients'))
+const Appointments = lazy(() => import('./pages/Appointments'))
+const Queue = lazy(() => import('./pages/Queue'))
+const LabOrders = lazy(() => import('./pages/LabOrders'))
+const PharmacyBatches = lazy(() => import('./pages/PharmacyBatches'))
+const PharmacyCompliance = lazy(() => import('./pages/PharmacyCompliance'))
+const Inventory = lazy(() => import('./pages/Inventory'))
+const Messages = lazy(() => import('./pages/Messages'))
+const Staff = lazy(() => import('./pages/Staff'))
+const NurseRoster = lazy(() => import('./pages/NurseRoster'))
+const Intake = lazy(() => import('./pages/Intake'))
+const QueueStatus = lazy(() => import('./pages/QueueStatus'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const AcceptInvite = lazy(() => import('./pages/AcceptInvite'))
+const Wishlist = lazy(() => import('./pages/Wishlist'))
+const ChangePassword = lazy(() => import('./pages/ChangePassword'))
+const MfaSetup = lazy(() => import('./pages/MfaSetup'))
 const Consultations = lazy(() => import('./pages/Consultations'))
 const Billing = lazy(() => import('./pages/Billing'))
 const PharmacyPOS = lazy(() => import('./pages/PharmacyPOS'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Reports = lazy(() => import('./pages/Reports'))
-// A6: the platform-admin console is not needed by clinic users — keep it out of the main bundle.
 const PlatformAdmin = lazy(() => import('./pages/PlatformAdmin'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -74,8 +73,14 @@ function AccountSetupGate({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <Suspense fallback={
+      <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-bg,#F2EFEA)] text-teal-800 dark:text-teal-200">
+        <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin mr-3"></div>
+        <span className="font-semibold text-sm">Loading workspace…</span>
+      </div>
+    }>
+      <Routes>
+        <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
@@ -132,6 +137,7 @@ function App() {
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </Suspense>
   )
 }
 

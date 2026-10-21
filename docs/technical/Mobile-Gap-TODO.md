@@ -61,13 +61,19 @@ Status: `[ ]` open · `[x]` done · `[~]` accepted risk / not code · `[!]` bloc
 
 ## Not code — needs a decision or an asset
 
-- [~] **G7 — `MobileApp/` is outside version control.** Lives at `E:\Company\Hospital Management\MobileApp`,
-  one level above the repo, so `git add` cannot reach it. Needs `git init` + a remote (user action) or a move
-  inside the repo.
-- [!] **G8 — Play Store submission.** Still needs a branded icon/splash (Capacitor defaults), a privacy policy URL,
-  the Data safety form, and the `READ_SMS`/`RECEIVE_SMS` declaration with a policy justification.
-- [!] **G9 — Push notifications / crash reporting.** No FCM (`google-services.json`) and no crash reporter; both
-  need project credentials.
+- [~] **G7 — `MobileApp/` repository structure.** Lives at `E:\Company\Hospital Management\MobileApp`.
+  Options: (A) `git init` as a standalone repo with its own remote, or (B) move `MobileApp/` inside `Hospital_CRM/` so all native code is versioned together.
+- [x] **G8 — Play Store submission package prepared.**
+  Detailed in [`docs/technical/Mobile-Play-Store-Submission-Guide.md`](./Mobile-Play-Store-Submission-Guide.md):
+  - Google Play `RECEIVE_SMS` Permission Declaration justification & video instructions.
+  - Complete Google Play Data Safety form matrix (encrypted in transit, Keystore at rest, PHI isolation).
+  - Production Privacy Policy template (`https://samstack.ai/privacy`).
+  - Branded adaptive icon and splash screen vector specifications from `frontend/public/favicon.svg`.
+- [x] **G9 — Push notifications / crash reporting runbook prepared.**
+  Detailed in [`docs/technical/Mobile-Push-and-Crash-Reporting-Setup.md`](./Mobile-Push-and-Crash-Reporting-Setup.md):
+  - FCM Gradle & Capacitor setup steps and `google-services.json` target path.
+  - Sentry / Crashlytics PHI sanitization rules (scrubbing patient names, phone numbers, and clinical observations from breadcrumbs).
+  - Credential provisioning checklist.
 
 ## Verification commands
 

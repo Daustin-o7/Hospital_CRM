@@ -5,7 +5,7 @@ import { Modal } from '../components/ui/Modal'
 import { EmptyState, SkeletonTableRow } from '../components/ui/EmptyState'
 import { friendlyError } from '../components/ui/Alert'
 import { useToast } from '../context/ToastContext'
-import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from './Appointments'
+import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from '../constants/clinicalSpecialties'
 
 interface QueueAppointment {
   id: string
