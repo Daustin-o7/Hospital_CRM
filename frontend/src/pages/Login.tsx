@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { BrandLogo } from '../components/ui/BrandLogo'
 import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
+import ServerAddress from '../components/ServerAddress'
 
 
 export default function Login() {
@@ -368,6 +369,8 @@ export default function Login() {
               <LockIcon />
               Secure, encrypted healthcare workspace
             </p>
+
+            <ServerAddress />
           </div>
 
           {/* Role Persona Presets — dev only; never ship credentials */}

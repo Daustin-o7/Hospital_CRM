@@ -11,6 +11,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered from main.tsx instead: inside the Capacitor shell the injected
+      // script throws an uncaught "unknown error when fetching sw.js" on every boot.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons.svg'],
       manifest: {
         name: 'SamStack AI - Hospital CRM',
