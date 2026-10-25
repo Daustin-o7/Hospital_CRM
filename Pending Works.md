@@ -8,7 +8,9 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 
 ## 0. Security Hardening & Pre-Release Checklist (Branch: `feat/security-hardening`)
 
-### Recently Fixed (`ce53300`)
+### Recently Fixed (`ce53300`, `c2d3088`)
+- [x] **Optional MFA (TOTP + Email)** (`c2d3088`): Free-choice second factor (authenticator app or 5-minute emailed verification code via BCL `System.Net.Mail`), brute-force lockout on verification attempts, rate limiting on setup/disable endpoints, and zero forced-gate blocker on PlatformAdmin.
+- [x] **HeaderClock & Domain Timezone Alignment** (`c2d3088`): Replaced 30-second interval layout timer with isolated 1 Hz `HeaderClock` component; domain default for `Clinic.Timezone` aligned to `Asia/Kolkata`.
 - [x] **Rate limiting bypass**: Loopback no-limiter is now strictly conditioned on `IsDevelopment()`, preventing throttling bypass behind reverse proxies.
 - [x] **Brute-force lockout**: `AuthController.Login` increments `FailedLoginCount` and enforces 15-minute lock after 5 consecutive failures before password validation.
 - [x] **Duplicate OpenAPI**: Cleaned duplicate `AddOpenApi()` in `Program.cs`.
@@ -26,6 +28,7 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 ## 1. Pilot launch configuration (not code — vendor/portal setup)
 
 - [x] **OpenIddict Identity Center**: In-house OIDC server configured (.NET 10, OpenIddict, PKCE, JWKS discovery). Replaces external Azure Entra dependency with full self-hosted identity center; zero vendor lock-in.
+- [ ] **SMTP Mail Relay**: Currently running in Development mode (which logs email verification codes to standard output with `[DEV EMAIL]`). For staging/production, configure `Smtp:Host`, `Smtp:Port`, `Smtp:Username`, `Smtp:Password`, and `Smtp:From` environment variables for real email delivery.
 - [ ] **Razorpay**: merchant account, `Razorpay:KeySecret`, webhook URL in Razorpay dashboard. Worker runs but keys are empty.
 - [ ] **WhatsApp Business API**: Meta/BSP account + template approval. Notifications currently go through `StubNotificationService` (console log).
 - [ ] **S3-compatible blob storage** for MOD-08 lab uploads (currently local disk `lab-uploads/`) — swap via `AzureStorage__ConnectionString`, per TRD-Phase2 §3.
@@ -43,7 +46,7 @@ Single consolidated backlog. Anything not listed here is either shipped or expli
 
 ## 3. Deferred features (explicit phases)
 
-- [ ] **Mobile app**: React Native tree is currently broken — held for explicit go-ahead.
+- [ ] **Mobile app build**: React Native Android APK rebuild needed to pick up the Two-Factor Authentication card in settings and the HeaderClock synchronization fix.
 - [ ] **FR-22 offline sync**: client-side idempotency keys for registration/billing exist; full IndexedDB queue not built.
 - [ ] **Platform Admin Tier-2 features**: the tenant list *and* the impersonation/flag endpoints **are** built (`PlatformAdminController`: `GET tenants`, `GET tenants/{id}`, `PATCH tenants/{id}`, `GET/PATCH tenants/{id}/flags`, `POST tenants/{id}/impersonate`, `POST impersonations/{id}/end`, `GET impersonations`), and a console page exists at `/dashboard/platform-admin`. What is *not* built: tenant provisioning (`POST tenants`), subscription/tier **enforcement** (status is stored but nothing acts on it), and a working module gate — see `Platform-Admin-Master-TODO.md` A3/A4/B3. This line previously claimed the endpoints did not exist.
 - [ ] **Razorpay refund API** — Track 2b TODO at `PharmacyPosController.cs:264` (ProcessReturn currently processes database return & stock restoral; Razorpay external gateway refund call pending API credentials).
