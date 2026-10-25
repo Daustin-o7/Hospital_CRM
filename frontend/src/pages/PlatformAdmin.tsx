@@ -4,6 +4,7 @@ import { friendlyError } from '../components/ui/Alert'
 import { Modal, Confirm } from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import TwoFactorSettings from '../components/TwoFactorSettings'
 import { fmtDate } from '../utils/format'
 import api from '../services/api'
 
@@ -402,6 +403,9 @@ export default function PlatformAdmin() {
           <button onClick={() => fetchTenants(query.trim())} className="btn btn-ghost btn-sm ml-2">Retry</button>
         </div>
       )}
+
+      {/* The platform owner's own account: MFA is theirs to turn on or off. */}
+      <TwoFactorSettings />
 
       <div className="card p-5 space-y-4">
         <div className="flex items-center justify-between gap-4">

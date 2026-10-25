@@ -24,6 +24,8 @@ export interface ImpersonationSession {
 export interface LoginResult {
   mfaRequired: boolean
   challengeToken?: string
+  // Which second factor the account enrolled, so the code step can label itself.
+  method?: 'totp' | 'email'
 }
 
 interface SessionPayload {
@@ -44,12 +46,11 @@ function claimsFromToken(token: string | null): Record<string, unknown> {
 }
 
 // A1 flags live in the token, so a reload restores the same gate without another call.
+// Second-factor enrolment is opt-in (Settings), never a gate.
 function accountFlagsFrom(token: string | null) {
   const claims = claimsFromToken(token)
   return {
     mustChangePassword: claims.must_change_password === 'true',
-    mfaSetupRequired:
-      String(claims.role ?? '').toLowerCase() === 'platformadmin' && claims.mfa_enabled !== 'true',
   }
 }
 
@@ -61,7 +62,6 @@ export interface AuthContextType {
   adoptSession: (session: SessionPayload) => void
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   mustChangePassword: boolean
-  mfaSetupRequired: boolean
   loginWithEntra: () => Promise<void>
   logout: () => void
   isAuthenticated: boolean
@@ -84,7 +84,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [accountFlags, setAccountFlags] = useState({ mustChangePassword: false, mfaSetupRequired: false })
+  const [accountFlags, setAccountFlags] = useState({ mustChangePassword: false })
   const [impersonation, setImpersonation] = useState<ImpersonationSession | null>(() => {
     try {
       const raw = sessionStorage.getItem('samstack_impersonation')
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearTokens()
     setUser(null)
-    setAccountFlags({ mustChangePassword: false, mfaSetupRequired: false })
+    setAccountFlags({ mustChangePassword: false })
     // Unsaved consultation drafts hold patient data; never leave them on a shared device.
     Object.keys(localStorage)
       .filter(k => k.startsWith('hospital_crm_draft_'))
@@ -178,15 +178,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     scheduleProactiveRefresh(session.expiresIn || 900)
   }, [scheduleProactiveRefresh])
 
-  // A1: send the user where the token says they must go (password, MFA, or the app).
+  // A1: send the user where the token says they must go (password, or the app).
   const routeAfterSession = useCallback((session: SessionPayload) => {
-    const flags = accountFlagsFrom(session.accessToken)
-    if (flags.mustChangePassword) {
+    if (accountFlagsFrom(session.accessToken).mustChangePassword) {
       navigate('/change-password')
-      return
-    }
-    if (flags.mfaSetupRequired) {
-      navigate('/mfa-setup')
       return
     }
     navigate(String(session.user?.role || '').toLowerCase() === 'platformadmin' ? '/dashboard/platform-admin' : '/dashboard')
@@ -207,9 +202,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const res = await api.post('/auth/login', { email, password })
 
-    // A1: with TOTP enrolled the password only buys a 5-minute challenge.
+    // With a second factor enrolled the password only buys a 5-minute challenge.
     if (res.data?.mfaRequired) {
-      return { mfaRequired: true, challengeToken: res.data.challengeToken }
+      return { mfaRequired: true, challengeToken: res.data.challengeToken, method: res.data.method }
     }
 
     adoptSession(res.data)
@@ -383,7 +378,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adoptSession,
         changePassword,
         mustChangePassword: accountFlags.mustChangePassword,
-        mfaSetupRequired: accountFlags.mfaSetupRequired,
         loginWithEntra,
         logout,
         isAuthenticated: !!user && !!getAccessToken(),

@@ -26,19 +26,22 @@ public class AuthController : ControllerBase
     private readonly IPersistentKeyService _keyService;
     private readonly IWebHostEnvironment _env;
     private readonly ISecretProtector _secretProtector;
+    private readonly IEmailSender _email;
 
     public AuthController(
         HospitalCrmDbContext db,
         IConfiguration config,
         IPersistentKeyService keyService,
         IWebHostEnvironment env,
-        ISecretProtector secretProtector)
+        ISecretProtector secretProtector,
+        IEmailSender email)
     {
         _db = db;
         _config = config;
         _keyService = keyService;
         _env = env;
         _secretProtector = secretProtector;
+        _email = email;
     }
 
     [HttpPost("login")]
@@ -93,9 +96,22 @@ public class AuthController : ControllerBase
             }
         }
 
-        // A1: with TOTP enrolled, the password alone yields a short-lived challenge only.
+        // With a second factor enrolled, the password alone yields a short-lived challenge only.
         if (user.MfaEnabled)
-            return Ok(new { mfaRequired = true, challengeToken = CreateMfaChallenge(user) });
+        {
+            var method = NormalizeMethod(user.MfaMethod);
+
+            if (method == "email" && !await SendEmailCodeAsync(user, ct))
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    error = "email_delivery_failed",
+                    message = "Could not send the sign-in code. Try again, or switch to an authenticator app in Settings."
+                });
+            }
+
+            return Ok(new { mfaRequired = true, challengeToken = CreateMfaChallenge(user), method });
+        }
 
         return await IssueSessionAsync(user, ct);
     }
@@ -142,7 +158,8 @@ public class AuthController : ControllerBase
             refreshToken,
             expiresIn = tokenExpiry * 60,
             mustChangePassword = user.MustChangePassword,
-            mfaSetupRequired = user.Role == UserRole.PlatformAdmin && !user.MfaEnabled,
+            mfaEnabled = user.MfaEnabled,
+            mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
             user = new { id = user.Id, name = user.Name, email = user.Email, role = user.Role.ToString().ToLower() }
         });
     }
@@ -325,9 +342,34 @@ public class AuthController : ControllerBase
         return await IssueSessionAsync(user, ct);
     }
 
+    /// <summary>Current second-factor state for the signed-in user.</summary>
+    [HttpGet("mfa/status")]
+    [Authorize]
+    public async Task<IActionResult> GetMfaStatus(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+            return Unauthorized(new { error = "not_authenticated" });
+
+        var user = await _db.Users.FindAsync([userId.Value], ct);
+        if (user is null)
+            return Unauthorized(new { error = "not_authenticated" });
+
+        return Ok(new
+        {
+            enabled = user.MfaEnabled,
+            method = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null
+        });
+    }
+
+    /// <summary>
+    /// Starts (or resumes) enrolment. Both methods keep a server-side secret: TOTP signs the
+    /// authenticator code, email signs the 6-digit code we mail out.
+    /// </summary>
     [HttpPost("mfa/setup")]
     [Authorize]
-    public async Task<IActionResult> StartMfaSetup(CancellationToken ct)
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> StartMfaSetup([FromBody] MfaSetupRequest? request, CancellationToken ct)
     {
         var userId = User.GetUserId();
         if (userId is null)
@@ -340,22 +382,53 @@ public class AuthController : ControllerBase
         if (user.MfaEnabled)
             return BadRequest(new { error = "mfa_already_enabled" });
 
-        var secret = TotpService.GenerateSecret();
-        user.MfaSecret = _secretProtector.Protect(secret);
-        user.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
+        var method = NormalizeMethod(request?.Method);
+
+        // Reuse a pending secret: a double-submit must not race a second write (it used to 500).
+        var secret = _secretProtector.Unprotect(user.MfaSecret);
+        if (secret is null)
+        {
+            secret = TotpService.GenerateSecret();
+            user.MfaSecret = _secretProtector.Protect(secret);
+            user.UpdatedAt = DateTimeOffset.UtcNow;
+
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // A concurrent setup won the write; read back what it stored.
+                await _db.Entry(user).ReloadAsync(ct);
+                secret = _secretProtector.Unprotect(user.MfaSecret);
+                if (secret is null)
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "mfa_setup_failed" });
+            }
+        }
+
+        if (method == "email" && !await SendEmailCodeAsync(user, ct))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                error = "email_delivery_failed",
+                message = "Could not send the confirmation code. Check the mail relay, or use an authenticator app."
+            });
+        }
 
         return Ok(new
         {
+            method,
             secret,
-            otpauthUri = TotpService.BuildOtpAuthUri("SAMSTACK Care", user.Email, secret)
+            otpauthUri = method == "totp"
+                ? TotpService.BuildOtpAuthUri("SAMSTACK Care", user.Email, secret)
+                : null
         });
     }
 
     [HttpPost("mfa/enable")]
     [Authorize]
     [EnableRateLimiting("auth")]
-    public async Task<IActionResult> EnableMfa([FromBody] MfaCodeRequest request, CancellationToken ct)
+    public async Task<IActionResult> EnableMfa([FromBody] MfaEnableRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
         if (userId is null)
@@ -372,16 +445,19 @@ public class AuthController : ControllerBase
         if (secret is null)
             return BadRequest(new { error = "mfa_not_initialized" });
 
-        if (!TotpService.Verify(secret, request.Code, DateTimeOffset.UtcNow))
+        var method = NormalizeMethod(request.Method ?? user.MfaMethod);
+        if (!VerifyCode(secret, request.Code, method))
             return BadRequest(new { error = "invalid_code" });
 
         user.MfaEnabled = true;
-        // A fresh session so the mfa_enabled claim (and the setup gate) are current.
+        user.MfaMethod = method;
+        // A fresh session so the mfa_enabled claim is current.
         return await IssueSessionAsync(user, ct);
     }
 
     [HttpPost("mfa/disable")]
     [Authorize]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> DisableMfa([FromBody] MfaDisableRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
@@ -392,25 +468,43 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized(new { error = "not_authenticated" });
 
-        // Platform admins keep MFA; recovery is the operator CLI (--reset-mfa).
-        if (user.Role == UserRole.PlatformAdmin)
-            return BadRequest(new { error = "mfa_required_for_platform_admin" });
-
         if (!user.MfaEnabled)
             return Ok(new { mfaEnabled = false });
 
+        // Password re-entry: a stolen session alone must not strip the second factor.
         if (string.IsNullOrWhiteSpace(request.Password) || !request.Password.VerifyPassword(user.PasswordHash))
             return BadRequest(new { error = "invalid_password" });
 
         user.MfaEnabled = false;
         user.MfaSecret = null;
+        user.MfaMethod = null;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { mfaEnabled = false });
     }
 
-    /// <summary>Second login step for a user with TOTP enrolled.</summary>
+    /// <summary>Re-sends an email sign-in code for a live challenge.</summary>
+    [HttpPost("mfa/resend")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResendMfaCode([FromBody] MfaResendRequest request, CancellationToken ct)
+    {
+        var userId = ReadMfaChallenge(request.ChallengeToken);
+        if (userId is null)
+            return Unauthorized(new { error = "invalid_challenge" });
+
+        var user = await _db.Users.FindAsync([userId.Value], ct);
+        if (user is null || !user.MfaEnabled || NormalizeMethod(user.MfaMethod) != "email")
+            return Unauthorized(new { error = "invalid_challenge" });
+
+        if (!await SendEmailCodeAsync(user, ct))
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "email_delivery_failed" });
+
+        return Ok(new { sent = true });
+    }
+
+    /// <summary>Second login step for a user with a second factor enrolled.</summary>
     [HttpPost("mfa/verify")]
     [AllowAnonymous]
     [EnableRateLimiting("auth")]
@@ -424,11 +518,50 @@ public class AuthController : ControllerBase
         if (user is null || !user.MfaEnabled)
             return Unauthorized(new { error = "invalid_challenge" });
 
+        if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTimeOffset.UtcNow)
+            return Unauthorized(new { error = "invalid_challenge" });
+
         var secret = _secretProtector.Unprotect(user.MfaSecret);
-        if (secret is null || !TotpService.Verify(secret, request.Code, DateTimeOffset.UtcNow))
+        if (secret is null || !VerifyCode(secret, request.Code, NormalizeMethod(user.MfaMethod)))
+        {
+            var maxAttempts = _config.GetValue<int>("Auth:MaxFailedAttempts", 5);
+            var lockMinutes = _config.GetValue<int>("Auth:LockoutMinutes", 15);
+
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= maxAttempts)
+                user.LockedUntil = DateTimeOffset.UtcNow.AddMinutes(lockMinutes);
+            user.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+
             return Unauthorized(new { error = "invalid_code" });
+        }
 
         return await IssueSessionAsync(user, ct);
+    }
+
+    /// <summary>"email" is the only alternative to the authenticator app; anything else means TOTP.</summary>
+    private static string NormalizeMethod(string? method) =>
+        string.Equals(method, "email", StringComparison.OrdinalIgnoreCase) ? "email" : "totp";
+
+    private static bool VerifyCode(string secret, string? code, string method) =>
+        method == "email"
+            ? TotpService.Verify(secret, code, DateTimeOffset.UtcNow, skewSteps: 1, periodSeconds: TotpService.EmailPeriodSeconds)
+            : TotpService.Verify(secret, code, DateTimeOffset.UtcNow);
+
+    private async Task<bool> SendEmailCodeAsync(User user, CancellationToken ct)
+    {
+        var secret = _secretProtector.Unprotect(user.MfaSecret);
+        if (secret is null)
+            return false;
+
+        var code = TotpService.ComputeCode(secret, DateTimeOffset.UtcNow, TotpService.EmailPeriodSeconds);
+
+        return await _email.SendAsync(
+            user.Email,
+            "Your SAMSTACK sign-in code",
+            $"Your sign-in code is {code}. It expires in 5 minutes. " +
+            "If you did not try to sign in, change your password.",
+            ct);
     }
 
     private string CreateMfaChallenge(User user) =>
@@ -527,8 +660,12 @@ public record ChangePasswordRequest(
     string? CurrentPassword,
     string? NewPassword);
 
-public record MfaCodeRequest(string? Code);
+public record MfaSetupRequest(string? Method = null);
+
+public record MfaEnableRequest(string? Code, string? Method = null);
 
 public record MfaVerifyRequest(string? ChallengeToken, string? Code);
+
+public record MfaResendRequest(string? ChallengeToken);
 
 public record MfaDisableRequest(string? Password);

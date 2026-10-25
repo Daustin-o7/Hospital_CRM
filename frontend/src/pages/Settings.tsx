@@ -4,6 +4,7 @@ import { useTheme, type ThemeMode } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import PaymentIntegrationSettings from '../components/PaymentIntegrationSettings'
 import MobilePaymentBridgeSettings from '../components/MobilePaymentBridgeSettings'
+import TwoFactorSettings from '../components/TwoFactorSettings'
 import { CLINICAL_SPECIALTIES } from '../constants/clinicalSpecialties'
 import { SkeletonCard } from '../components/ui/Skeleton'
 
@@ -205,6 +206,9 @@ export default function Settings() {
           <span>{toast.msg}</span>
         </div>
       )}
+
+      {/* ── Account: optional two-factor authentication ── */}
+      <TwoFactorSettings />
 
       {/* ── Doctor Specialization & Clinical Practice Preferences ── */}
       <DoctorSpecialtySettingsEditor />

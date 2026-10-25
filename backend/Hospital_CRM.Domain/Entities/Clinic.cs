@@ -30,7 +30,7 @@ public class Clinic : ITenantScoped
     public string? Website { get; set; }
 
     [MaxLength(50)]
-    public string Timezone { get; set; } = "UTC";
+    public string Timezone { get; set; } = "Asia/Kolkata";
 
     [MaxLength(10)]
     public string Currency { get; set; } = "INR";

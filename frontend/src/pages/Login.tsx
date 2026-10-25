@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../services/api'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { BrandLogo } from '../components/ui/BrandLogo'
 import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
@@ -15,6 +16,9 @@ export default function Login() {
   const [loading, setLoading]     = useState(false)
   const [mfaChallenge, setMfaChallenge] = useState<string | null>(null)
   const [mfaCode, setMfaCode]     = useState('')
+  const [mfaMethod, setMfaMethod] = useState<'totp' | 'email'>('totp')
+  const [resending, setResending] = useState(false)
+  const [resent, setResent]       = useState(false)
   const { login, loginWithEntra, isEntraEnabled, completeMfa } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,10 +35,12 @@ export default function Login() {
     setLoading(true)
     try {
       const result = await login(email.trim(), password)
-      // A1: a password with TOTP enrolled only yields a challenge token.
+      // With a second factor enrolled the password only yields a challenge token.
       if (result.mfaRequired && result.challengeToken) {
         setMfaChallenge(result.challengeToken)
+        setMfaMethod(result.method === 'email' ? 'email' : 'totp')
         setMfaCode('')
+        setResent(false)
       }
     } catch (err: any) {
       setError(friendlyError(err))
@@ -47,7 +53,11 @@ export default function Login() {
     e.preventDefault()
     setError('')
     if (!/^\d{6}$/.test(mfaCode.trim())) {
-      setError('Enter the 6-digit code from your authenticator app.')
+      setError(
+        mfaMethod === 'email'
+          ? 'Enter the 6-digit code we emailed you.'
+          : 'Enter the 6-digit code from your authenticator app.',
+      )
       return
     }
     setLoading(true)
@@ -57,6 +67,19 @@ export default function Login() {
       setError(friendlyError(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    setError('')
+    setResending(true)
+    try {
+      await api.post('/auth/mfa/resend', { challengeToken: mfaChallenge })
+      setResent(true)
+    } catch (err: any) {
+      setError(friendlyError(err))
+    } finally {
+      setResending(false)
     }
   }
 
@@ -235,10 +258,14 @@ export default function Login() {
             {mfaChallenge ? (
               <form onSubmit={handleMfaSubmit} noValidate>
                 <p style={{ fontSize: 13.5, color: 'var(--color-text-muted)', marginBottom: 18 }}>
-                  Enter the 6-digit code from your authenticator app to finish signing in.
+                  {mfaMethod === 'email'
+                    ? 'We emailed you a 6-digit code. Enter it to finish signing in.'
+                    : 'Enter the 6-digit code from your authenticator app to finish signing in.'}
                 </p>
                 <div style={{ marginBottom: 24 }}>
-                  <label htmlFor="login-mfa" className="form-label">Authenticator code</label>
+                  <label htmlFor="login-mfa" className="form-label">
+                    {mfaMethod === 'email' ? 'Email code' : 'Authenticator code'}
+                  </label>
                   <input
                     id="login-mfa"
                     type="text"
@@ -262,9 +289,19 @@ export default function Login() {
                 >
                   {loading ? 'Verifying…' : 'Verify and sign in'}
                 </button>
+                {mfaMethod === 'email' && (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="mt-3 w-full text-center text-xs font-semibold text-[var(--color-accent)] hover:underline"
+                  >
+                    {resending ? 'Sending…' : resent ? 'Code sent again — check your inbox' : 'Email me a new code'}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => { setMfaChallenge(null); setMfaCode(''); setError('') }}
+                  onClick={() => { setMfaChallenge(null); setMfaCode(''); setError(''); setResent(false) }}
                   className="mt-3 w-full text-center text-xs font-semibold text-[var(--color-text-muted)] hover:underline"
                 >
                   Use a different account

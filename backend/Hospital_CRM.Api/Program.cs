@@ -134,6 +134,9 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
 // (auto-generated in Development, configured via Jwt:PemFilePath in production).
 builder.Services.AddSingleton<IPersistentKeyService, PemFileKeyService>();
 
+// Free email-code second factor. No package: System.Net.Mail over the configured SMTP relay.
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+
 builder.Services.AddHealthChecks()
     .AddAsyncCheck("database", async () =>
     {
@@ -663,7 +666,7 @@ static async Task<int> BootstrapPlatformAdminAsync(HospitalCrmDbContext db, stri
     Console.WriteLine($"PlatformAdmin created: {email}");
     if (generated)
         Console.WriteLine($"One-time password (shown once): {password}");
-    Console.WriteLine("First sign-in forces a password change, then MFA enrolment.");
+    Console.WriteLine("First sign-in forces a password change; two-factor authentication can be enabled in Settings if desired.");
     return 0;
 }
 
@@ -685,10 +688,11 @@ static async Task<int> ResetPlatformAdminMfaAsync(HospitalCrmDbContext db, strin
 
     user.MfaEnabled = false;
     user.MfaSecret = null;
+    user.MfaMethod = null;
     user.UpdatedAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync();
 
-    Console.WriteLine($"MFA reset for {email}; it must be enrolled again at next sign-in.");
+    Console.WriteLine($"MFA reset for {email}; second-factor authentication is now disabled.");
     return 0;
 }
 
@@ -897,7 +901,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     }
 
     // Configure the new clinic fields with sensible defaults
-    clinic.Timezone = "UTC";
+    clinic.Timezone = "Asia/Kolkata";
     clinic.Currency = "INR";
     clinic.DateFormat = "yyyy-MM-dd";
     clinic.TimeFormat = "HH:mm";

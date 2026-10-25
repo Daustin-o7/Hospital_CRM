@@ -36,12 +36,31 @@ const ALERT_ICONS: Record<AlertVariant, React.ReactNode> = {
   ),
 }
 
+const KNOWN_ERROR_MAP: Record<string, string> = {
+  invalid_credentials: 'Invalid email or password. Please try again.',
+  invalid_code: 'Invalid verification code. Please check and try again.',
+  invalid_challenge: 'Sign-in session expired. Please sign in again.',
+  invalid_password: 'Incorrect password.',
+  invalid_current_password: 'Current password is incorrect.',
+  password_too_short: 'Password must be at least 8 characters.',
+  password_unchanged: 'New password must be different from your current password.',
+  mfa_already_enabled: 'Two-factor authentication is already enabled.',
+  mfa_not_initialized: 'Setup has not been started. Please start setup again.',
+  email_delivery_failed: 'Could not send verification code by email. Please try again or use an authenticator app.',
+  tenant_suspended: 'Tenant subscription is suspended or expired.',
+  tenant_not_found: 'Tenant account not found.',
+  not_authenticated: 'Please sign in to continue.',
+}
+
 /** Maps friendly, user-facing messages from raw API errors */
 export function friendlyError(raw: unknown): string {
   if (!raw) return 'Something went wrong. Please try again.'
   const data = (raw as any)?.response?.data
-  const msg = typeof raw === 'string' ? raw : data?.error || data?.message || ''
-  
+  const errCode = typeof raw === 'string' ? raw : data?.error
+  if (errCode && KNOWN_ERROR_MAP[errCode]) {
+    return KNOWN_ERROR_MAP[errCode]
+  }
+
   // Handle RFC 7807 validation problem details (errors object)
   if (data?.errors && typeof data.errors === 'object') {
     const errorMessages = Object.values(data.errors).flat().filter(Boolean)
@@ -49,8 +68,10 @@ export function friendlyError(raw: unknown): string {
       return errorMessages.join('; ')
     }
   }
-  
+
+  const msg = typeof raw === 'string' ? raw : data?.message || data?.error || ''
   const lower = msg.toLowerCase()
+  if (KNOWN_ERROR_MAP[lower]) return KNOWN_ERROR_MAP[lower]
   if (lower.includes('401') || lower.includes('unauthorized')) return "We couldn't sign you in. Check your email and password and try again."
   if (lower.includes('403') || lower.includes('forbidden')) return "You don't have permission to perform this action."
   if (lower.includes('404')) return 'The requested record was not found.'

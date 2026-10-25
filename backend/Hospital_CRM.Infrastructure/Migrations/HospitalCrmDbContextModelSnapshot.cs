@@ -2758,6 +2758,10 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<bool>("MfaEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("MfaMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("MfaSecret")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");

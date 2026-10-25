@@ -45,6 +45,19 @@ export default function MobilePaymentBridgeSettings({ isAdmin = false }: { isAdm
     void refreshStatus()
   }, [refreshStatus])
 
+  const refreshDevices = useCallback(async () => {
+    if (!isAvailable || !isAdmin) return
+    try {
+      setDevices(await listBridgeDevices())
+    } catch {
+      // 403 simply means this user cannot see the tenant's devices.
+    }
+  }, [isAvailable, isAdmin])
+
+  useEffect(() => {
+    void refreshDevices()
+  }, [refreshDevices])
+
   if (!isAvailable) {
     return null
   }
@@ -80,19 +93,6 @@ export default function MobilePaymentBridgeSettings({ isAdmin = false }: { isAdm
       setFlushing(false)
     }
   }
-
-  const refreshDevices = useCallback(async () => {
-    if (!isAdmin) return
-    try {
-      setDevices(await listBridgeDevices())
-    } catch {
-      // 403 simply means this user cannot see the tenant's devices.
-    }
-  }, [isAdmin])
-
-  useEffect(() => {
-    void refreshDevices()
-  }, [refreshDevices])
 
   const handleGenerateCode = async () => {
     setGenerating(true)

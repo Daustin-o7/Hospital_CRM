@@ -210,6 +210,33 @@ const ROLE_LABEL: Record<string, string> = {
   platformadmin: 'Platform Admin',
 }
 
+// Ticks on the second so the displayed minute flips on the minute, not up to 30 s later.
+// Renders in its own component so the 1 Hz update re-renders only the clock.
+function HeaderClock({ timezone }: { timezone?: string }) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div
+      className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]"
+      title={`Operating Timezone: ${getTimezoneLabel(timezone)}`}
+    >
+      <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{formatLocalDate(now, timezone)}</span>
+      <span className="text-[11px] font-mono text-teal-600 dark:text-teal-400 font-bold">{formatLocalTime(now, timezone)}</span>
+      <span className="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-teal-50 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-mono border border-teal-200/50 dark:border-teal-800/50">
+        {timezone || 'Auto'}
+      </span>
+    </div>
+  )
+}
+
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -269,13 +296,6 @@ export default function DashboardLayout() {
     }
   }
 
-  const [currentDate, setCurrentDate] = useState(() => new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentDate(new Date()), 30000)
-    return () => clearInterval(timer)
-  }, [])
-
   // B2.9: push any queued bank-SMS / soundbox signals while we hold a session with billing permissions.
   useEffect(() => {
     if (!isPaymentBridgeAvailable()) return
@@ -306,9 +326,6 @@ export default function DashboardLayout() {
   }, [])
 
   const effectiveTimezone = branding.timezone || undefined
-  const todayFormatted = formatLocalDate(currentDate, effectiveTimezone)
-  const timeFormatted = formatLocalTime(currentDate, effectiveTimezone)
-  const timezoneBadge = getTimezoneLabel(effectiveTimezone)
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex text-[var(--color-text)] font-sans antialiased selection:bg-teal-500 selection:text-white transition-colors duration-200">
@@ -535,19 +552,7 @@ export default function DashboardLayout() {
 
           {/* Right Area: Date, Theme Toggle, Notifications, User */}
           <div className="flex items-center gap-2.5 relative">
-            <div
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-surface-raised)] rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)]"
-              title={`Operating Timezone: ${timezoneBadge}`}
-            >
-              <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{todayFormatted}</span>
-              <span className="text-[11px] font-mono text-teal-600 dark:text-teal-400 font-bold">{timeFormatted}</span>
-              <span className="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-teal-50 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-mono border border-teal-200/50 dark:border-teal-800/50">
-                {effectiveTimezone || 'Auto'}
-              </span>
-            </div>
+            <HeaderClock timezone={effectiveTimezone} />
 
             {/* Dark Mode Theme Toggle */}
             <ThemeToggle variant="compact" />

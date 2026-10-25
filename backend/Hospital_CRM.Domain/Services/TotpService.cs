@@ -14,13 +14,16 @@ public static class TotpService
     private const int Digits = 6;
     private const int PeriodSeconds = 30;
 
+    /// <summary>Emailed codes get a 5-minute window instead of 30 s.</summary>
+    public const int EmailPeriodSeconds = 300;
+
     public static string GenerateSecret(int byteLength = 20) =>
         Base32Encode(RandomNumberGenerator.GetBytes(byteLength));
 
-    public static string ComputeCode(string base32Secret, DateTimeOffset at)
+    public static string ComputeCode(string base32Secret, DateTimeOffset at, int periodSeconds = PeriodSeconds)
     {
         var key = Base32Decode(base32Secret);
-        var counter = (ulong)(at.ToUnixTimeSeconds() / PeriodSeconds);
+        var counter = (ulong)(at.ToUnixTimeSeconds() / periodSeconds);
 
         Span<byte> counterBytes = stackalloc byte[8];
         BinaryPrimitives.WriteUInt64BigEndian(counterBytes, counter);
@@ -36,7 +39,7 @@ public static class TotpService
     }
 
     /// <summary>Accepts one period either side to tolerate clock drift.</summary>
-    public static bool Verify(string base32Secret, string? code, DateTimeOffset at, int skewSteps = 1)
+    public static bool Verify(string base32Secret, string? code, DateTimeOffset at, int skewSteps = 1, int periodSeconds = PeriodSeconds)
     {
         var normalized = code?.Trim().Replace(" ", string.Empty);
         if (normalized is null || normalized.Length != Digits || !normalized.All(char.IsAsciiDigit))
@@ -45,7 +48,7 @@ public static class TotpService
         var candidate = Encoding.ASCII.GetBytes(normalized);
         for (var step = -skewSteps; step <= skewSteps; step++)
         {
-            var expected = Encoding.ASCII.GetBytes(ComputeCode(base32Secret, at.AddSeconds(step * PeriodSeconds)));
+            var expected = Encoding.ASCII.GetBytes(ComputeCode(base32Secret, at.AddSeconds(step * periodSeconds), periodSeconds));
             if (CryptographicOperations.FixedTimeEquals(expected, candidate))
                 return true;
         }

@@ -1,8 +1,9 @@
 namespace Hospital_CRM.Api.Middlewares;
 
 /// <summary>
-/// A1: an account bootstrapped for production must replace the one-time password and enrol
-/// TOTP before using the console. Both facts ride in the token, so this costs no query.
+/// A1: an account bootstrapped for production must replace the one-time password before using
+/// the console. The fact rides in the token, so this costs no query.
+/// Second-factor enrolment is opt-in and is NOT enforced here.
 /// </summary>
 public class AccountSetupEnforcementMiddleware
 {
@@ -11,14 +12,6 @@ public class AccountSetupEnforcementMiddleware
     private static readonly HashSet<string> AllowedWhilePasswordChangePending = new(StringComparer.OrdinalIgnoreCase)
     {
         "/api/v1/auth/change-password",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout"
-    };
-
-    private static readonly HashSet<string> AllowedWhileMfaSetupPending = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "/api/v1/auth/mfa/setup",
-        "/api/v1/auth/mfa/enable",
         "/api/v1/auth/refresh",
         "/api/v1/auth/logout"
     };
@@ -38,18 +31,6 @@ public class AccountSetupEnforcementMiddleware
             {
                 await WriteAsync(context, "password_change_required",
                     "Change the temporary password before continuing.");
-                return;
-            }
-
-            var isPlatformAdmin = string.Equals(
-                context.User.FindFirst("role")?.Value, "PlatformAdmin", StringComparison.OrdinalIgnoreCase);
-            var mfaEnabled = string.Equals(
-                context.User.FindFirst("mfa_enabled")?.Value, "true", StringComparison.OrdinalIgnoreCase);
-
-            if (isPlatformAdmin && !mfaEnabled && !mustChangePassword && !AllowedWhileMfaSetupPending.Contains(path))
-            {
-                await WriteAsync(context, "mfa_setup_required",
-                    "Enrol an authenticator app before using the platform console.");
                 return;
             }
         }

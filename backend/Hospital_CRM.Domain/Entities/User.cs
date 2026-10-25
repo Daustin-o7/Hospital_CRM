@@ -32,12 +32,16 @@ public class User
     /// <summary>A1: set by the production bootstrap command; cleared when the password is changed.</summary>
     public bool MustChangePassword { get; set; }
 
-    /// <summary>A1: TOTP is required before a PlatformAdmin may use the console.</summary>
+    /// <summary>Opt-in second factor: when true, the password alone yields only a login challenge.</summary>
     public bool MfaEnabled { get; set; }
 
-    /// <summary>Protected TOTP secret (ISecretProtector); pending until MfaEnabled is set.</summary>
+    /// <summary>Protected second-factor secret (ISecretProtector); pending until MfaEnabled is set.</summary>
     [MaxLength(512)]
     public string? MfaSecret { get; set; }
+
+    /// <summary>"totp" (authenticator app) or "email" (6-digit code by mail). Null while not enrolled.</summary>
+    [MaxLength(20)]
+    public string? MfaMethod { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
     [ConcurrencyCheck]

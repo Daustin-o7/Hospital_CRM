@@ -27,7 +27,6 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite'))
 const Wishlist = lazy(() => import('./pages/Wishlist'))
 const ChangePassword = lazy(() => import('./pages/ChangePassword'))
-const MfaSetup = lazy(() => import('./pages/MfaSetup'))
 const Consultations = lazy(() => import('./pages/Consultations'))
 const Billing = lazy(() => import('./pages/Billing'))
 const PharmacyPOS = lazy(() => import('./pages/PharmacyPOS'))
@@ -62,12 +61,11 @@ function RequireModule({ module, children }: { module: string; children: React.R
     : <>{children}</>
 }
 
-// A1: a session holding a temporary password, or a PlatformAdmin without TOTP,
-// may not use the app shell until the setup step is done.
+// A1: a session holding a temporary password may not use the app shell until it is replaced.
+// Second-factor enrolment is opt-in from Settings, so it is not gated here.
 function AccountSetupGate({ children }: { children: React.ReactNode }) {
-  const { mustChangePassword, mfaSetupRequired } = useAuth()
+  const { mustChangePassword } = useAuth()
   if (mustChangePassword) return <Navigate to="/change-password" replace />
-  if (mfaSetupRequired) return <Navigate to="/mfa-setup" replace />
   return <>{children}</>
 }
 
@@ -86,7 +84,6 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
-      <Route path="/mfa-setup" element={<ProtectedRoute><MfaSetup /></ProtectedRoute>} />
       <Route path="/intake/:token" element={<Intake />} />
       <Route path="/queue-status/:token" element={<QueueStatus />} />
       <Route element={<ProtectedRoute><AccountSetupGate><DashboardLayout /></AccountSetupGate></ProtectedRoute>}>
