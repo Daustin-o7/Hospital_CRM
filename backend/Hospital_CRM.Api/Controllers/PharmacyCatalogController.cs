@@ -1,6 +1,7 @@
 using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -11,6 +12,7 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pharmacy")]
+[RequireModule(ModuleRegistry.Pharmacy)]
 public class PharmacyCatalogController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
@@ -266,15 +268,26 @@ public class PharmacyCatalogController : ControllerBase
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var lowerGeneric = drug.GenericName.ToLower();
+        // Same generic, strength and form only: "Paracetamol" must not suggest
+        // "Paracetamol + Codeine", and out-of-stock/recalled alternatives are noise.
+        var generic = drug.GenericName.Trim().ToLower();
+        var strength = drug.Strength.Trim().ToLower();
+        var form = drug.DosageForm.Trim().ToLower();
+
         var substitutes = await _db.Drugs.AsNoTracking()
             .Include(d => d.Batches)
-            .Where(d => d.Id != drugId && d.GenericName.ToLower().Contains(lowerGeneric))
+            .Where(d => d.Id != drugId
+                && d.GenericName.ToLower() == generic
+                && d.Strength.ToLower() == strength
+                && d.DosageForm.ToLower() == form
+                && d.Batches.Any(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && !b.IsRecalled))
             .ToListAsync(ct);
 
         var results = substitutes.Select(d =>
         {
-            var validBatches = d.Batches.Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today).ToList();
+            var validBatches = d.Batches
+                .Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && !b.IsRecalled)
+                .ToList();
             var totalStock = validBatches.Sum(b => b.QuantityRemaining);
             var bestBatch = validBatches.OrderBy(b => b.ExpiryDate).FirstOrDefault();
 

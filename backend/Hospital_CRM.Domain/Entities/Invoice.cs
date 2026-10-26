@@ -27,6 +27,37 @@ public class Invoice : ITenantScoped
     
     public InvoiceStatus Status { get; set; }
     public string? IdempotencyKey { get; set; }
+
+    [MaxLength(20)]
+    public string FinancialYear { get; set; } = DateTime.UtcNow.Year.ToString();
+
+    [MaxLength(20)]
+    public string Series { get; set; } = "INV";
+
+    public InvoiceDocumentType DocumentType { get; set; } = InvoiceDocumentType.BillOfSupply;
+
+    /// <summary>Linked in-house pharmacy sales invoice ID (Section 4A). Separate document series, never merged.</summary>
+    public Guid? LinkedPharmacyInvoiceId { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal DiscountAmount { get; set; } = 0.0m;
+
+    [MaxLength(255)]
+    public string? DiscountReason { get; set; }
+
+    public Guid? DiscountApprovedBy { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal PaidAmount { get; set; } = 0.0m;
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal BalanceDue { get; set; } = 0.0m;
+
+    public int PrintCount { get; set; } = 0;
+    public DateTimeOffset? LastPrintedAt { get; set; }
+
+    public DateTimeOffset? FinalizedAt { get; set; }
+    public Guid? FinalizedByUserId { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     [ConcurrencyCheck]
@@ -37,4 +68,6 @@ public class Invoice : ITenantScoped
     public virtual Patient? Patient { get; set; }
     public virtual ICollection<InvoiceLineItem> LineItems { get; set; } = [];
     public virtual ICollection<Payment> Payments { get; set; } = [];
-}
+    public virtual ICollection<CreditNote> CreditNotes { get; set; } = [];
+    public virtual ICollection<InvoicePrintLog> PrintLogs { get; set; } = [];
+}

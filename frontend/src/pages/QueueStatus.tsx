@@ -6,6 +6,9 @@ import api from '../services/api'
 interface QueueState {
   currentlyServing: number
   yourToken: number
+  position?: number
+  estimatedWaitMinutes?: number
+  status?: string
 }
 
 export default function QueueStatus() {
@@ -52,7 +55,7 @@ export default function QueueStatus() {
           </div>
           <h1 className="text-lg font-bold text-slate-800" style={{ fontFamily: 'Outfit, sans-serif' }}>Token not found</h1>
           <p className="text-sm text-slate-600">
-            This queue link doesn't match any appointment. Please check the token on your slip, or ask at reception.
+            This queue tracker link doesn't match any active appointment. Please verify the link or ask reception for assistance.
           </p>
         </div>
       </PublicPage>
@@ -85,8 +88,8 @@ export default function QueueStatus() {
     )
   }
 
-  const ahead = Math.max(0, state.yourToken - state.currentlyServing)
-  const yourTurn = ahead === 0
+  const ahead = state.position ? Math.max(0, state.position - 1) : Math.max(0, state.yourToken - state.currentlyServing)
+  const yourTurn = ahead === 0 || state.status === 'in_consultation'
 
   return (
     <PublicPage badge={badge} footer={footer}>
@@ -98,14 +101,23 @@ export default function QueueStatus() {
           </div>
         </div>
 
-        <div className={`rounded-lg border p-4 ${yourTurn ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className={`rounded-xl border p-5 ${yourTurn ? 'bg-teal-50/80 border-teal-200 shadow-sm' : 'bg-slate-50 border-slate-200'}`}>
           <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Your token</div>
-          <div className="text-3xl font-extrabold text-slate-800 tabular-nums" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <div className="text-4xl font-extrabold text-slate-800 tabular-nums my-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
             #{state.yourToken}
           </div>
-          <div className={`text-sm font-bold mt-1 ${yourTurn ? 'text-teal-700' : 'text-slate-600'}`}>
-            {yourTurn ? "It's your turn — please go in" : `${ahead} ahead of you`}
+          <div className={`text-base font-bold ${yourTurn ? 'text-teal-700 animate-pulse' : 'text-slate-700'}`}>
+            {yourTurn ? "It's your turn — please proceed to consult" : `${ahead} patient${ahead > 1 ? 's' : ''} ahead of you`}
           </div>
+
+          {state.estimatedWaitMinutes !== undefined && !yourTurn && (
+            <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Estimated wait: ~{state.estimatedWaitMinutes} mins</span>
+            </div>
+          )}
         </div>
 
         <div className="text-[11px] text-slate-400">

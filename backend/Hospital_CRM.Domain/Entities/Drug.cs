@@ -19,6 +19,9 @@ public class Drug : ITenantScoped
     public string StandardPackSize { get; set; } = "10 Tablets";
     public decimal IndicativeMrp { get; set; } = 0m;
     public string? CommonBrands { get; set; }
+    public string DataSource { get; set; } = "HospitalMaster"; // HospitalMaster, CDCI (Open Source), TrueMD, Custom
+    public bool IsUnverified { get; set; } = false;
+    public string? ExternalCode { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

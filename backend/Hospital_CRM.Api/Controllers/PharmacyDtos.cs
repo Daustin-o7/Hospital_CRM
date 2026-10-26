@@ -180,16 +180,80 @@ public record DispensePrescriptionRequest(
     Guid PrescriptionId,
 
     [StringLength(100)]
-    string? PatientName,
+    string? PatientName = null,
 
     [StringLength(500)]
-    string? PatientAddress,
+    string? PatientAddress = null,
 
     [StringLength(100)]
-    string? PrescriberName,
+    string? PrescriberName = null,
 
     [StringLength(50)]
-    string? PrescriberRegNo,
+    string? PrescriberRegNo = null,
 
-    string? IdempotencyKey
+    string? IdempotencyKey = null,
+
+    List<DispenseItemSelection>? ItemSelections = null
+);
+
+public record DispenseItemSelection(
+    Guid PrescriptionItemId,
+    Guid? DrugBatchId,
+    int? Quantity,
+    Guid? SubstitutedDrugId,
+    string? SubstitutionReason
+);
+
+public record StockInRequest(
+    [Required]
+    Guid DrugId,
+
+    Guid? SupplierId,
+
+    [StringLength(50)]
+    string? SupplierInvoiceNumber,
+
+    [StringLength(50)]
+    string? SupplierLicenceNumber,
+
+    [Required, StringLength(50, MinimumLength = 2)]
+    string BatchNumber,
+
+    [Required, RegularExpression(@"^\d{4}-\d{2}-\d{2}$")]
+    string ExpiryDate,
+
+    [RegularExpression(@"^\d{4}-\d{2}-\d{2}$")]
+    string? MfgDate,
+
+    [Range(1, 100000)]
+    int QuantityReceived,
+
+    [Range(0.01, 500000.00)]
+    decimal Mrp,
+
+    [Range(0.01, 500000.00)]
+    decimal PurchaseRate,
+
+    [StringLength(50)]
+    string? PackSize,
+
+    int? BaseUnitQuantity,
+
+    DateOnly? InvoiceDate = null
+);
+
+public record BatchRecallRequest(
+    [Required, StringLength(500, MinimumLength = 3)]
+    string Reason
+);
+
+public record StockAdjustmentRequest(
+    [Required]
+    int AdjustmentQuantity, // positive for found stock, negative for breakage/shrinkage
+
+    [Required, StringLength(500, MinimumLength = 3)]
+    string Reason,
+
+    [StringLength(100)]
+    string? ApprovedBy
 );

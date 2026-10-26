@@ -6,7 +6,7 @@ namespace Hospital_CRM.Api.Extensions;
 /// </summary>
 public static class PasswordExtensions
 {
-    private const int DefaultWorkFactor = 11;
+    private const int DefaultWorkFactor = 12;
 
     public static string HashPassword(this string password, int workFactor = DefaultWorkFactor) =>
         BCrypt.Net.BCrypt.HashPassword(password, workFactor);

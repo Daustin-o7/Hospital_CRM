@@ -27,12 +27,14 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite'))
 const Wishlist = lazy(() => import('./pages/Wishlist'))
 const ChangePassword = lazy(() => import('./pages/ChangePassword'))
+const SetupMfa = lazy(() => import('./pages/SetupMfa'))
 const Consultations = lazy(() => import('./pages/Consultations'))
 const Billing = lazy(() => import('./pages/Billing'))
 const PharmacyPOS = lazy(() => import('./pages/PharmacyPOS'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Reports = lazy(() => import('./pages/Reports'))
 const PlatformAdmin = lazy(() => import('./pages/PlatformAdmin'))
+const VerifyRx = lazy(() => import('./pages/VerifyRx'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -61,11 +63,13 @@ function RequireModule({ module, children }: { module: string; children: React.R
     : <>{children}</>
 }
 
-// A1: a session holding a temporary password may not use the app shell until it is replaced.
-// Second-factor enrolment is opt-in from Settings, so it is not gated here.
+// A1: a session holding a temporary password or a mandatory second factor may not use the
+// app shell until setup is finished. Roles that can move money or write clinical notes
+// (ClinicAdmin, Doctor, PlatformAdmin) must enrol MFA; everyone else may opt in.
 function AccountSetupGate({ children }: { children: React.ReactNode }) {
-  const { mustChangePassword } = useAuth()
+  const { mustChangePassword, mfaEnrolmentRequired } = useAuth()
   if (mustChangePassword) return <Navigate to="/change-password" replace />
+  if (mfaEnrolmentRequired) return <Navigate to="/setup-mfa" replace />
   return <>{children}</>
 }
 
@@ -84,8 +88,11 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
+      <Route path="/setup-mfa" element={<ProtectedRoute><SetupMfa /></ProtectedRoute>} />
       <Route path="/intake/:token" element={<Intake />} />
       <Route path="/queue-status/:token" element={<QueueStatus />} />
+      <Route path="/rx-verify/:code" element={<VerifyRx />} />
+      <Route path="/verify-rx/:code" element={<VerifyRx />} />
       <Route element={<ProtectedRoute><AccountSetupGate><DashboardLayout /></AccountSetupGate></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/patients" element={<Patients />} />

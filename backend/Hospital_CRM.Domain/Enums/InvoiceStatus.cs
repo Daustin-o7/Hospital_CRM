@@ -7,5 +7,6 @@ public enum InvoiceStatus
     Paid,
     PartiallyPaid,
     Cancelled,
-    Refunded
-}
+    Refunded,
+    Finalized
+}

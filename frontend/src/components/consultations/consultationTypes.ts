@@ -50,6 +50,61 @@ export interface PrescriptionDraft {
   dosage: string
   frequency: string
   duration: string
+  genericName?: string
+  brandName?: string
+  dosageForm?: string
+  strength?: string
+  route?: string
+  durationCount?: number
+  durationUnit?: string
+  timing?: string
+  totalQuantity?: number
+  scheduleClass?: string
+  isUnverified?: boolean
+}
+
+export interface PatientClinicalContext {
+  patient: {
+    id: string
+    name: string
+    phone: string
+    approxAge?: number
+    dob?: string
+    gender?: string
+    uhid?: string
+    allergies: string[]
+  }
+  todayVitals?: {
+    systolicBp?: number
+    diastolicBp?: number
+    heartRate?: number
+    temperature?: number
+    respiratoryRate?: number
+    spO2?: number
+    weightKg?: number
+    heightCm?: number
+    bmi?: number
+    bloodGlucoseMgDl?: number
+    recordedAt?: string
+  } | null
+  lastConsultation?: {
+    consultationId: string
+    date: string
+    doctorName?: string
+    chiefComplaint?: string
+    diagnosis?: string
+    observations?: string
+    prescriptions: Array<{
+      genericName?: string
+      brandName?: string
+      dosageForm?: string
+      strength?: string
+      frequency?: string
+      duration?: string
+      timing?: string
+    }>
+  } | null
+  totalCompletedVisits: number
 }
 
 export interface MedicineHit {
@@ -59,6 +114,10 @@ export interface MedicineHit {
   commonBrands?: string
   strength?: string
   dosageForm?: string
+  scheduleClass?: string
+  dataSource?: string
+  isUnverified?: boolean
+  checkpointMessage?: string
 }
 
 export interface SpecialtyConfig {

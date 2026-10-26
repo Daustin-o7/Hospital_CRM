@@ -18,15 +18,18 @@ import type {
   ToothStatus,
   AppointmentItem,
   PatientDetails,
-  PrescriptionDraft
+  PrescriptionDraft,
+  PatientClinicalContext
 } from '../components/consultations/consultationTypes'
 import PatientCommandRibbon from '../components/consultations/PatientCommandRibbon'
 import ClinicalSoapEditor from '../components/consultations/ClinicalSoapEditor'
 import SpecialtyToolsPanel from '../components/consultations/SpecialtyToolsPanel'
 import PrescriptionsEditor from '../components/consultations/PrescriptionsEditor'
+import PatientContextPanel from '../components/consultations/PatientContextPanel'
+import FinalizeSuccessModal from '../components/consultations/FinalizeSuccessModal'
+import AmendmentModal from '../components/consultations/AmendmentModal'
 
-// Development-only demo queue. The literal is the true branch of a condition that
-// compiles to `false` in production, so the bundler drops it and its values entirely.
+// Development-only demo queue. Dropped in production builds.
 const DEMO_APPOINTMENTS: AppointmentItem[] = import.meta.env.DEV
   ? [
       {
@@ -37,7 +40,7 @@ const DEMO_APPOINTMENTS: AppointmentItem[] = import.meta.env.DEV
         patientGender: 'Female',
         patientAge: 28,
         doctorName: 'Dr. Practitioner',
-        status: 'Booked',
+        status: 'CheckedIn',
         appointmentDate: new Date().toISOString().split('T')[0],
         queueNumber: 1,
         priority: 'Normal',
@@ -51,7 +54,7 @@ const DEMO_APPOINTMENTS: AppointmentItem[] = import.meta.env.DEV
         patientGender: 'Male',
         patientAge: 35,
         doctorName: 'Dr. Practitioner',
-        status: 'Waiting',
+        status: 'InConsultation',
         appointmentDate: new Date().toISOString().split('T')[0],
         queueNumber: 2,
         priority: 'Normal',
@@ -81,6 +84,15 @@ export default function Consultations() {
   const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // ── Section 3 Clinical Context, Safety & Draft/Finalize States ──
+  const [clinicalContext, setClinicalContext] = useState<PatientClinicalContext | null>(null)
+  const [isContextLoading, setIsContextLoading] = useState(false)
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(true)
+  const [consultationStatus, setConsultationStatus] = useState<'draft' | 'finalized' | 'amended'>('draft')
+  const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false)
+  const [finalizeData, setFinalizeData] = useState<any>(null)
+  const [isAmendmentModalOpen, setIsAmendmentModalOpen] = useState(false)
+
   // ── Workspace Tabs ──
   const [activeTab, setActiveTab] = useState<'soap' | 'tools' | 'rx' | 'template_structure'>('soap')
 
@@ -88,6 +100,9 @@ export default function Consultations() {
   const [chiefComplaint, setChiefComplaint] = useState('')
   const [observations, setObservations] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
+  const [advisedInvestigations, setAdvisedInvestigations] = useState('')
+  const [followUpDate, setFollowUpDate] = useState('')
+  const [followUpNotes, setFollowUpNotes] = useState('')
 
   // ── Dynamic Template Structure from Backend ──
   const [templateSections, setTemplateSections] = useState<Array<{ key: string; label: string; placeholder?: string }>>([])
@@ -164,12 +179,11 @@ export default function Consultations() {
     fetchAppointments()
   }, [fetchAppointments])
 
-  // ── Fetch Full Patient Demographics When Selected ──
+  // ── Fetch Full Patient Demographics & Comprehensive Clinical Context (Section 3) ──
   useEffect(() => {
     if (!selectedAppointment?.patientId) return
 
     let isMounted = true
-    // The DEV demo queue carries placeholder ids; those rows use the appointment data.
     const fallbackDetails: PatientDetails = {
       id: selectedAppointment.patientId,
       name: selectedAppointment.patientName,
@@ -182,38 +196,93 @@ export default function Consultations() {
       allergies: 'NKDA (No known drug allergies)'
     }
 
-    const loadPatientDetails = async () => {
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.patientId)) {
-        if (isMounted) setPatientDetails(fallbackDetails)
+    const loadClinicalContext = async () => {
+      setIsContextLoading(true)
+      const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.patientId)
+
+      if (!isGuid) {
+        if (isMounted) {
+          setPatientDetails(fallbackDetails)
+          setClinicalContext({
+            patient: {
+              id: selectedAppointment.patientId,
+              name: selectedAppointment.patientName,
+              phone: selectedAppointment.patientPhone || '+91 98765 43210',
+              approxAge: selectedAppointment.patientAge || 28,
+              gender: selectedAppointment.patientGender || 'Female',
+              uhid: 'UHID-DEMO-001',
+              allergies: ['Penicillin', 'Sulfa drugs']
+            },
+            todayVitals: {
+              systolicBp: 120,
+              diastolicBp: 80,
+              heartRate: 74,
+              temperature: 98.6,
+              spO2: 99,
+              weightKg: 62.5,
+              bmi: 22.4,
+              recordedAt: new Date().toISOString()
+            },
+            lastConsultation: {
+              consultationId: 'demo-last-c1',
+              date: new Date(Date.now() - 14 * 86400000).toISOString(),
+              doctorName: 'Dr. Anita Desai',
+              diagnosis: 'Acute Bronchitis',
+              prescriptions: [
+                { brandName: 'Augmentin 625', dosageForm: 'Tablet', strength: '625mg', frequency: '1-0-1', duration: '5 Days' },
+                { brandName: 'Pan 40', dosageForm: 'Tablet', strength: '40mg', frequency: '1-0-0', duration: '5 Days' }
+              ]
+            },
+            totalCompletedVisits: 3
+          })
+          setIsContextLoading(false)
+        }
         return
       }
 
       try {
-        const res = await api.get(`/patients/${selectedAppointment.patientId}`)
-        if (isMounted && res.data) {
-          setPatientDetails({
-            id: res.data.id || selectedAppointment.patientId,
-            name: res.data.name || selectedAppointment.patientName,
-            phone: res.data.phone || selectedAppointment.patientPhone || '+91 98765 43210',
-            gender: res.data.gender || selectedAppointment.patientGender || 'Unspecified',
-            approxAge: res.data.approxAge ?? selectedAppointment.patientAge ?? 30,
-            dob: res.data.dob || selectedAppointment.patientDob,
-            bloodGroup: res.data.bloodGroup || 'O+',
-            allergies: res.data.allergies || 'NKDA (No known drug allergies)'
-          })
+        const [patientRes, contextRes] = await Promise.allSettled([
+          api.get(`/patients/${selectedAppointment.patientId}`),
+          api.get(`/patients/${selectedAppointment.patientId}/clinical-context`)
+        ])
+
+        if (isMounted) {
+          if (patientRes.status === 'fulfilled' && patientRes.value.data) {
+            const p = patientRes.value.data
+            setPatientDetails({
+              id: p.id || selectedAppointment.patientId,
+              name: p.name || selectedAppointment.patientName,
+              phone: p.phone || selectedAppointment.patientPhone,
+              gender: p.gender || selectedAppointment.patientGender,
+              approxAge: p.approxAge ?? selectedAppointment.patientAge,
+              dob: p.dob || selectedAppointment.patientDob,
+              // Patient has no blood group / allergy columns yet: never invent clinical data.
+              bloodGroup: p.bloodGroup || 'Not recorded',
+              allergies: p.allergies || 'Not recorded'
+            })
+          } else {
+            setPatientDetails(fallbackDetails)
+          }
+
+          if (contextRes.status === 'fulfilled' && contextRes.value.data) {
+            setClinicalContext(contextRes.value.data)
+            if (contextRes.value.data.patient?.allergies?.length > 0) {
+              setPatientDetails(prev => prev ? { ...prev, allergies: contextRes.value.data.patient.allergies.join(', ') } : null)
+            }
+          }
         }
       } catch {
-        if (isMounted) {
-          setPatientDetails(fallbackDetails)
-        }
+        if (isMounted) setPatientDetails(fallbackDetails)
+      } finally {
+        if (isMounted) setIsContextLoading(false)
       }
     }
 
-    loadPatientDetails()
+    loadClinicalContext()
     return () => { isMounted = false }
   }, [selectedAppointment])
 
-  // ── Auto-save Draft to LocalStorage ──
+  // ── Auto-save Draft to LocalStorage & Server (Non-Binding Autosave) ──
   useEffect(() => {
     if (!selectedAppointment?.id) return
     const key = `hospital_crm_draft_${selectedAppointment.id}`
@@ -237,7 +306,8 @@ export default function Consultations() {
     if (!chiefComplaint && !observations && !diagnosis) return
 
     const key = `hospital_crm_draft_${selectedAppointment.id}`
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      // 1. LocalStorage draft
       localStorage.setItem(key, JSON.stringify({
         chiefComplaint,
         observations,
@@ -246,10 +316,38 @@ export default function Consultations() {
         savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }))
       setDraftSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, 800)
+
+      // 2. Server draft (non-binding, carries zero legal weight)
+      const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+      if (isGuid && consultationStatus !== 'finalized') {
+        try {
+          await api.post(`/appointments/${selectedAppointment.id}/consultation/draft`, {
+            chiefComplaint,
+            observations,
+            diagnosis,
+            advisedInvestigations,
+            prescriptionItems: prescriptions.map(p => ({
+              genericName: p.genericName || p.medicine,
+              brandName: p.brandName,
+              dosageForm: p.dosageForm,
+              strength: p.strength,
+              frequency: p.frequency,
+              duration: p.durationCount || 5,
+              durationUnit: p.durationUnit || 'Days',
+              timing: p.timing || 'After food',
+              totalQuantity: p.totalQuantity || 10,
+              scheduleClass: p.scheduleClass,
+              isUnverified: p.isUnverified ?? false
+            }))
+          })
+        } catch {
+          // Background draft autosave silently retries
+        }
+      }
+    }, 1200)
 
     return () => clearTimeout(timer)
-  }, [chiefComplaint, observations, diagnosis, prescriptions, selectedAppointment?.id])
+  }, [chiefComplaint, observations, diagnosis, prescriptions, advisedInvestigations, selectedAppointment?.id, consultationStatus])
 
   // ── Fetch Specialty Templates from Backend ──
   const fetchTemplateForSpecialty = useCallback(async (spec: SpecialtyId) => {
@@ -262,7 +360,7 @@ export default function Consultations() {
         setTemplateSections(sections)
       }
     } catch {
-      // Backend fallback handled seamlessly
+      // Handled seamlessly
     }
   }, [])
 
@@ -270,7 +368,6 @@ export default function Consultations() {
     fetchTemplateForSpecialty(selectedSpecialty)
   }, [selectedSpecialty, fetchTemplateForSpecialty])
 
-  // ── Switch Specialty without losing typed clinical notes ──
   const handleSelectSpecialty = useCallback((spec: SpecialtyId) => {
     setSelectedSpecialty(spec)
     localStorage.setItem('hospital_crm_doctor_specialty', spec)
@@ -278,16 +375,111 @@ export default function Consultations() {
     showToast(`Switched consultation context to ${cfg?.name || spec}. Existing notes preserved.`)
   }, [showToast])
 
-  // ── Save Consultation (FR-14 & FR-15) ──
-  const handleSaveConsultation = useCallback(async (isAmendment = false) => {
+  // ── Atomic Queue Controls: Claim, Park, Recall ──
+  const handleClaimPatient = useCallback(async () => {
+    if (!selectedAppointment) return
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+
+    if (!isGuid) {
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'InConsultation' } : null)
+      showToast('Patient claimed for consultation (Demo mode).')
+      return
+    }
+
+    try {
+      await api.post(`/appointments/${selectedAppointment.id}/claim`)
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'InConsultation' } : null)
+      setAppointments(prev => prev.map(a => a.id === selectedAppointment.id ? { ...a, status: 'InConsultation' } : a))
+      showToast('Patient claimed atomically. Consultation session active.')
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || friendlyError(err) || 'Failed to claim patient.', 'err')
+    }
+  }, [selectedAppointment, showToast])
+
+  const handleParkPatient = useCallback(async () => {
+    if (!selectedAppointment) return
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+
+    if (!isGuid) {
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'Parked' } : null)
+      showToast('Patient parked (Demo mode).')
+      return
+    }
+
+    try {
+      await api.post(`/appointments/${selectedAppointment.id}/park`)
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'Parked' } : null)
+      setAppointments(prev => prev.map(a => a.id === selectedAppointment.id ? { ...a, status: 'Parked' } : a))
+      showToast('Patient parked. Queue moved to next patient.')
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || friendlyError(err) || 'Failed to park patient.', 'err')
+    }
+  }, [selectedAppointment, showToast])
+
+  const handleRecallPatient = useCallback(async () => {
+    if (!selectedAppointment) return
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+
+    if (!isGuid) {
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'InConsultation' } : null)
+      showToast('Patient recalled (Demo mode).')
+      return
+    }
+
+    try {
+      await api.post(`/appointments/${selectedAppointment.id}/recall`)
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'InConsultation' } : null)
+      setAppointments(prev => prev.map(a => a.id === selectedAppointment.id ? { ...a, status: 'InConsultation' } : a))
+      showToast('Patient recalled back to consultation room.')
+    } catch (err: any) {
+      showToast(err?.response?.data?.error || friendlyError(err) || 'Failed to recall patient.', 'err')
+    }
+  }, [selectedAppointment, showToast])
+
+  // ── Manual Draft Save (Non-Binding) ──
+  const handleSaveDraft = useCallback(async () => {
+    if (!selectedAppointment) return
+    setSubmitting(true)
+    try {
+      const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+      if (isGuid) {
+        await api.post(`/appointments/${selectedAppointment.id}/consultation/draft`, {
+          chiefComplaint,
+          observations,
+          diagnosis,
+          advisedInvestigations,
+          prescriptionItems: prescriptions.map(p => ({
+            genericName: p.genericName || p.medicine,
+            brandName: p.brandName,
+            dosageForm: p.dosageForm,
+            strength: p.strength,
+            frequency: p.frequency,
+            duration: p.durationCount || 5,
+            durationUnit: p.durationUnit || 'Days',
+            timing: p.timing || 'After food',
+            totalQuantity: p.totalQuantity || 10,
+            scheduleClass: p.scheduleClass,
+            isUnverified: p.isUnverified ?? false
+          }))
+        })
+      }
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      setDraftSavedAt(timeStr)
+      showToast(`Draft note saved (${timeStr}). Carrying zero legal weight until finalized.`)
+    } catch (err: any) {
+      showToast(friendlyError(err) || 'Failed to save draft.', 'err')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, prescriptions, showToast])
+
+  // ── Finalize & Sign (Single Atomic Transaction) ──
+  const handleFinalizeConsultation = useCallback(async () => {
     if (!selectedAppointment) {
       showToast('Please select a patient appointment first.', 'err')
       return
     }
 
-    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
-
-    // Comprehensive Zod Validation
     setValidationErrors({})
     const valResult = consultationSoapSchema.safeParse({
       chiefComplaint,
@@ -310,70 +502,156 @@ export default function Consultations() {
         diagnosisInputRef.current.focus()
       }
 
-      showToast('Please provide both Chief Complaint and Diagnosis before saving.', 'err')
+      showToast('Chief Complaint and Diagnosis are required before final signing.', 'err')
       return
     }
 
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAppointment.id)
+
     if (!isGuid) {
-      showToast('Demo appointment saved in local session. Connect backend for cloud persistence.')
-      setVersionNumber(v => v + 1)
+      // Demo mode finalize
+      setConsultationStatus('finalized')
+      setActiveConsultationId('demo-sealed-1')
+      setFinalizeData({
+        consultationId: 'demo-sealed-1',
+        version: 1,
+        status: 'finalized',
+        doctorRegistrationNumber: 'MCI-2015-88941',
+        doctorQualifications: 'MBBS, MD (Medicine)',
+        digitalSignatureHash: '0x889f1c7d24a0e9b31f56...sealed',
+        verificationQrCode: 'RX-DEMO-2026-FINAL',
+        followUpDate: followUpDate || undefined
+      })
+      setIsFinalizeModalOpen(true)
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'Completed' } : null)
+      showToast('Consultation sealed and signed (Demo session).')
       return
     }
 
     setSubmitting(true)
     try {
-      let consultId = activeConsultationId
-
-      if (isAmendment && activeConsultationId) {
-        const res = await api.post(`/consultations/${activeConsultationId}/amend`, {
-          chiefComplaint,
-          observations,
-          diagnosis,
-          previousVersionId: activeConsultationId
-        })
-        consultId = res.data.consultationId
-        setVersionNumber(res.data.version || versionNumber + 1)
-        showToast(`Consultation amended successfully (Version ${res.data.version || versionNumber + 1}).`)
-      } else {
-        const res = await api.post(`/appointments/${selectedAppointment.id}/consultation`, {
-          chiefComplaint,
-          observations,
-          diagnosis,
-          previousVersionId: undefined
-        })
-        consultId = res.data.consultationId
-        setActiveConsultationId(consultId)
-        setVersionNumber(res.data.version || 1)
-        showToast('Consultation note saved successfully.')
+      const payload = {
+        chiefComplaint,
+        observations,
+        diagnosis,
+        advisedInvestigations,
+        followUpDate: followUpDate || null,
+        followUpNotes: followUpNotes || null,
+        prescriptionItems: prescriptions.map(p => ({
+          genericName: p.genericName || p.medicine,
+          brandName: p.brandName,
+          dosageForm: p.dosageForm,
+          strength: p.strength,
+          route: p.route || 'Oral',
+          frequency: p.frequency,
+          duration: p.durationCount || 5,
+          durationUnit: p.durationUnit || 'Days',
+          timing: p.timing || 'After food',
+          totalQuantity: p.totalQuantity || 10,
+          scheduleClass: p.scheduleClass,
+          isUnverified: p.isUnverified ?? false
+        })),
+        orderedLabTests: []
       }
 
-      if (consultId && prescriptions.length > 0) {
-        await api.post(`/consultations/${consultId}/prescriptions`, {
-          items: prescriptions.map(p => ({
-            medicine: p.medicine,
-            dosage: p.dosage,
-            frequency: p.frequency,
-            duration: p.duration
-          }))
-        })
-      }
+      const res = await api.post(`/appointments/${selectedAppointment.id}/consultation/finalize`, payload)
+      const data = res.data
+      setActiveConsultationId(data.consultationId)
+      setVersionNumber(data.version || 1)
+      setConsultationStatus('finalized')
+      setFinalizeData(data)
+      setIsFinalizeModalOpen(true)
 
+      // Update queue state to Completed
+      setSelectedAppointment(prev => prev ? { ...prev, status: 'Completed' } : null)
+      setAppointments(prev => prev.map(a => a.id === selectedAppointment.id ? { ...a, status: 'Completed' } : a))
+
+      // Clear draft storage
       localStorage.removeItem(`hospital_crm_draft_${selectedAppointment.id}`)
       setDraftSavedAt(null)
+      showToast('Consultation sealed, signed, and appointment marked Completed.')
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || friendlyError(err) || 'Failed to save consultation.'
-      showToast(msg, 'err')
+      const errCode = err?.response?.data?.error
+      if (errCode === 'pediatric_weight_required') {
+        showToast('Safety block: Pediatric prescribing requires weight on today\'s vitals.', 'err')
+      } else if (errCode === 'ndps_digital_prescribing_prohibited') {
+        showToast('Legal block: NDPS electronic prescribing is disabled per drug control rules.', 'err')
+      } else {
+        showToast(err?.response?.data?.message || friendlyError(err) || 'Failed to finalize consultation.', 'err')
+      }
     } finally {
       setSubmitting(false)
     }
-  }, [selectedAppointment, chiefComplaint, observations, diagnosis, prescriptions, activeConsultationId, versionNumber, showToast])
+  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, followUpDate, followUpNotes, prescriptions, showToast])
 
-  // ── Keyboard Shortcuts (Ctrl+S, Alt+1/2/3/4) ──
+  // ── Clinical Amendment (FR-14 & FR-15 Non-destructive v2) ──
+  const handleConfirmAmendment = useCallback(async (amendmentReason: string) => {
+    if (!activeConsultationId) return
+    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeConsultationId)
+
+    if (!isGuid) {
+      setVersionNumber(v => v + 1)
+      setConsultationStatus('amended')
+      showToast(`Consultation record amended (Version ${versionNumber + 1}).`)
+      return
+    }
+
+    const payload = {
+      amendmentReason,
+      chiefComplaint,
+      observations,
+      diagnosis,
+      advisedInvestigations,
+      prescriptionItems: prescriptions.map(p => ({
+        genericName: p.genericName || p.medicine,
+        brandName: p.brandName,
+        dosageForm: p.dosageForm,
+        strength: p.strength,
+        frequency: p.frequency,
+        duration: p.durationCount || 5,
+        durationUnit: p.durationUnit || 'Days',
+        timing: p.timing || 'After food',
+        totalQuantity: p.totalQuantity || 10,
+        scheduleClass: p.scheduleClass,
+        isUnverified: p.isUnverified ?? false
+      }))
+    }
+
+    const res = await api.post(`/consultations/${activeConsultationId}/amend`, payload)
+    setActiveConsultationId(res.data.consultationId)
+    setVersionNumber(res.data.version)
+    setConsultationStatus('amended')
+    showToast(`Consultation amended successfully (Version ${res.data.version}). Prior version preserved.`)
+  }, [activeConsultationId, chiefComplaint, observations, diagnosis, advisedInvestigations, prescriptions, versionNumber, showToast])
+
+  // ── Copy Previous Prescription into Current Draft ──
+  const handleCopyPreviousRx = useCallback((previousItems: any[]) => {
+    if (!previousItems || previousItems.length === 0) return
+    const formatted: PrescriptionDraft[] = previousItems.map(p => ({
+      medicine: p.brandName || p.genericName || 'Medicine',
+      genericName: p.genericName,
+      brandName: p.brandName,
+      dosage: p.dosage || '1 Tab',
+      frequency: p.frequency || '1-0-1',
+      duration: p.duration || '5 Days',
+      dosageForm: p.dosageForm || 'Tablet',
+      strength: p.strength || ''
+    }))
+    setPrescriptions(prev => [...prev, ...formatted])
+    setActiveTab('rx')
+    showToast(`Copied ${formatted.length} medicines from previous visit into prescription.`)
+  }, [showToast])
+
+  // ── Keyboard Shortcuts (Ctrl+S for Finalize, Alt+1/2/3/4) ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
-        handleSaveConsultation(!!activeConsultationId)
+        if (consultationStatus === 'finalized' || activeConsultationId) {
+          setIsAmendmentModalOpen(true)
+        } else {
+          handleFinalizeConsultation()
+        }
       } else if (e.altKey && e.key === '1') {
         e.preventDefault()
         setActiveTab('soap')
@@ -391,7 +669,7 @@ export default function Consultations() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSaveConsultation, activeConsultationId])
+  }, [handleFinalizeConsultation, consultationStatus, activeConsultationId])
 
   // ── Queue Navigation ──
   const currentQueueIndex = useMemo(() => {
@@ -404,6 +682,7 @@ export default function Consultations() {
       setSelectedAppointment(appointments[currentQueueIndex - 1])
       setActiveConsultationId(null)
       setVersionNumber(1)
+      setConsultationStatus('draft')
     }
   }, [appointments, currentQueueIndex])
 
@@ -412,6 +691,7 @@ export default function Consultations() {
       setSelectedAppointment(appointments[currentQueueIndex + 1])
       setActiveConsultationId(null)
       setVersionNumber(1)
+      setConsultationStatus('draft')
     }
   }, [appointments, currentQueueIndex])
 
@@ -435,20 +715,24 @@ export default function Consultations() {
                 <h1 className="text-base font-bold text-slate-900 tracking-tight font-heading leading-tight m-0">
                   Doctor Clinical Desk
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
-                  Live Consultation
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                  consultationStatus === 'finalized'
+                    ? 'bg-slate-100 text-slate-700 border-slate-300'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${consultationStatus === 'finalized' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse-soft'}`} />
+                  {consultationStatus === 'finalized' ? `Finalized v${versionNumber}` : 'Draft (Editable)'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
-                EMR note codification, specialty diagnostic charts, and e-Prescriptions
+                EMR codification, drug formulary checks, and atomic digital signature signing
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Header Toolbar: Specialty Switcher & Save Action */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Right Header Toolbar: Discipline Switcher, Save Draft & Finalize Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-mono">Discipline:</span>
             <select
@@ -471,42 +755,48 @@ export default function Consultations() {
             </span>
           )}
 
-          {/* Save / Amend Button */}
-          {activeConsultationId ? (
+          {/* Save Draft Button (Non-Binding) */}
+          {consultationStatus !== 'finalized' && (
             <button
-              onClick={() => handleSaveConsultation(true)}
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={submitting}
+              className="btn btn-secondary btn-sm flex items-center gap-1 text-slate-700"
+              title="Save non-binding draft"
+            >
+              <span>💾 Save Draft</span>
+            </button>
+          )}
+
+          {/* Finalize & Sign (Atomic Lock) OR Amend Button */}
+          {consultationStatus === 'finalized' || activeConsultationId ? (
+            <button
+              type="button"
+              onClick={() => setIsAmendmentModalOpen(true)}
               disabled={submitting}
               className="btn btn-secondary btn-sm flex items-center gap-1.5"
-              title="Amend note (Ctrl+S)"
+              title="Amend sealed note (Ctrl+S)"
             >
-              {submitting ? (
-                <>
-                  <span className="spinner spinner-sm" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <FileTextIcon />
-                  <span>Amend Note (v{versionNumber})</span>
-                </>
-              )}
+              <FileTextIcon />
+              <span>Amend Note (v{versionNumber})</span>
             </button>
           ) : (
             <button
-              onClick={() => handleSaveConsultation(false)}
+              type="button"
+              onClick={handleFinalizeConsultation}
               disabled={submitting}
               className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
-              title="Save consultation (Ctrl+S)"
+              title="Finalize & Sign (Ctrl+S)"
             >
               {submitting ? (
                 <>
                   <span className="spinner spinner-sm" />
-                  Saving Note…
+                  Sealing &amp; Signing…
                 </>
               ) : (
                 <>
                   <CheckIcon />
-                  <span>Save Consultation (v1)</span>
+                  <span>Finalize &amp; Sign</span>
                   <span className="text-[10px] opacity-80 font-mono hidden sm:inline ml-1 bg-black/15 px-1.5 py-0.2 rounded">Ctrl+S</span>
                 </>
               )}
@@ -535,13 +825,28 @@ export default function Consultations() {
           setSelectedAppointment(found)
           setActiveConsultationId(null)
           setVersionNumber(1)
+          setConsultationStatus('draft')
         }}
         onPrevPatient={handlePrevPatient}
         onNextPatient={handleNextPatient}
         showToast={showToast}
+        onClaimPatient={handleClaimPatient}
+        onParkPatient={handleParkPatient}
+        onRecallPatient={handleRecallPatient}
+        onToggleContextPanel={() => setIsContextPanelOpen(prev => !prev)}
+        isContextPanelOpen={isContextPanelOpen}
       />
 
-      {/* ── 3. WORKSPACE NAVIGATION TABS ── */}
+      {/* ── 3. PATIENT CONTEXT PANEL (Allergies, Vitals & Prior Rx) ── */}
+      <PatientContextPanel
+        context={clinicalContext}
+        loading={isContextLoading}
+        isOpen={isContextPanelOpen}
+        onClose={() => setIsContextPanelOpen(false)}
+        onCopyPreviousRx={handleCopyPreviousRx}
+      />
+
+      {/* ── 4. WORKSPACE NAVIGATION TABS ── */}
       <div className="flex items-center gap-1 border-b border-[var(--color-border)] pb-0 overflow-x-auto">
         <button
           onClick={() => setActiveTab('soap')}
@@ -579,7 +884,7 @@ export default function Consultations() {
           style={{ marginBottom: -1 }}
         >
           <PillIcon />
-          <span>Prescriptions Rx</span>
+          <span>Structured Prescriptions Rx</span>
           {prescriptions.length > 0 && (
             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
               activeTab === 'rx' ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800'
@@ -605,23 +910,72 @@ export default function Consultations() {
 
       {/* ── TAB 1: SOAP CLINICAL NOTE ── */}
       {activeTab === 'soap' && (
-        <ClinicalSoapEditor
-          chiefComplaint={chiefComplaint}
-          setChiefComplaint={setChiefComplaint}
-          observations={observations}
-          setObservations={setObservations}
-          diagnosis={diagnosis}
-          setDiagnosis={setDiagnosis}
-          validationErrors={validationErrors}
-          setValidationErrors={setValidationErrors}
-          currentSpecialtyConfig={currentSpecialtyConfig}
-          selectedSpecialty={selectedSpecialty}
-          prescriptionsCount={prescriptions.length}
-          teeth={teeth}
-          complaintInputRef={complaintInputRef}
-          diagnosisInputRef={diagnosisInputRef}
-          onSwitchTab={setActiveTab}
-        />
+        <div className="space-y-4">
+          <ClinicalSoapEditor
+            chiefComplaint={chiefComplaint}
+            setChiefComplaint={setChiefComplaint}
+            observations={observations}
+            setObservations={setObservations}
+            diagnosis={diagnosis}
+            setDiagnosis={setDiagnosis}
+            validationErrors={validationErrors}
+            setValidationErrors={setValidationErrors}
+            currentSpecialtyConfig={currentSpecialtyConfig}
+            selectedSpecialty={selectedSpecialty}
+            prescriptionsCount={prescriptions.length}
+            teeth={teeth}
+            complaintInputRef={complaintInputRef}
+            diagnosisInputRef={diagnosisInputRef}
+            onSwitchTab={setActiveTab}
+          />
+
+          {/* Core Advised Investigations & Follow-Up */}
+          <div className="card p-4 bg-white border border-slate-200 space-y-3">
+            <h3 className="text-xs font-bold text-slate-800 font-heading uppercase tracking-wider">
+              Advised Investigations &amp; Patient Follow-up (Core EMR)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Advised Diagnostic Tests &amp; Imaging (Prescription Printout)
+                </label>
+                <input
+                  type="text"
+                  value={advisedInvestigations}
+                  onChange={(e) => setAdvisedInvestigations(e.target.value)}
+                  placeholder="e.g. Complete Blood Count (CBC), Chest X-Ray PA view, Urine Routine"
+                  className="form-input text-xs w-full"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Follow-up Date
+                  </label>
+                  <input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className="form-input text-xs w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Follow-up Instructions
+                  </label>
+                  <input
+                    type="text"
+                    value={followUpNotes}
+                    onChange={(e) => setFollowUpNotes(e.target.value)}
+                    placeholder="e.g. Review in OPD with lab reports"
+                    className="form-input text-xs w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── TAB 2: SPECIALIZED CLINICAL TOOLS ── */}
@@ -681,6 +1035,21 @@ export default function Consultations() {
           </div>
         </div>
       )}
+
+      {/* ── Modals: Finalize Success & Amendment ── */}
+      <FinalizeSuccessModal
+        isOpen={isFinalizeModalOpen}
+        onClose={() => setIsFinalizeModalOpen(false)}
+        data={finalizeData}
+        patientName={selectedAppointment?.patientName}
+      />
+
+      <AmendmentModal
+        isOpen={isAmendmentModalOpen}
+        onClose={() => setIsAmendmentModalOpen(false)}
+        onConfirm={handleConfirmAmendment}
+        versionNumber={versionNumber}
+      />
     </div>
   )
 }

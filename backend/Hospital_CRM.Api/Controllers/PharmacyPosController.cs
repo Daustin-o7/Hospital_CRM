@@ -30,14 +30,35 @@ public class PharmacyPosController : ControllerBase
         _timezoneService = timezoneService;
     }
 
-    // [RequireModule] already rejected callers without the pharmacy entitlement.
     private Guid TenantId => User.GetTenantId()!.Value;
+
+    /// <summary>Fail-closed Form 20/21 gate: a missing clinic row or licence is "not licensed".</summary>
+    private async Task<Clinic?> GetLicensedClinicAsync(CancellationToken ct)
+    {
+        var clinic = await _db.Clinics.FirstOrDefaultAsync(ct);
+        return clinic != null &&
+               (!string.IsNullOrWhiteSpace(clinic.PharmacyLicenceNumber20) ||
+                !string.IsNullOrWhiteSpace(clinic.PharmacyLicenceNumber21))
+            ? clinic
+            : null;
+    }
 
     [HttpPost("checkout")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Receptionist", "Doctor")]
     public async Task<IActionResult> CheckoutPos([FromBody] PosCheckoutRequest req, CancellationToken ct)
     {
         var tenantId = TenantId;
+
+        // 1. Regulatory Licence Gate (Form 20 / Form 21). Fail closed: no clinic row or no
+        // licence number means no checkout.
+        if (await GetLicensedClinicAsync(ct) is null)
+        {
+            return StatusCode(403, new
+            {
+                error = "pharmacy_licence_missing",
+                message = "Clinic must register Form 20 or Form 21 Retail Drug Licence before dispensing medications."
+            });
+        }
 
         if (req.Items == null || req.Items.Count == 0)
             return BadRequest(new { error = "no_items_in_cart" });
@@ -55,7 +76,7 @@ public class PharmacyPosController : ControllerBase
                 return Ok(new
                 {
                     invoiceId = existing.Id,
-                    invoiceNumber = $"PHARM-{existing.InvoiceNumber:D6}",
+                    invoiceNumber = $"PHARM-{existing.CreatedAt.Year}-{existing.InvoiceNumber:D6}",
                     subtotal = existing.Subtotal,
                     gstAmount = existing.GstAmount,
                     total = existing.Total,
@@ -93,6 +114,12 @@ public class PharmacyPosController : ControllerBase
                 if (!batchMap.TryGetValue(item.DrugBatchId, out var batch))
                     return BadRequest(new { error = $"batch_not_found: {item.DrugBatchId}" });
 
+                if (item.DrugId != batch.DrugId)
+                    return BadRequest(new { error = $"batch_drug_mismatch: {batch.BatchNumber}" });
+
+                if (batch.IsRecalled)
+                    return BadRequest(new { error = $"cannot_dispense_recalled_batch: {batch.BatchNumber}", reason = batch.RecallReason });
+
                 if (batch.ExpiryDate < today)
                     return BadRequest(new { error = $"cannot_dispense_expired_batch: {batch.BatchNumber}" });
 
@@ -101,25 +128,33 @@ public class PharmacyPosController : ControllerBase
 
                 var drug = batch.Drug!;
 
-                // SEC-004: Validate client-supplied UnitPrice against the batch's actual MRP.
-                if (item.UnitPrice > batch.Mrp * 1.01m)
-                    return BadRequest(new { error = $"unit_price_exceeds_mrp: {batch.BatchNumber}", maxPrice = batch.Mrp });
-                if (item.UnitPrice < batch.PurchaseRate * 0.5m)
-                    return BadRequest(new { error = $"unit_price_below_floor: {batch.BatchNumber}", floorPrice = Math.Round(batch.PurchaseRate * 0.5m, 2), mrp = batch.Mrp });
+                // 2. Regulatory Check: Hard-block NDPS digital dispensing
+                if (drug.ScheduleClass == ScheduleClass.NDPS)
+                {
+                    return BadRequest(new
+                    {
+                        error = "ndps_digital_dispensing_prohibited",
+                        message = "NDPS drugs are legally prohibited from digital retail dispensing under NDPS Rules. Physical official triplicate book register required."
+                    });
+                }
 
-                if (drug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
+                if (drug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.ScheduleX)
                 {
                     scheduleH1Items.Add((batch, item.Quantity, drug));
                 }
 
-                var lineAmount = item.UnitPrice * item.Quantity;
-                var gstAmount = Math.Round(lineAmount * (item.GstRate / 100m), 2);
+                // 3. Indian Pharma MRP-Inclusive Reverse GST Calculation.
+                // The patient pays the printed MRP and the catalogue decides the tax rate; the
+                // client's price and GST fields are not trusted.
+                var lineGross = batch.Mrp * item.Quantity;
+                var lineTaxable = Math.Round(lineGross / (1m + (drug.GstRate / 100m)), 2);
+                var lineGst = lineGross - lineTaxable;
 
-                subtotal += lineAmount;
-                totalGst += gstAmount;
+                subtotal += lineTaxable;
+                totalGst += lineGst;
             }
 
-            // Regulatory Check for Schedule H1 / NDPS
+            // Regulatory Check for Schedule H1
             if (scheduleH1Items.Count > 0)
             {
                 if (string.IsNullOrWhiteSpace(req.PrescriberName) || string.IsNullOrWhiteSpace(req.PrescriberRegNo))
@@ -127,7 +162,7 @@ public class PharmacyPosController : ControllerBase
                     return BadRequest(new
                     {
                         error = "schedule_h1_prescriber_required",
-                        message = "Prescription and Doctor Medical Registration No. are legally mandated under Drugs & Cosmetics Act 2013 Gazette for Schedule H1 / NDPS drugs."
+                        message = "Prescription and Doctor Medical Registration No. are legally mandated under Drugs & Cosmetics Act for Schedule H1/ScheduleX drugs."
                     });
                 }
 
@@ -142,14 +177,11 @@ public class PharmacyPosController : ControllerBase
                 }
             }
 
-            // Deduct stock
-            foreach (var item in req.Items)
-            {
-                var batch = batchMap[item.DrugBatchId];
-                batch.QuantityRemaining -= item.Quantity;
-            }
+            var year = DateTime.UtcNow.Year;
+            var maxInvoiceNumber = await _db.Invoices
+                .Where(i => i.InvoiceType == InvoiceType.Pharmacy && i.CreatedAt.Year == year)
+                .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
 
-            var maxInvoiceNumber = await _db.Invoices.MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
             var invoiceTotal = subtotal + totalGst;
 
             var invoice = new Invoice
@@ -170,11 +202,30 @@ public class PharmacyPosController : ControllerBase
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
+            // Deduct stock & create stock movements
             foreach (var item in req.Items)
             {
                 var batch = batchMap[item.DrugBatchId];
                 var drug = batch.Drug!;
-                var lineAmount = item.UnitPrice * item.Quantity;
+                batch.QuantityRemaining -= item.Quantity;
+
+                _db.DrugStockMovements.Add(new DrugStockMovement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    DrugId = drug.Id,
+                    DrugBatchId = batch.Id,
+                    Quantity = item.Quantity,
+                    Direction = MovementDirection.Out,
+                    ReferenceType = "Dispense",
+                    ReferenceId = invoice.Id,
+                    Note = $"POS Checkout Inv #PHARM-{year}-{(invoice.InvoiceNumber):D6}",
+                    RecordedBy = currentUserId,
+                    RecordedAt = DateTimeOffset.UtcNow
+                });
+
+                var lineGross = batch.Mrp * item.Quantity;
+                var lineTaxable = Math.Round(lineGross / (1m + (drug.GstRate / 100m)), 2);
 
                 invoice.LineItems.Add(new InvoiceLineItem
                 {
@@ -182,9 +233,9 @@ public class PharmacyPosController : ControllerBase
                     InvoiceId = invoice.Id,
                     Description = $"{drug.Name} (Batch: {batch.BatchNumber})",
                     Quantity = item.Quantity,
-                    UnitPrice = item.UnitPrice,
-                    Amount = lineAmount,
-                    GstRate = item.GstRate,
+                    UnitPrice = batch.Mrp,
+                    Amount = lineTaxable,
+                    GstRate = drug.GstRate,
                     HsnCode = drug.HsnCode,
                     DrugBatchId = batch.Id
                 });
@@ -243,7 +294,7 @@ public class PharmacyPosController : ControllerBase
             return StatusCode(201, new
             {
                 invoiceId = invoice.Id,
-                invoiceNumber = $"PHARM-{invoice.InvoiceNumber:D6}",
+                invoiceNumber = $"PHARM-{year}-{invoice.InvoiceNumber:D6}",
                 subtotal = invoice.Subtotal,
                 gstAmount = invoice.GstAmount,
                 total = invoice.Total,
@@ -302,7 +353,16 @@ public class PharmacyPosController : ControllerBase
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
-            // Restore batch quantities
+            // A concurrent return can pass the pre-transaction check; the fresh read inside the
+            // serialisable transaction (with retry) makes the second one a no-op.
+            var currentStatus = await _db.Invoices.AsNoTracking()
+                .Where(i => i.Id == invoiceId)
+                .Select(i => (InvoiceStatus?)i.Status)
+                .FirstOrDefaultAsync(ct);
+            if (currentStatus == InvoiceStatus.Refunded)
+                return BadRequest(new { error = "already_refunded" });
+
+            // Restore batch quantities & log stock movements
             foreach (var lineItem in invoice.LineItems)
             {
                 if (lineItem.DrugBatchId.HasValue)
@@ -311,11 +371,25 @@ public class PharmacyPosController : ControllerBase
                     if (batch != null)
                     {
                         batch.QuantityRemaining += lineItem.Quantity;
+
+                        _db.DrugStockMovements.Add(new DrugStockMovement
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantId,
+                            DrugId = batch.DrugId,
+                            DrugBatchId = batch.Id,
+                            Quantity = lineItem.Quantity,
+                            Direction = MovementDirection.In,
+                            ReferenceType = "Return",
+                            ReferenceId = invoice.Id,
+                            Note = $"Return for Inv #{invoice.InvoiceNumber}: {req.Reason ?? "Customer return"}",
+                            RecordedBy = currentUserId,
+                            RecordedAt = DateTimeOffset.UtcNow
+                        });
                     }
                 }
             }
 
-            // Create refund payment
             var originalPayment = invoice.Payments.FirstOrDefault(p => p.Status == PaymentStatus.Completed);
             var refundMethod = originalPayment?.Method ?? PaymentMethod.Cash;
             var refundAmount = invoice.Total;
@@ -341,7 +415,7 @@ public class PharmacyPosController : ControllerBase
 
             invoice.Status = InvoiceStatus.Refunded;
 
-            // Reverse ControlledSubstanceRegister entries for scheduled drugs
+            // Reverse ControlledSubstanceRegister entries
             var scheduledRegisters = await _db.ControlledSubstanceRegisters
                 .Where(r => r.InvoiceId == invoiceId)
                 .ToListAsync(ct);
@@ -371,11 +445,12 @@ public class PharmacyPosController : ControllerBase
             await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
+            var year = invoice.CreatedAt.Year;
             return StatusCode(201, new
             {
                 refundId = refundPayment.Id,
                 originalInvoiceId = invoice.Id,
-                invoiceNumber = $"PHARM-{invoice.InvoiceNumber:D6}",
+                invoiceNumber = $"PHARM-{year}-{invoice.InvoiceNumber:D6}",
                 refundAmount,
                 refundMethod = refundMethod.ToString(),
                 status = "refunded",
@@ -412,13 +487,16 @@ public class PharmacyPosController : ControllerBase
                           && i.CreatedAt < endOfTodayUtc, ct);
 
         var expiringSoonBatches = await _db.DrugBatches
-            .CountAsync(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && b.ExpiryDate <= sixtyDaysLater, ct);
+            .CountAsync(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && b.ExpiryDate <= sixtyDaysLater && !b.IsRecalled, ct);
 
         var expiredBatches = await _db.DrugBatches
             .CountAsync(b => b.QuantityRemaining > 0 && b.ExpiryDate < today, ct);
 
+        var recalledBatches = await _db.DrugBatches
+            .CountAsync(b => b.IsRecalled, ct);
+
         var lowStockCount = await _db.Drugs
-            .Where(d => d.Batches.Where(b => b.ExpiryDate >= today).Sum(b => b.QuantityRemaining) < 20)
+            .Where(d => d.Batches.Where(b => b.ExpiryDate >= today && !b.IsRecalled).Sum(b => b.QuantityRemaining) < 20)
             .CountAsync(ct);
 
         var scheduleH1Today = await _db.ControlledSubstanceRegisters
@@ -431,6 +509,7 @@ public class PharmacyPosController : ControllerBase
             todayInvoicesCount,
             expiringSoonBatches,
             expiredBatches,
+            recalledBatches,
             lowStockCount,
             scheduleH1Today
         });

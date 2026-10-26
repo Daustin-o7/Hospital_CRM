@@ -18,6 +18,15 @@ public class Appointment : ITenantScoped
     public AppointmentPriority Priority { get; set; } = AppointmentPriority.Normal;
     public int? QueueToken { get; set; }
     
+    [MaxLength(128)]
+    public string? QueueTrackingToken { get; set; }
+
+    [MaxLength(50)]
+    public string? TriageReasonCode { get; set; }
+
+    public Guid? TriageConfirmedBy { get; set; }
+    public DateTimeOffset? TriageConfirmedAt { get; set; }
+    
     public DateTimeOffset CreatedAt { get; set; }
     [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -33,6 +33,13 @@ REVOKE UPDATE, DELETE ON TABLE "PriorityLogs" FROM app_user;
 REVOKE UPDATE, DELETE ON TABLE "ImpersonationLogs" FROM app_user;
 REVOKE UPDATE, DELETE ON TABLE "AppointmentHistories" FROM app_user;
 REVOKE UPDATE, DELETE ON TABLE "ControlledSubstanceRegisters" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "AuthAuditLogs" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "DrugStockMovements" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "MedicineSearchMissLogs" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "PrescriptionPrintLogs" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "FinanceLedgerEntries" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "InvoicePrintLogs" FROM app_user;
+REVOKE UPDATE, DELETE ON TABLE "CreditNotes" FROM app_user;
 
 GRANT INSERT, SELECT ON TABLE "PatientAuditLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "NurseAuditLogs" TO app_user;
@@ -42,6 +49,13 @@ GRANT INSERT, SELECT ON TABLE "ImpersonationLogs" TO app_user;
 GRANT UPDATE ("EndedAt") ON TABLE "ImpersonationLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "AppointmentHistories" TO app_user;
 GRANT INSERT, SELECT ON TABLE "ControlledSubstanceRegisters" TO app_user;
+GRANT INSERT, SELECT ON TABLE "AuthAuditLogs" TO app_user;
+GRANT INSERT, SELECT ON TABLE "DrugStockMovements" TO app_user;
+GRANT INSERT, SELECT ON TABLE "MedicineSearchMissLogs" TO app_user;
+GRANT INSERT, SELECT ON TABLE "PrescriptionPrintLogs" TO app_user;
+GRANT INSERT, SELECT ON TABLE "FinanceLedgerEntries" TO app_user;
+GRANT INSERT, SELECT ON TABLE "InvoicePrintLogs" TO app_user;
+GRANT INSERT, SELECT ON TABLE "CreditNotes" TO app_user;
 
 -- 6. Invalidate Legacy Sessions on Key Rotation
 UPDATE "RefreshTokens" SET "RevokedAt" = NOW() WHERE "RevokedAt" IS NULL;

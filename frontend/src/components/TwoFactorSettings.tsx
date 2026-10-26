@@ -13,11 +13,12 @@ interface Status {
 }
 
 /**
- * Opt-in second factor. Every role — the platform owner included — decides for their
- * own account: authenticator app (offline, no cost) or a 6-digit code by email.
+ * Second factor. Some roles (admin, doctor, front-desk billing) must enrol before using the
+ * console; everyone else chooses for their own account: authenticator app (offline, no cost)
+ * or a 6-digit code by email.
  */
 export default function TwoFactorSettings() {
-  const { adoptSession, user } = useAuth()
+  const { adoptSession, user, mfaRequiredForRole } = useAuth()
   const [status, setStatus] = useState<Status | null>(null)
   const [method, setMethod] = useState<Method>('totp')
   const [pending, setPending] = useState<{ secret: string; otpauthUri: string | null } | null>(null)
@@ -111,7 +112,9 @@ export default function TwoFactorSettings() {
         <div>
           <h2 className="section-title">Two-factor authentication</h2>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            A second step at sign-in. Optional — turn it on or off whenever you like.
+            {mfaRequiredForRole
+              ? 'Mandatory for your role: administrators, doctors, billing roles and platform admins.'
+              : 'A second step at sign-in. Optional — turn it on or off whenever you like.'}
           </p>
         </div>
         {status && (
@@ -130,31 +133,42 @@ export default function TwoFactorSettings() {
       {!status ? (
         <Skeleton height={72} />
       ) : status.enabled ? (
-        <form onSubmit={disable} className="space-y-4">
+        mfaRequiredForRole ? (
+          // The API rejects this for mandatory-MFA roles, so do not offer the control at all.
           <p className="text-sm text-[var(--color-text)]">
             Signing in needs{' '}
             {status.method === 'email'
               ? 'a 6-digit code emailed to you'
               : 'a code from your authenticator app'}
-            .
+            . Your role requires it, so it cannot be turned off.
           </p>
-          <div>
-            <label htmlFor="mfa-off-password" className="form-label">Password</label>
-            <input
-              id="mfa-off-password"
-              type="password"
-              className="form-input"
-              autoComplete="current-password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={busy}
-            />
-          </div>
-          <button type="submit" className="btn btn-danger" disabled={busy}>
-            {busy ? 'Turning off…' : 'Turn off two-factor authentication'}
-          </button>
-        </form>
+        ) : (
+          <form onSubmit={disable} className="space-y-4">
+            <p className="text-sm text-[var(--color-text)]">
+              Signing in needs{' '}
+              {status.method === 'email'
+                ? 'a 6-digit code emailed to you'
+                : 'a code from your authenticator app'}
+              .
+            </p>
+            <div>
+              <label htmlFor="mfa-off-password" className="form-label">Password</label>
+              <input
+                id="mfa-off-password"
+                type="password"
+                className="form-input"
+                autoComplete="current-password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={busy}
+              />
+            </div>
+            <button type="submit" className="btn btn-danger" disabled={busy}>
+              {busy ? 'Turning off…' : 'Turn off two-factor authentication'}
+            </button>
+          </form>
+        )
       ) : pending ? (
         <form onSubmit={enable} className="space-y-4">
           {method === 'totp' && (

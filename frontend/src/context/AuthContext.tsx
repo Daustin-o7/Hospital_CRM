@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api, { setAccessToken, getAccessToken, setRefreshToken, getRefreshToken, clearTokens, refreshClient } from '../services/api'
+import api, { setAccessToken, getAccessToken, clearTokens, refreshClient } from '../services/api'
 import { clearOutbox } from '../services/offlineOutbox'
 import { userManager, isEntraConfigured } from '../services/oidc'
 
@@ -9,6 +9,16 @@ interface User {
   name: string
   email: string
   role: string
+}
+
+export interface TenantMembership {
+  tenantId: string
+  tenantName?: string
+  clinicId?: string | null
+  clinicName: string
+  role: string
+  isDefault: boolean
+  status?: string
 }
 
 export interface ImpersonationSession {
@@ -26,13 +36,20 @@ export interface LoginResult {
   challengeToken?: string
   // Which second factor the account enrolled, so the code step can label itself.
   method?: 'totp' | 'email'
+  requiresTenantSelection?: boolean
+  selectionToken?: string
+  memberships?: TenantMembership[]
 }
 
 interface SessionPayload {
   accessToken: string
-  refreshToken?: string
   expiresIn?: number
+  tenantId?: string | null
+  clinicId?: string | null
+  mfaEnrolmentRequired?: boolean
+  mfaRequiredForRole?: boolean
   user: User
+  memberships?: TenantMembership[]
 }
 
 function claimsFromToken(token: string | null): Record<string, unknown> {
@@ -46,19 +63,29 @@ function claimsFromToken(token: string | null): Record<string, unknown> {
 }
 
 // A1 flags live in the token, so a reload restores the same gate without another call.
-// Second-factor enrolment is opt-in (Settings), never a gate.
+// Second-factor enrolment is mandatory for admin/doctor/billing roles.
 function accountFlagsFrom(token: string | null) {
   const claims = claimsFromToken(token)
   return {
     mustChangePassword: claims.must_change_password === 'true',
+    mfaEnrolmentRequired: claims.mfa_enrolment_required === 'true',
   }
 }
 
 export interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<LoginResult>
-  completeMfa: (challengeToken: string, code: string) => Promise<void>
+  memberships: TenantMembership[]
+  currentTenantId: string | null
+  currentClinicId: string | null
+  mfaEnrolmentRequired: boolean
+  mfaRequiredForRole: boolean
+  login: (email: string, password: string, tenantId?: string) => Promise<LoginResult>
+  completeMfa: (challengeToken: string, code: string) => Promise<LoginResult | void>
+  selectTenant: (tenantId: string, selectionToken?: string, clinicId?: string | null) => Promise<void>
+  switchTenant: (tenantId: string, clinicId?: string | null) => Promise<void>
+  revokeAllSessions: () => Promise<void>
+  refreshMemberships: () => Promise<void>
   adoptSession: (session: SessionPayload) => void
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   mustChangePassword: boolean
@@ -84,7 +111,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [accountFlags, setAccountFlags] = useState({ mustChangePassword: false })
+  const [memberships, setMemberships] = useState<TenantMembership[]>([])
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null)
+  const [currentClinicId, setCurrentClinicId] = useState<string | null>(null)
+  const [accountFlags, setAccountFlags] = useState({ mustChangePassword: false, mfaEnrolmentRequired: false })
+  const [mfaRequiredForRole, setMfaRequiredForRole] = useState(false)
   const [impersonation, setImpersonation] = useState<ImpersonationSession | null>(() => {
     try {
       const raw = sessionStorage.getItem('samstack_impersonation')
@@ -112,7 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     clearTokens()
     setUser(null)
-    setAccountFlags({ mustChangePassword: false })
+    setMemberships([])
+    setCurrentTenantId(null)
+    setCurrentClinicId(null)
+    setAccountFlags({ mustChangePassword: false, mfaEnrolmentRequired: false })
+    setMfaRequiredForRole(false)
     // Unsaved consultation drafts hold patient data; never leave them on a shared device.
     Object.keys(localStorage)
       .filter(k => k.startsWith('hospital_crm_draft_'))
@@ -141,14 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Never refresh the admin's session while impersonating: it would replace the
         // read-only impersonation token with the admin's and silently escape the limits.
         if (sessionStorage.getItem('samstack_impersonation')) return
-        const refreshToken = getRefreshToken()
-        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        const res = await refreshClient.post('/auth/refresh', {})
         if (res.status === 204 || !res.data?.accessToken) return
-        const { accessToken, refreshToken: newRefreshToken, expiresIn } = res.data
+        const { accessToken, expiresIn, tenantId, clinicId, memberships: nextMemberships, mfaRequiredForRole: roleNeedsMfa } = res.data
         setAccessToken(accessToken)
-        if (newRefreshToken) {
-          setRefreshToken(newRefreshToken)
-        }
+        if (tenantId) setCurrentTenantId(tenantId)
+        if (clinicId) setCurrentClinicId(clinicId)
+        if (Array.isArray(nextMemberships)) setMemberships(nextMemberships)
+        if (typeof roleNeedsMfa === 'boolean') setMfaRequiredForRole(roleNeedsMfa)
         scheduleProactiveRefresh(expiresIn || 900)
       } catch {
         // Fall back to reactive interceptor or logout
@@ -172,23 +207,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adoptSession = useCallback((session: SessionPayload) => {
     setAccessToken(session.accessToken)
-    if (session.refreshToken) setRefreshToken(session.refreshToken)
     if (session.user) setUser(session.user)
+    const claims = claimsFromToken(session.accessToken)
+    const tokenTenantId = (claims.tenant_id as string) || session.tenantId || null
+    const tokenClinicId = (claims.clinicId as string) || session.clinicId || null
+    setCurrentTenantId(tokenTenantId)
+    setCurrentClinicId(tokenClinicId)
+    if (session.memberships && Array.isArray(session.memberships)) {
+      setMemberships(session.memberships)
+    }
     setAccountFlags(accountFlagsFrom(session.accessToken))
+    setMfaRequiredForRole(session.mfaRequiredForRole === true)
     scheduleProactiveRefresh(session.expiresIn || 900)
   }, [scheduleProactiveRefresh])
 
-  // A1: send the user where the token says they must go (password, or the app).
+  // A session holding a temporary password or a mandatory second factor may not use the app shell.
   const routeAfterSession = useCallback((session: SessionPayload) => {
-    if (accountFlagsFrom(session.accessToken).mustChangePassword) {
+    const flags = accountFlagsFrom(session.accessToken)
+    if (flags.mustChangePassword) {
       navigate('/change-password')
+      return
+    }
+    if (flags.mfaEnrolmentRequired) {
+      navigate('/setup-mfa')
       return
     }
     navigate(String(session.user?.role || '').toLowerCase() === 'platformadmin' ? '/dashboard/platform-admin' : '/dashboard')
   }, [navigate])
 
-  const completeMfa = useCallback(async (challengeToken: string, code: string) => {
+  const completeMfa = useCallback(async (challengeToken: string, code: string): Promise<LoginResult | void> => {
     const res = await api.post('/auth/mfa/verify', { challengeToken, code })
+    if (res.data?.requiresTenantSelection) {
+      return {
+        mfaRequired: false,
+        requiresTenantSelection: true,
+        selectionToken: res.data.selectionToken,
+        memberships: res.data.memberships
+      }
+    }
     adoptSession(res.data)
     routeAfterSession(res.data)
   }, [adoptSession, routeAfterSession])
@@ -199,12 +255,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     routeAfterSession(res.data)
   }, [adoptSession, routeAfterSession])
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
-    const res = await api.post('/auth/login', { email, password })
+  const selectTenant = useCallback(async (tenantId: string, selectionToken?: string, clinicId?: string | null) => {
+    const res = await api.post('/auth/select-tenant', { tenantId, clinicId: clinicId ?? null, selectionToken })
+    adoptSession(res.data)
+    routeAfterSession(res.data)
+  }, [adoptSession, routeAfterSession])
+
+  const switchTenant = useCallback(async (tenantId: string, clinicId?: string | null) => {
+    // A clinic switch mints a new token scoped to that one tenant; never reuse the old one.
+    const res = await api.post('/auth/select-tenant', { tenantId, clinicId: clinicId ?? null })
+    adoptSession(res.data)
+    if (String(user?.role || '').toLowerCase() === 'platformadmin') {
+      navigate('/dashboard/platform-admin')
+    } else {
+      navigate('/dashboard')
+    }
+  }, [adoptSession, navigate, user?.role])
+
+  const refreshMemberships = useCallback(async () => {
+    try {
+      const res = await api.get('/auth/memberships')
+      if (Array.isArray(res.data)) {
+        setMemberships(res.data)
+      }
+    } catch {
+      // non-blocking
+    }
+  }, [])
+
+  const revokeAllSessions = useCallback(async () => {
+    try {
+      await api.post('/auth/revoke-all', {})
+    } catch {
+      // Non-blocking
+    }
+    clearTokens()
+    setUser(null)
+    setMemberships([])
+    setCurrentTenantId(null)
+    setCurrentClinicId(null)
+    setAccountFlags({ mustChangePassword: false, mfaEnrolmentRequired: false })
+    setMfaRequiredForRole(false)
+    // Same device hygiene as logout: no patient data left behind on a shared front desk.
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('hospital_crm_draft_'))
+      .forEach(k => localStorage.removeItem(k))
+    clearOutbox()
+    navigate('/login')
+  }, [navigate])
+
+  const login = useCallback(async (email: string, password: string, tenantId?: string): Promise<LoginResult> => {
+    const res = await api.post('/auth/login', { email, password, tenantId })
 
     // With a second factor enrolled the password only buys a 5-minute challenge.
     if (res.data?.mfaRequired) {
       return { mfaRequired: true, challengeToken: res.data.challengeToken, method: res.data.method }
+    }
+
+    if (res.data?.requiresTenantSelection) {
+      return {
+        mfaRequired: false,
+        requiresTenantSelection: true,
+        selectionToken: res.data.selectionToken,
+        memberships: res.data.memberships
+      }
     }
 
     adoptSession(res.data)
@@ -258,21 +372,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Standard refresh token flow (storage or HttpOnly cookie)
-      const refreshToken = getRefreshToken()
+      // 2. Refresh from the HttpOnly cookie (no token is ever kept in JS storage)
       try {
-        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
+        const res = await refreshClient.post('/auth/refresh', {})
         if (res.status === 204 || !res.data?.accessToken) {
           // No session on this device (204) - stay signed out without an error.
           setLoading(false)
           return
         }
-        const { accessToken, refreshToken: newRefreshToken, expiresIn, user: userData } = res.data
+        const { accessToken, expiresIn, user: userData, memberships: savedMemberships, tenantId, clinicId, mfaRequiredForRole: roleNeedsMfa } = res.data
         setAccessToken(accessToken)
-        if (newRefreshToken) {
-          setRefreshToken(newRefreshToken)
-        }
         setUser(userData)
+        if (tenantId) setCurrentTenantId(tenantId)
+        if (clinicId) setCurrentClinicId(clinicId)
+        if (Array.isArray(savedMemberships)) setMemberships(savedMemberships)
+        if (typeof roleNeedsMfa === 'boolean') setMfaRequiredForRole(roleNeedsMfa)
         setAccountFlags(accountFlagsFrom(accessToken))
         scheduleProactiveRefresh(expiresIn || 900)
       } catch {
@@ -294,11 +408,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     // 1. Back up original admin state to sessionStorage
     const currentToken = getAccessToken()
-    const currentRefreshToken = getRefreshToken()
     const backup = {
       adminUser: user,
-      accessToken: currentToken,
-      refreshToken: currentRefreshToken
+      accessToken: currentToken
     }
     sessionStorage.setItem('samstack_admin_backup', JSON.stringify(backup))
 
@@ -344,7 +456,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const backup = JSON.parse(rawBackup)
         if (backup.accessToken) setAccessToken(backup.accessToken)
-        if (backup.refreshToken) setRefreshToken(backup.refreshToken)
         if (backup.adminUser) setUser(backup.adminUser)
       } catch {
         // fallback
@@ -373,8 +484,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
+        memberships,
+        currentTenantId,
+        currentClinicId,
+        mfaEnrolmentRequired: accountFlags.mfaEnrolmentRequired,
+        mfaRequiredForRole,
         login,
         completeMfa,
+        selectTenant,
+        switchTenant,
+        revokeAllSessions,
+        refreshMemberships,
         adoptSession,
         changePassword,
         mustChangePassword: accountFlags.mustChangePassword,

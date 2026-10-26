@@ -7,6 +7,17 @@ import { friendlyError } from '../components/ui/Alert'
 import { useToast } from '../context/ToastContext'
 import { CLINICAL_SPECIALTIES, getDoctorSpecialty } from '../constants/clinicalSpecialties'
 
+export const STRUCTURED_TRIAGE_REASONS = [
+  { code: 'chest_pain', label: 'Severe Chest Pain / Pressure', severe: true },
+  { code: 'breathing_difficulty', label: 'Severe Shortness of Breath / Wheezing', severe: true },
+  { code: 'severe_trauma', label: 'Severe Head Trauma / Active Hemorrhage', severe: true },
+  { code: 'loss_of_consciousness', label: 'Syncope / Altered Mental Status', severe: true },
+  { code: 'acute_abdomen', label: 'Acute Severe Abdominal Pain', severe: false },
+  { code: 'high_fever_infant', label: 'High Fever in Infant (< 3 Months)', severe: false },
+  { code: 'severe_allergic_reaction', label: 'Anaphylaxis / Facial Swelling', severe: true },
+  { code: 'other_clinical_urgency', label: 'Other Clinician Urgency', severe: false },
+]
+
 interface QueueAppointment {
   id: string
   patientId?: string
@@ -14,8 +25,10 @@ interface QueueAppointment {
   patientName: string
   doctorName: string
   time: string
-  status: 'expected' | 'waiting' | 'completed'
+  status: 'expected' | 'waiting' | 'in_nursing' | 'in_consultation' | 'completed'
   priority: 'normal' | 'emergency'
+  triageReasonCode?: string
+  triageConfirmed?: boolean
 }
 
 interface PriorityLogEntry {
@@ -30,10 +43,14 @@ const todayParam = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const mapStatus = (status: string): QueueAppointment['status'] =>
-  status === 'checked_in' ? 'waiting'
-  : status === 'completed' ? 'completed'
-  : 'expected'
+const mapStatus = (status: string): QueueAppointment['status'] => {
+  const s = status.toLowerCase()
+  if (s === 'checked_in' || s === 'checkedin') return 'waiting'
+  if (s === 'in_nursing' || s === 'innursing') return 'in_nursing'
+  if (s === 'in_consultation' || s === 'inconsultation') return 'in_consultation'
+  if (s === 'completed') return 'completed'
+  return 'expected'
+}
 
 export default function Queue() {
   const navigate = useNavigate()
@@ -48,6 +65,7 @@ export default function Queue() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<QueueAppointment | null>(null)
+  const [selectedTriageCode, setSelectedTriageCode] = useState('chest_pain')
   const [emergencyReason, setEmergencyReason] = useState('')
   const [reasonError, setReasonError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -86,6 +104,7 @@ export default function Queue() {
 
   const openEmergencyModal = (patient: QueueAppointment) => {
     setSelectedPatient(patient)
+    setSelectedTriageCode('chest_pain')
     setEmergencyReason('')
     setReasonError('')
     setModalOpen(true)
@@ -97,37 +116,53 @@ export default function Queue() {
     setTimeout(() => setCallingToken(null), 6000)
   }
 
-  const handleStartConsultation = (patient: QueueAppointment) => {
+  const handleTransitionStatus = async (patient: QueueAppointment, newStatus: string) => {
+    try {
+      await api.put(`/appointments/${patient.id}`, { status: newStatus })
+      toast(`Patient ${patient.patientName} status updated to ${newStatus.replace('_', ' ').toUpperCase()}`)
+      fetchQueue(true)
+    } catch (err) {
+      toast(friendlyError(err))
+    }
+  }
+
+  const handleStartConsultation = async (patient: QueueAppointment) => {
     const spec = getDoctorSpecialty(patient.doctorName)
+    try {
+      if (patient.status === 'waiting' || patient.status === 'in_nursing') {
+        await api.put(`/appointments/${patient.id}`, { status: 'in_consultation' })
+      }
+    } catch { /* proceed to navigate */ }
     navigate(`/dashboard/consultations?patientId=${patient.patientId || ''}&appointmentId=${patient.id}&specialty=${spec.id}`)
   }
 
   const submitPriorityChange = async (newPriority: 'emergency' | 'normal') => {
     if (!selectedPatient || saving) return
 
-    if (newPriority === 'emergency' && emergencyReason.trim().length < 10) {
-      setReasonError('Please provide a specific clinical reason (minimum 10 characters).')
-      return
-    }
-
     setSaving(true)
     try {
-      const res = await api.patch(`/appointments/${selectedPatient.id}/priority`, {
-        priority: newPriority,
-        reason: emergencyReason.trim() || null,
-      })
+      const payload: any = { priority: newPriority }
+      if (newPriority === 'emergency') {
+        payload.triageReasonCode = selectedTriageCode
+        payload.reason = emergencyReason.trim() || undefined
+      }
+      const res = await api.patch(`/appointments/${selectedPatient.id}/priority`, payload)
       if (!res.data.unchanged) {
-        setAppointments(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority } : p))
+        setAppointments(prev => prev.map(p => p.id === selectedPatient.id ? { ...p, priority: newPriority, triageReasonCode: res.data.triageReasonCode } : p))
         setLogs(prev => [
           {
             time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
             user: selectedPatient.patientName,
             change: `${selectedPatient.priority === 'emergency' ? 'Emergency → Normal' : 'Normal → Emergency'}`,
-            reason: emergencyReason.trim() || 'Status updated by staff',
+            reason: selectedTriageCode ? `${selectedTriageCode}: ${emergencyReason.trim() || 'Urgent protocol'}` : emergencyReason.trim(),
           },
           ...prev,
         ])
-        toast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
+        if (res.data.hospitalReferralAdvisory) {
+          toast(`⚠️ ${res.data.hospitalReferralAdvisory}`)
+        } else {
+          toast(`Priority for ${selectedPatient.patientName} updated to ${newPriority.toUpperCase()}.`)
+        }
       } else {
         toast(`Priority for ${selectedPatient.patientName} was already ${newPriority.toUpperCase()}.`)
       }
@@ -399,9 +434,17 @@ export default function Queue() {
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Emergency
                             </span>
                           ) : null}
-                          {isWaiting ? (
+                          {patient.status === 'waiting' ? (
                             <span className="badge badge-warning">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Lobby
+                            </span>
+                          ) : patient.status === 'in_nursing' ? (
+                            <span className="badge badge-info">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span> In Nursing
+                            </span>
+                          ) : patient.status === 'in_consultation' ? (
+                            <span className="badge badge-primary">
+                              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span> In Consultation
                             </span>
                           ) : isCompleted ? (
                             <span className="badge badge-success">Completed</span>
@@ -414,6 +457,15 @@ export default function Queue() {
                         <div className="flex items-center justify-end gap-1.5">
                           {isWaiting && (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => handleTransitionStatus(patient, 'in_nursing')}
+                                className="btn btn-secondary btn-sm"
+                                title="Send patient to nurse station for vitals"
+                                style={{ fontSize: '11px', padding: '3px 8px' }}
+                              >
+                                👩‍⚕️ Nursing
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleCallPatient(patient)}
@@ -443,6 +495,18 @@ export default function Queue() {
                                 {patient.priority === 'emergency' ? 'Set Normal' : 'Triage 🚨'}
                               </button>
                             </>
+                          )}
+
+                          {patient.status === 'in_nursing' && (
+                            <button
+                              type="button"
+                              onClick={() => handleTransitionStatus(patient, 'in_consultation')}
+                              className="btn btn-primary btn-sm"
+                              title="Nursing complete — ready for doctor"
+                              style={{ fontSize: '11px', padding: '3px 8px' }}
+                            >
+                              🩺 Ready for Doctor
+                            </button>
                           )}
 
                           {isCompleted && (
@@ -500,29 +564,60 @@ export default function Queue() {
         <Modal
           open={modalOpen}
           onClose={() => setModalOpen(false)}
-          title={selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Mark Patient as Emergency'}
+          title={selectedPatient.priority === 'emergency' ? 'Revert to Normal Priority' : 'Clinical Triage & Escalation'}
           description={`Patient: ${selectedPatient.patientName} (${selectedPatient.tokenNumber})`}
-          size="sm"
+          size="md"
         >
           <div className="space-y-4">
             {selectedPatient.priority !== 'emergency' && (
-              <div>
-                <label className="form-label">
-                  Clinical Rationale for Escalation <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={emergencyReason}
-                  onChange={(e) => {
-                    setEmergencyReason(e.target.value)
-                    setReasonError('')
-                  }}
-                  placeholder="e.g. Acute severe chest pain, hypoxemia SpO2 < 90%, traumatic bleeding..."
-                  className="form-textarea"
-                />
-                {reasonError && (
-                  <p className="form-error font-semibold mt-1">{reasonError}</p>
+              <div className="space-y-3.5">
+                <div>
+                  <label className="form-label text-xs font-bold text-[var(--color-text)]">
+                    Structured Clinical Reason <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={selectedTriageCode}
+                    onChange={(e) => setSelectedTriageCode(e.target.value)}
+                    className="form-select w-full text-xs"
+                  >
+                    {STRUCTURED_TRIAGE_REASONS.map(r => (
+                      <option key={r.code} value={r.code}>
+                        {r.label} {r.severe ? '(Critical Hospital Risk)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {STRUCTURED_TRIAGE_REASONS.find(r => r.code === selectedTriageCode)?.severe && (
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg text-xs text-rose-800 dark:text-rose-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span className="text-sm">⚠️</span>
+                      <span>Immediate Hospital Referral Recommended</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-400">
+                      This CRM serves outpatient clinics. This patient exhibits critical symptoms that may require emergency resuscitation or immediate hospital admission.
+                    </p>
+                  </div>
                 )}
+
+                <div>
+                  <label className="form-label text-xs">
+                    Clinical Observations / Notes (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={emergencyReason}
+                    onChange={(e) => {
+                      setEmergencyReason(e.target.value)
+                      setReasonError('')
+                    }}
+                    placeholder="e.g. SpO2 88%, severe diaphoresis, acute chest tightness..."
+                    className="form-textarea text-xs"
+                  />
+                  {reasonError && (
+                    <p className="form-error font-semibold mt-1">{reasonError}</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -530,7 +625,7 @@ export default function Queue() {
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="btn btn-secondary cursor-pointer"
+                className="btn btn-secondary cursor-pointer text-xs"
               >
                 Cancel
               </button>
@@ -539,7 +634,7 @@ export default function Queue() {
                   type="button"
                   onClick={() => submitPriorityChange('normal')}
                   disabled={saving}
-                  className="btn btn-secondary cursor-pointer"
+                  className="btn btn-secondary cursor-pointer text-xs"
                 >
                   {saving ? 'Saving…' : 'Confirm Revert'}
                 </button>
@@ -548,9 +643,9 @@ export default function Queue() {
                   type="button"
                   onClick={() => submitPriorityChange('emergency')}
                   disabled={saving}
-                  className="btn btn-danger cursor-pointer"
+                  className="btn btn-danger cursor-pointer text-xs font-semibold"
                 >
-                  {saving ? 'Saving…' : 'Escalate to Emergency'}
+                  {saving ? 'Saving…' : 'Escalate Priority 🚨'}
                 </button>
               )}
             </div>

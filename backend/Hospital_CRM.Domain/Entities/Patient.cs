@@ -12,6 +12,9 @@ public class Patient : ITenantScoped
     [MaxLength(255)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(50)]
+    public string? Uhid { get; set; }
+
     [Required]
     [MaxLength(50)]
     public string Phone { get; set; } = string.Empty;

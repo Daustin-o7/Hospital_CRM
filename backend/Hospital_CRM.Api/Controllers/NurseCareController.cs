@@ -152,8 +152,16 @@ public class NurseCareController : ControllerBase
         var caller = await _db.Users.FindAsync([callerId.Value], ct);
         if (caller?.ClinicId is null) return Forbid();
 
-        if (string.IsNullOrWhiteSpace(request.Note))
-            return BadRequest(new { error = "note_required" });
+        var whatHappened = !string.IsNullOrWhiteSpace(request.WhatHappened)
+            ? request.WhatHappened.Trim()
+            : request.Note?.Trim() ?? string.Empty;
+
+        var whatIsPending = !string.IsNullOrWhiteSpace(request.WhatIsPending)
+            ? request.WhatIsPending.Trim()
+            : "None reported";
+
+        if (string.IsNullOrWhiteSpace(whatHappened))
+            return BadRequest(new { error = "what_happened_or_note_required" });
 
         var own = await _db.NurseProfiles
             .FirstOrDefaultAsync(p => p.UserId == callerId.Value && p.User.ClinicId == caller.ClinicId, ct);
@@ -176,7 +184,9 @@ public class NurseCareController : ControllerBase
             AuthorNurseProfileId = own.Id,
             ToNurseProfileId = request.ToNurseProfileId,
             ShiftId = request.ShiftId,
-            Note = request.Note.Trim(),
+            WhatHappened = whatHappened,
+            WhatIsPending = whatIsPending,
+            CriticalAlerts = request.CriticalAlerts?.Trim(),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -216,6 +226,9 @@ public class NurseCareController : ControllerBase
                 authorName = _db.NurseProfiles.Where(p => p.Id == h.AuthorNurseProfileId).Select(p => p.User.Name).FirstOrDefault(),
                 toNurseProfileId = h.ToNurseProfileId,
                 toName = _db.NurseProfiles.Where(p => p.Id == h.ToNurseProfileId).Select(p => p.User.Name).FirstOrDefault(),
+                whatHappened = h.WhatHappened,
+                whatIsPending = h.WhatIsPending,
+                criticalAlerts = h.CriticalAlerts,
                 note = h.Note,
                 createdAt = h.CreatedAt
             })
@@ -234,5 +247,8 @@ public record CreateAssignmentRequest(
 public record CreateHandoverRequest(
     Guid PatientId,
     Guid ToNurseProfileId,
-    string Note,
+    string? Note,
+    string? WhatHappened,
+    string? WhatIsPending,
+    string? CriticalAlerts,
     Guid? ShiftId);

@@ -22,6 +22,9 @@ const patientSchema = z.object({
   approxAge: z.string().optional(),
   gender: z.string().optional(),
   address: z.string().optional(),
+  whatsAppOptIn: z.boolean().optional(),
+  guardianName: z.string().optional(),
+  guardianRelationship: z.string().optional(),
   consent: z.object({
     accepted: z.boolean().refine(v => v === true, 'Patient consent is required under DPDP Act'),
     purpose: z.string().min(1, 'Consent purpose is required'),
@@ -31,8 +34,10 @@ type PatientForm = z.infer<typeof patientSchema>
 
 interface Patient {
   id: string
+  uhid?: string
   name: string
-  phone: string
+  phone?: string
+  phoneLast4?: string
   dob?: string
   approxAge?: number
   gender?: string
@@ -69,6 +74,11 @@ export default function Patients() {
   const [loading, setLoading] = useState(true)
   const [showRegister, setShowRegister] = useState(false)
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
+  const [breakGlassFor, setBreakGlassFor] = useState<string | null>(null)
+  const [breakGlassReasonCode, setBreakGlassReasonCode] = useState('emergency')
+  const [breakGlassReason, setBreakGlassReason] = useState('')
+  const [breakGlassError, setBreakGlassError] = useState('')
+  const [breakGlassBusy, setBreakGlassBusy] = useState(false)
   const [submitError, setSubmitError] = useState('')
   
   // Duplicate Resolution State
@@ -136,14 +146,41 @@ export default function Patients() {
     try {
       const res = await api.get(`/patients/${id}`)
       setViewingPatient(res.data)
-    } catch {
+    } catch (err: any) {
+      // Clinical scope: a doctor with no treating relationship must justify access and be audited.
+      if (err?.response?.status === 403 && err.response.data?.breakGlassRequired) {
+        setBreakGlassFor(id)
+        setBreakGlassReasonCode('emergency')
+        setBreakGlassReason('')
+        setBreakGlassError('')
+        return
+      }
       const found = patients.find(p => p.id === id)
       if (found) setViewingPatient(found)
     }
   }, [patients])
 
+  const submitBreakGlass = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!breakGlassFor) return
+    setBreakGlassBusy(true)
+    setBreakGlassError('')
+    try {
+      const res = await api.post(`/patients/${breakGlassFor}/break-glass`, {
+        reasonCode: breakGlassReasonCode,
+        reason: breakGlassReason.trim() || null,
+      })
+      setViewingPatient(res.data)
+      setBreakGlassFor(null)
+    } catch (err: any) {
+      setBreakGlassError(friendlyError(err))
+    } finally {
+      setBreakGlassBusy(false)
+    }
+  }
+
   // Actual registration execution
-  const executeRegistration = useCallback(async (data: PatientForm) => {
+  const executeRegistration = useCallback(async (data: PatientForm, confirmDifferentPerson = false) => {
     setSubmitError('')
     const cleanPhone = (data.phone || '').replace(/[\s\-()]/g, '').replace(/^\+?91/, '')
     const idempotencyKey = `IDEMP-PAT-${Date.now()}`
@@ -154,6 +191,12 @@ export default function Patients() {
       approxAge: data.approxAge ? Number(data.approxAge) : null,
       gender: data.gender,
       address: data.address || null,
+      whatsAppOptIn: !!data.whatsAppOptIn,
+      guardianName: data.guardianName || null,
+      guardianRelationship: data.guardianRelationship || null,
+      noticeVersion: 'v1.0',
+      language: 'en',
+      confirmDifferentPersonOnSamePhone: confirmDifferentPerson,
       consent: {
         accepted: !!data.consent?.accepted,
         purpose: data.consent?.purpose || 'care_delivery'
@@ -163,9 +206,17 @@ export default function Patients() {
 
     try {
       const res = await api.post('/patients', payload)
+      if (res.data?.sharedPhoneDetected && !confirmDifferentPerson) {
+        setPendingFormData({ ...data, phone: cleanPhone })
+        setShowDuplicateModal(true)
+        setSubmitError(res.data.message)
+        return
+      }
+
       const patientId = res.data?.id || res.data?.patientId
-      const newPatient = {
+      const newPatient: Patient = {
         id: patientId || `pat-${Date.now()}`,
+        uhid: res.data?.uhid,
         name: data.name,
         phone: cleanPhone,
         dob: data.dob || undefined,
@@ -175,7 +226,7 @@ export default function Patients() {
         createdAt: new Date().toISOString()
       }
       setPatients(prev => [newPatient, ...prev])
-      reset({ consent: { accepted: false, purpose: 'care_delivery' } })
+      reset({ consent: { accepted: false, purpose: 'care_delivery' }, whatsAppOptIn: false })
       setShowRegister(false)
       setShowDuplicateModal(false)
       setPendingFormData(null)
@@ -212,9 +263,9 @@ export default function Patients() {
 
   useEffect(() => { fetchPatients() }, [fetchPatients])
 
-  // Search dropdown effect - debounced
+  // Search dropdown effect - debounced (min 2 chars required to prevent unauthorized broad PHI exposure)
   useEffect(() => {
-    if (!deferredSearchQuery.trim()) {
+    if (!deferredSearchQuery.trim() || deferredSearchQuery.trim().length < 2) {
       setShowSearchDropdown(false)
       return
     }
@@ -233,6 +284,7 @@ export default function Patients() {
     }, 250)
     return () => clearTimeout(t)
   }, [deferredSearchQuery])
+
 
   // Click outside & Escape key listeners for search dropdown
   useEffect(() => {
@@ -360,8 +412,8 @@ export default function Patients() {
                           <div className="font-semibold text-sm truncate text-[var(--color-text)]">{r.name}</div>
                           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] mt-0.5">
                             {r.dob && <span>DOB: {new Date(r.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
-                            {r.dob && r.phone && <span>•</span>}
-                            {r.phone && <span className="mono font-medium">…{r.phone.slice(-4)}</span>}
+                            {r.dob && r.phoneLast4 && <span>•</span>}
+                            {r.phoneLast4 && <span className="mono font-medium">…{r.phoneLast4}</span>}
                             <span className="capitalize">• {r.gender || '—'}</span>
                           </div>
                         </div>
@@ -617,12 +669,27 @@ export default function Patients() {
                   style={{ marginTop: 3, accentColor: 'var(--brand-primary)', width: 15, height: 15, flexShrink: 0 }}
                 />
                 <span style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                  <strong>Digital Personal Data Protection (DPDP) Consent:</strong> Patient or legal guardian has provided explicit verbal/written authorization to collect, store, and process medical data strictly for <strong>direct clinical care delivery</strong>.
+                  <strong>Digital Personal Data Protection (DPDP) Treatment Consent (Mandatory):</strong> Patient or legal guardian has provided explicit authorization to collect, store, and process medical data strictly for <strong>direct clinical care delivery</strong>.
                 </span>
               </label>
               {errors.consent?.accepted && (
                 <p className="form-error" style={{ marginTop: 6 }}>{errors.consent.accepted.message}</p>
               )}
+            </div>
+
+            {/* Separate WhatsApp Opt-In Consent Record */}
+            <div style={{ gridColumn: '1 / -1', padding: '12px 16px', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <input
+                  id="reg-whatsapp-consent"
+                  type="checkbox"
+                  {...register('whatsAppOptIn')}
+                  style={{ marginTop: 3, accentColor: 'var(--brand-primary)', width: 15, height: 15, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                  <strong>WhatsApp Communication Opt-In (Optional):</strong> Patient consents to receive appointment confirmation, reminder messages, and digital queue tracking updates via WhatsApp.
+                </span>
+              </label>
             </div>
           </div>
 
@@ -728,14 +795,64 @@ export default function Patients() {
               onClick={() => {
                 if (pendingFormData) {
                   setIsCreatingDuplicate(true)
-                  executeRegistration(pendingFormData)
+                  executeRegistration(pendingFormData, true)
                 }
               }}
             >
-              {isCreatingDuplicate ? 'Creating…' : 'Proceed as New Patient'}
+              {isCreatingDuplicate ? 'Creating…' : 'Proceed as New Patient (Family Member)'}
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* ── Break-glass access (clinical scope override, always audited) ── */}
+      <Modal
+        open={!!breakGlassFor}
+        onClose={() => setBreakGlassFor(null)}
+        title="Emergency access required"
+        description="This patient is outside your treating relationship. Access is logged against your account."
+      >
+        <form onSubmit={submitBreakGlass} className="space-y-4">
+          {breakGlassError && (
+            <Alert variant="error" onDismiss={() => setBreakGlassError('')}>{breakGlassError}</Alert>
+          )}
+          <div>
+            <label htmlFor="break-glass-code" className="form-label">Reason code</label>
+            <select
+              id="break-glass-code"
+              className="form-input"
+              value={breakGlassReasonCode}
+              onChange={e => setBreakGlassReasonCode(e.target.value)}
+              disabled={breakGlassBusy}
+            >
+              <option value="emergency">Emergency</option>
+              <option value="covering_doctor">Covering doctor</option>
+              <option value="referral">Referral</option>
+              <option value="record_correction">Record correction</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="break-glass-reason" className="form-label">Justification</label>
+            <textarea
+              id="break-glass-reason"
+              className="form-input"
+              rows={3}
+              maxLength={500}
+              value={breakGlassReason}
+              onChange={e => setBreakGlassReason(e.target.value)}
+              placeholder="What clinical need requires this record?"
+              disabled={breakGlassBusy}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button type="button" className="btn btn-secondary" onClick={() => setBreakGlassFor(null)} disabled={breakGlassBusy}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-danger" disabled={breakGlassBusy}>
+              {breakGlassBusy ? 'Logging…' : 'Access record'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* ── View Patient Modal ── */}

@@ -53,9 +53,11 @@ public class ReminderSchedulerService : BackgroundService
         var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
 
         var appointments = await db.Appointments
-            .Include(a => a.Patient)
+            .Include(a => a.Patient).ThenInclude(p => p.Consents)
             .Include(a => a.Clinic)
             .Where(a => a.Date == tomorrow && a.Status == AppointmentStatus.Booked)
+            // DPDP: no WhatsApp message without a live opt-in for that purpose.
+            .Where(a => a.Patient.Consents.Any(c => c.Purpose == "whatsapp_opt_in" && c.WithdrawnAt == null))
             .ToListAsync(ct);
 
         foreach (var appointment in appointments)

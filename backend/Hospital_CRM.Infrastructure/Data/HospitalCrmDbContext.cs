@@ -21,11 +21,14 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<StaffInvite> StaffInvites => Set<StaffInvite>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+    public DbSet<AuthAuditLog> AuthAuditLogs => Set<AuthAuditLog>();
     public DbSet<Clinic> Clinics => Set<Clinic>();
     public DbSet<ClinicHours> ClinicHours => Set<ClinicHours>();
     public DbSet<ClinicHoliday> ClinicHolidays => Set<ClinicHoliday>();
     public DbSet<ClinicSpecialHour> ClinicSpecialHours => Set<ClinicSpecialHour>();
     public DbSet<Patient> Patients => Set<Patient>();
+    public DbSet<DoctorDailyQueueCounter> DoctorDailyQueueCounters => Set<DoctorDailyQueueCounter>();
     public DbSet<PatientConsent> PatientConsents => Set<PatientConsent>();
     public DbSet<PatientAuditLog> PatientAuditLogs => Set<PatientAuditLog>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
@@ -70,6 +73,22 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<PatientVital> PatientVitals => Set<PatientVital>();
+    public DbSet<ShiftTemplate> ShiftTemplates => Set<ShiftTemplate>();
+    public DbSet<StaffRoster> StaffRosters => Set<StaffRoster>();
+    public DbSet<ShiftChangeRequest> ShiftChangeRequests => Set<ShiftChangeRequest>();
+    public DbSet<AuthorityProxy> AuthorityProxies => Set<AuthorityProxy>();
+    public DbSet<StaffTeam> StaffTeams => Set<StaffTeam>();
+    public DbSet<StaffTeamMember> StaffTeamMembers => Set<StaffTeamMember>();
+    public DbSet<StaffAnnouncement> StaffAnnouncements => Set<StaffAnnouncement>();
+    public DbSet<DrugStockMovement> DrugStockMovements => Set<DrugStockMovement>();
+    public DbSet<MedicineSearchMissLog> MedicineSearchMissLogs => Set<MedicineSearchMissLog>();
+    public DbSet<PrescriptionPrintLog> PrescriptionPrintLogs => Set<PrescriptionPrintLog>();
+    public DbSet<TenantTaxProfile> TenantTaxProfiles => Set<TenantTaxProfile>();
+    public DbSet<PayeeAccount> PayeeAccounts => Set<PayeeAccount>();
+    public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
+    public DbSet<FinanceLedgerEntry> FinanceLedgerEntries => Set<FinanceLedgerEntry>();
+    public DbSet<InvoicePrintLog> InvoicePrintLogs => Set<InvoicePrintLog>();
 
 
     public Guid CurrentTenantId => _tenantContext?.CurrentTenantId ?? Guid.Empty;
@@ -126,9 +145,34 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.UserId, x.TokenHash }).IsUnique();
+            e.HasIndex(x => x.TokenHash);
             e.HasIndex(x => x.LastUsedAt);
-            e.Property(x => x.TokenHash).HasMaxLength(512);
+            e.HasIndex(x => x.FamilyId);
+            e.Property(x => x.TokenHash).HasMaxLength(128);
             e.HasOne(x => x.User).WithMany(u => u.RefreshTokens).HasForeignKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<AuthAuditLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.EventType, x.CreatedAt });
+            e.HasIndex(x => x.UserId);
+            e.Property(x => x.EventType).HasMaxLength(50);
+            e.Property(x => x.Outcome).HasMaxLength(20);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<TenantMembership>(e =>
+        {
+            e.HasKey(x => x.Id);
+            // A doctor may hold several branches of one tenant; a null ClinicId means tenant-wide.
+            e.HasIndex(x => new { x.UserId, x.TenantId, x.ClinicId }).IsUnique().AreNullsDistinct(false);
+            e.Property(x => x.Status).HasMaxLength(50);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.User).WithMany(u => u.Memberships).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<PasswordResetToken>(e =>
@@ -347,10 +391,12 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<Patient>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => x.Phone).IsUnique();
+            e.HasIndex(x => x.Phone); // Non-unique: Indian family members often share one phone number
+            e.HasIndex(x => new { x.TenantId, x.Uhid }).IsUnique().HasFilter("\"Uhid\" IS NOT NULL");
             e.HasIndex(x => x.Name); // trigram GIN index added via migration separately
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.Uhid).HasMaxLength(50);
             e.Property(x => x.Phone).HasMaxLength(50);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
@@ -358,10 +404,22 @@ public class HospitalCrmDbContext : DbContext
             e.HasOne(x => x.CreatedByUser).WithMany(u => u.CreatedPatients).HasForeignKey(x => x.CreatedBy);
         });
 
+        modelBuilder.Entity<DoctorDailyQueueCounter>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.DoctorId, x.Date }).IsUnique();
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.Doctor).WithMany().HasForeignKey(x => x.DoctorId);
+        });
+
         modelBuilder.Entity<PatientConsent>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Purpose).HasMaxLength(255);
+            e.Property(x => x.NoticeVersion).HasMaxLength(50).HasDefaultValue("v1.0");
+            e.Property(x => x.Language).HasMaxLength(10).HasDefaultValue("en");
+            e.Property(x => x.CaptureMethod).HasMaxLength(50).HasDefaultValue("receptionist_assisted");
             e.Property(x => x.CapturedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Patient).WithMany(p => p.Consents).HasForeignKey(x => x.PatientId);
             e.HasOne(x => x.CapturedByUser).WithMany(u => u.CapturedConsents).HasForeignKey(x => x.CapturedBy);
@@ -381,9 +439,16 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<Appointment>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.DoctorId, x.Date, x.TimeSlot }).IsUnique().HasFilter("\"Status\" <> 3");
+            // Strict double-booking prevention per doctor, date, slot across active bookings
+            e.HasIndex(x => new { x.TenantId, x.DoctorId, x.Date, x.TimeSlot }).IsUnique().HasFilter("\"Status\" <> 6");
+            // Idempotent queue token per doctor, date
+            e.HasIndex(x => new { x.TenantId, x.DoctorId, x.Date, x.QueueToken }).IsUnique().HasFilter("\"QueueToken\" IS NOT NULL");
+            // Public tracker lookup by token hash / random token
+            e.HasIndex(x => x.QueueTrackingToken).IsUnique().HasFilter("\"QueueTrackingToken\" IS NOT NULL");
             e.HasIndex(x => new { x.PatientId, x.Date });
             e.Property(x => x.TimeSlot).HasMaxLength(10);
+            e.Property(x => x.QueueTrackingToken).HasMaxLength(128);
+            e.Property(x => x.TriageReasonCode).HasMaxLength(50);
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
@@ -405,7 +470,10 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.AppointmentId);
+            // One row per version: the last line of defence against a concurrent double-finalize.
+            e.HasIndex(x => new { x.AppointmentId, x.Version }).IsUnique();
             e.HasIndex(x => new { x.DoctorId, x.CreatedAt });
+            e.HasIndex(x => x.Status);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Appointment).WithMany(a => a.Consultations).HasForeignKey(x => x.AppointmentId);
             e.HasOne(x => x.Doctor).WithMany(u => u.Consultations).HasForeignKey(x => x.DoctorId);
@@ -423,11 +491,14 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<PrescriptionItem>(e =>
         {
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.PrescriptionId);
+            e.HasIndex(x => x.DrugId);
             e.Property(x => x.MedicineText).HasMaxLength(500);
             e.Property(x => x.DosageText).HasMaxLength(255);
             e.Property(x => x.FrequencyText).HasMaxLength(255);
             e.Property(x => x.DurationText).HasMaxLength(255);
             e.HasOne(x => x.Prescription).WithMany(p => p.Items).HasForeignKey(x => x.PrescriptionId);
+            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Invoice>(e =>
@@ -436,6 +507,9 @@ public class HospitalCrmDbContext : DbContext
             e.HasIndex(x => new { x.Status, x.CreatedAt });
             e.HasIndex(x => x.AppointmentId);
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+            e.HasIndex(x => new { x.TenantId, x.FinancialYear, x.Series, x.InvoiceNumber })
+                .IsUnique()
+                .HasFilter("\"InvoiceNumber\" > 0");
             e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()").IsConcurrencyToken();
@@ -671,6 +745,7 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TenantId, x.DispensedAt });
             e.HasIndex(x => x.PrescriptionId);
+            e.HasIndex(x => new { x.TenantId, x.IdempotencyKey }).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.Property(x => x.WalkInCustomerName).HasMaxLength(255);
             e.Property(x => x.IdempotencyKey).HasMaxLength(128);
             e.HasOne(x => x.Prescription).WithMany().HasForeignKey(x => x.PrescriptionId);
@@ -683,9 +758,9 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.DispenseRecordId);
             e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
-            e.HasOne(x => x.DispenseRecord).WithMany(r => r.Items).HasForeignKey(x => x.DispenseRecordId);
-            e.HasOne(x => x.PrescriptionItem).WithMany().HasForeignKey(x => x.PrescriptionItemId);
-            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId);
+            e.HasOne(x => x.DispenseRecord).WithMany(r => r.Items).HasForeignKey(x => x.DispenseRecordId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.PrescriptionItem).WithMany().HasForeignKey(x => x.PrescriptionItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ControlledSubstanceRegister>(e =>
@@ -699,9 +774,9 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.PrescriberName).HasMaxLength(255).IsRequired();
             e.Property(x => x.PrescriberRegNo).HasMaxLength(100).IsRequired();
             e.Property(x => x.DispenserName).HasMaxLength(255);
-            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId);
-            e.HasOne(x => x.DispenseRecord).WithMany().HasForeignKey(x => x.DispenseRecordId);
-            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId);
+            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.DispenseRecord).WithMany().HasForeignKey(x => x.DispenseRecordId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Supplier>(e =>
@@ -733,7 +808,147 @@ public class HospitalCrmDbContext : DbContext
             e.Property(x => x.Text).HasMaxLength(1000).IsRequired();
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatedBy);
         });
+
+        modelBuilder.Entity<PatientVital>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.AppointmentId });
+            e.HasIndex(x => x.PatientId);
+            e.HasOne(x => x.Appointment).WithMany().HasForeignKey(x => x.AppointmentId);
+            e.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId);
+            e.HasOne(x => x.RecordedByUser).WithMany().HasForeignKey(x => x.RecordedByUserId);
+        });
+
+        modelBuilder.Entity<ShiftTemplate>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.IsActive });
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.Property(x => x.StartTime).HasMaxLength(10).IsRequired();
+            e.Property(x => x.EndTime).HasMaxLength(10).IsRequired();
+        });
+
+        modelBuilder.Entity<StaffRoster>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.StartDate, x.EndDate });
+            e.Property(x => x.Title).HasMaxLength(150).IsRequired();
+            e.HasMany(x => x.Shifts).WithOne(s => s.Roster).HasForeignKey(s => s.RosterId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ShiftChangeRequest>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Status });
+            e.HasIndex(x => x.RequesterNurseProfileId);
+            e.HasIndex(x => x.TargetNurseProfileId);
+            e.HasOne(x => x.RequesterNurse).WithMany().HasForeignKey(x => x.RequesterNurseProfileId);
+            e.HasOne(x => x.RequesterShift).WithMany().HasForeignKey(x => x.RequesterShiftId);
+            e.HasOne(x => x.TargetNurse).WithMany().HasForeignKey(x => x.TargetNurseProfileId);
+            e.HasOne(x => x.TargetShift).WithMany().HasForeignKey(x => x.TargetShiftId);
+        });
+
+        modelBuilder.Entity<AuthorityProxy>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.ValidUntil, x.IsRevoked });
+            e.HasOne(x => x.DelegatorUser).WithMany().HasForeignKey(x => x.DelegatorUserId);
+            e.HasOne(x => x.DesigneeUser).WithMany().HasForeignKey(x => x.DesigneeUserId);
+        });
+
+        modelBuilder.Entity<StaffTeam>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Name });
+            e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            e.HasMany(x => x.Members).WithOne(m => m.Team).HasForeignKey(m => m.TeamId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Announcements).WithOne(a => a.Team).HasForeignKey(a => a.TeamId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<StaffTeamMember>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TeamId, x.UserId }).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<StaffAnnouncement>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.CreatedAt });
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Content).HasMaxLength(4000).IsRequired();
+            e.HasOne(x => x.AuthorUser).WithMany().HasForeignKey(x => x.AuthorUserId);
+        });
+
+        modelBuilder.Entity<DrugBatch>(e =>
+        {
+            e.ToTable(t => t.HasCheckConstraint("CK_DrugBatch_QuantityRemaining_NonNegative", "\"QuantityRemaining\" >= 0"));
+        });
+
+        modelBuilder.Entity<DrugStockMovement>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.DrugBatchId });
+            e.HasIndex(x => new { x.TenantId, x.RecordedAt });
+            e.HasOne(x => x.Drug).WithMany().HasForeignKey(x => x.DrugId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.DrugBatch).WithMany().HasForeignKey(x => x.DrugBatchId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Recorder).WithMany().HasForeignKey(x => x.RecordedBy).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MedicineSearchMissLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.SearchedAt });
+            e.Property(x => x.Query).HasMaxLength(255).IsRequired();
+            e.HasOne(x => x.SearchedByUser).WithMany().HasForeignKey(x => x.SearchedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PrescriptionPrintLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.PrescriptionId });
+            e.HasOne(x => x.Consultation).WithMany().HasForeignKey(x => x.ConsultationId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Prescription).WithMany().HasForeignKey(x => x.PrescriptionId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.PrintedByUser).WithMany().HasForeignKey(x => x.PrintedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TenantTaxProfile>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId });
+        });
+
+        modelBuilder.Entity<PayeeAccount>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ClinicId, x.PriorityOrder });
+        });
+
+        modelBuilder.Entity<CreditNote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.CreditNoteNumber }).IsUnique();
+            e.HasOne(x => x.Invoice).WithMany(i => i.CreditNotes).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ApprovedByUser).WithMany().HasForeignKey(x => x.ApprovedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FinanceLedgerEntry>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.CreatedAt });
+            e.HasIndex(x => new { x.TenantId, x.ReferenceType, x.ReferenceId });
+        });
+
+        modelBuilder.Entity<InvoicePrintLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            e.HasOne(x => x.Invoice).WithMany(i => i.PrintLogs).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.PrintedByUser).WithMany().HasForeignKey(x => x.PrintedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
+
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -776,7 +991,13 @@ public class HospitalCrmDbContext : DbContext
                          e.Entity is NotificationLog ||
                          e.Entity is PriorityLog ||
                          (e.Entity is ImpersonationLog && !IsPermittedImpersonationLogEnd(e)) ||
-                         e.Entity is ControlledSubstanceRegister))
+                         e.Entity is ControlledSubstanceRegister ||
+                         e.Entity is DrugStockMovement ||
+                         e.Entity is PrescriptionPrintLog ||
+                         e.Entity is MedicineSearchMissLog ||
+                         e.Entity is FinanceLedgerEntry ||
+                         e.Entity is CreditNote ||
+                         e.Entity is InvoicePrintLog))
             .ToList();
 
         if (forbiddenEntries.Count != 0)

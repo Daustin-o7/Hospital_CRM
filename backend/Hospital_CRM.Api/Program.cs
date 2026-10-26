@@ -119,6 +119,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 1
             }));
 
+    // Public queue tracking status rate limit (e.g. 30 requests per min)
+    options.AddPolicy("queue-status", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }));
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -299,6 +311,9 @@ builder.Services.AddHealthChecks();
 
 // International timezone & midnight boundary service
 builder.Services.AddSingleton<ITimezoneService, TimezoneService>();
+
+// CDCI (Common Drug Codes for India) Medicine Catalog Service
+builder.Services.AddSingleton<Hospital_CRM.Api.Services.ICdciMedicineCatalogService, Hospital_CRM.Api.Services.CdciMedicineCatalogService>();
 
 // FR-20/21: Notification services
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
@@ -533,11 +548,14 @@ var labUploadDir = Path.Combine(builder.Environment.ContentRootPath, "lab-upload
 Directory.CreateDirectory(labUploadDir);
 
 app.UseAuthentication();
-app.UseAuthorization();
-// A1: blocks a bootstrapped admin (temp password / missing MFA) from every other endpoint.
+
+// Section 0 gateway order: setup gate -> impersonation -> tenant status -> module entitlement
+// -> role authorization (UseAuthorization) -> MVC filters -> clinical scope.
 app.UseMiddleware<AccountSetupEnforcementMiddleware>();
 app.UseMiddleware<ImpersonationEnforcementMiddleware>();
 app.UseMiddleware<SubscriptionEnforcementMiddleware>();
+app.UseMiddleware<ModuleGateMiddleware>();
+app.UseAuthorization();
 // After authentication so the cache key can include the tenant; before endpoints so a replay
 // short-circuits the handler.
 app.UseMiddleware<IdempotencyMiddleware>();
@@ -843,6 +861,24 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         UpdatedAt = DateTimeOffset.UtcNow
     };
     db.Users.Add(nurse);
+
+    // Section 0: explicit membership rows for every clinic-scoped seed user. The migration
+    // backfill only covers users that existed before it ran; a fresh install seeds after.
+    foreach (var clinicUser in new[] { admin, doctor, receptionist, pharmacist, nurse })
+    {
+        db.TenantMemberships.Add(new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            UserId = clinicUser.Id,
+            TenantId = tenant.Id,
+            ClinicId = clinic.Id,
+            Role = clinicUser.Role,
+            IsDefault = true,
+            Status = "active",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+    }
 
     // MOD-26: seeded nurse needs a NurseProfile or the roster/leave endpoints 403.
     db.NurseProfiles.Add(new NurseProfile

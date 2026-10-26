@@ -48,3 +48,4 @@ logs/
 *.log
 test-results/
 .claude/
+.opencode/agentrouter-proxy/

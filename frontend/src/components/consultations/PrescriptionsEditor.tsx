@@ -100,15 +100,31 @@ export default function PrescriptionsEditor({
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSelectMedicine(hit) }}
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-[10px] font-bold">
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${hit.isUnverified ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-teal-50 border border-teal-200 text-teal-800'}`}>
                     {hit.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <span className="font-bold text-slate-800">{hit.name}</span>
-                    {hit.genericName && <span className="text-slate-500 ml-1.5">({hit.genericName})</span>}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-slate-800">{hit.name}</span>
+                      {hit.genericName && <span className="text-slate-500">({hit.genericName})</span>}
+                      {hit.isUnverified ? (
+                        <span className="badge badge-warning text-[9px] py-0 px-1.5 bg-amber-100 text-amber-800 border-amber-300">
+                          {hit.dataSource || 'Open Source'} (Unverified)
+                        </span>
+                      ) : (
+                        <span className="badge badge-success text-[9px] py-0 px-1.5 bg-emerald-100 text-emerald-800 border-emerald-300">
+                          Hospital Formulary
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <span className="badge badge-brand text-[10px]">{hit.dosageForm || 'Oral'}</span>
+                <div className="flex items-center gap-1.5">
+                  {hit.scheduleClass && (
+                    <span className="badge badge-subtle text-[9px] py-0">{hit.scheduleClass}</span>
+                  )}
+                  <span className="badge badge-brand text-[10px]">{hit.dosageForm || 'Oral'}</span>
+                </div>
               </div>
             ))}
           </div>

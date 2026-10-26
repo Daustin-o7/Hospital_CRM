@@ -64,7 +64,8 @@ public class PharmacyGateEndpointTests
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            Name = "Gate Test Clinic"
+            Name = "Gate Test Clinic",
+            PharmacyLicenceNumber20 = "FORM20-TEST-123"
         };
         db.Clinics.Add(clinic);
 
@@ -220,9 +221,9 @@ public class PharmacyGateEndpointTests
     [Fact]
     public async Task Dispense_Proceeds_Past_Gate_When_Module_On()
     {
-        // Tenant has pharmacy entitled and flag enabled
+        // Tenant has pharmacy entitled (with inventory dependency) and flag enabled
         var (controller, db, tenantId, doctorId, prescriptionId) = CreateControllerWithFixture(
-            activatedModules: "core,pharmacy",
+            activatedModules: "core,pharmacy,inventory",
             pharmacyFlagOverride: true);
 
         Assert.True(await ModuleGateAllows(controller, db));

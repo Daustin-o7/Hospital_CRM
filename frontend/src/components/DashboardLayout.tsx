@@ -244,7 +244,30 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { branding } = useBranding()
-  const { user, logout, impersonation, endImpersonation } = useAuth()
+  const {
+    user, logout, impersonation, endImpersonation,
+    memberships, currentTenantId, currentClinicId, switchTenant,
+  } = useAuth()
+  const [switchingClinic, setSwitchingClinic] = useState(false)
+
+  const membershipKey = (m: { tenantId: string; clinicId?: string | null }) =>
+    `${m.tenantId}:${m.clinicId ?? ''}`
+  const currentMembershipKey = `${currentTenantId ?? ''}:${currentClinicId ?? ''}`
+  const selectedMembershipKey = memberships.some(m => membershipKey(m) === currentMembershipKey)
+    ? currentMembershipKey
+    : (memberships[0] ? membershipKey(memberships[0]) : '')
+
+  // Section 0: switching clinic mints a new token scoped to that one tenant, never a shared session.
+  const handleClinicChange = async (key: string) => {
+    const target = memberships.find(m => membershipKey(m) === key)
+    if (!target || key === currentMembershipKey) return
+    setSwitchingClinic(true)
+    try {
+      await switchTenant(target.tenantId, target.clinicId ?? null)
+    } finally {
+      setSwitchingClinic(false)
+    }
+  }
 
   const rawRole = String(user?.role || 'doctor').toLowerCase()
   const searchParams = new URLSearchParams(location.search)
@@ -366,6 +389,36 @@ export default function DashboardLayout() {
             </button>
           )}
         </div>
+
+        {/* Clinic Switcher — only shown when the account holds more than one membership */}
+        {memberships.length > 1 && (
+          <div className="px-3 pt-2.5 pb-2 border-b border-slate-800/80 bg-[#0B1322]/60">
+            <label htmlFor="clinic-switcher" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono mb-1">
+              Clinic
+            </label>
+            <div className="relative">
+              <select
+                id="clinic-switcher"
+                value={selectedMembershipKey}
+                onChange={(e) => void handleClinicChange(e.target.value)}
+                disabled={switchingClinic}
+                aria-label="Select clinic"
+                className="w-full appearance-none bg-slate-900/90 text-slate-200 text-xs font-semibold px-2.5 py-1.5 pr-7 rounded-lg border border-slate-700/80 hover:border-teal-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors cursor-pointer shadow-2xs disabled:opacity-60"
+              >
+                {memberships.map(m => (
+                  <option key={membershipKey(m)} value={membershipKey(m)}>
+                    {m.clinicName} — {ROLE_LABEL[String(m.role).toLowerCase()] ?? m.role}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Workspace Domain Selector for Multi-Domain Roles */}
         {isMultiDomainRole && (

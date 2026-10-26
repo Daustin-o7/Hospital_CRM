@@ -9,6 +9,15 @@ public class PatientConsent
     
     [MaxLength(255)]
     public string Purpose { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string NoticeVersion { get; set; } = "v1.0";
+
+    [MaxLength(10)]
+    public string Language { get; set; } = "en";
+
+    [MaxLength(50)]
+    public string CaptureMethod { get; set; } = "receptionist_assisted";
     
     public Guid CapturedBy { get; set; }
     public string? GuardianName { get; set; }

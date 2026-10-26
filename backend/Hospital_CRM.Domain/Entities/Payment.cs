@@ -27,11 +27,19 @@ public class Payment : ITenantScoped
     public string? Utr { get; set; }
     
     public PaymentStatus Status { get; set; }
+    public PaymentVerificationStatus VerificationStatus { get; set; } = PaymentVerificationStatus.Confirmed;
     public string? IdempotencyKey { get; set; }
+
+    public DateTimeOffset? ReportedAt { get; set; }
+    public DateTimeOffset? ConfirmedAt { get; set; }
+    public Guid? ConfirmedByUserId { get; set; }
+
+    public Guid? PayeeAccountId { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? PaidAt { get; set; }
 
     // Navigation
     public virtual Invoice Invoice { get; set; } = null!;
-}
+    public virtual PayeeAccount? PayeeAccount { get; set; }
+}

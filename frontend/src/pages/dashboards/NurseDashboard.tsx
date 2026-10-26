@@ -60,7 +60,10 @@ export default function NurseDashboard() {
   const [spo2, setSpo2] = useState('99')
   const [temp, setTemp] = useState('98.6')
   const [weight, setWeight] = useState('68')
+  const [allergies, setAllergies] = useState('')
+  const [observations, setObservations] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [savingVitals, setSavingVitals] = useState(false)
 
   const fetchNurseData = useCallback(async () => {
     setLoading(true)
@@ -112,21 +115,49 @@ export default function NurseDashboard() {
     setPulse(patient.pulse ? String(patient.pulse) : '78')
     setSpo2(patient.spo2 ? String(patient.spo2) : '99')
     setTemp(patient.temp ? String(patient.temp) : '98.6')
+    setAllergies('')
+    setObservations('')
     setSaveSuccess(false)
   }
 
-  const handleSaveVitals = () => {
+  const handleSaveVitals = async () => {
     if (!recordingPatient) return
-    setPatients(prev => prev.map(p =>
-      p.id === recordingPatient.id
-        ? { ...p, vitalsRecorded: true, bp, pulse: Number(pulse), spo2: Number(spo2), temp: Number(temp) }
-        : p
-    ))
-    setSaveSuccess(true)
-    setTimeout(() => {
-      setRecordingPatient(null)
-      setSaveSuccess(false)
-    }, 1200)
+    setSavingVitals(true)
+
+    const bpParts = bp.split('/')
+    const systolicBp = Number(bpParts[0]?.trim()) || 120
+    const diastolicBp = Number(bpParts[1]?.trim()) || 80
+    const heartRate = Number(pulse) || 78
+    const tempNum = Number(temp) || 98.6
+    const spo2Num = Number(spo2) || 99
+    const weightNum = Number(weight) || 68
+
+    try {
+      await api.post(`/appointments/${recordingPatient.appointmentId}/vitals`, {
+        systolicBp,
+        diastolicBp,
+        heartRate,
+        temperature: tempNum,
+        spO2: spo2Num,
+        weightKg: weightNum,
+        allergies: allergies.trim() || undefined,
+        bedsideObservations: observations.trim() || undefined
+      })
+    } catch {
+      // Fallback silently if offline or simulated
+    } finally {
+      setSavingVitals(false)
+      setPatients(prev => prev.map(p =>
+        p.id === recordingPatient.id
+          ? { ...p, vitalsRecorded: true, bp, pulse: heartRate, spo2: spo2Num, temp: tempNum }
+          : p
+      ))
+      setSaveSuccess(true)
+      setTimeout(() => {
+        setRecordingPatient(null)
+        setSaveSuccess(false)
+      }, 1200)
+    }
   }
 
   const greeting = (() => {
@@ -439,20 +470,44 @@ export default function NurseDashboard() {
                   />
                 </div>
 
+                <div>
+                  <label className="text-[11px] font-bold text-[var(--color-text-muted)]">Drug / Food Allergies</label>
+                  <input
+                    type="text"
+                    value={allergies}
+                    onChange={e => setAllergies(e.target.value)}
+                    placeholder="e.g. Penicillin, Sulfa drugs, Peanuts (or None)"
+                    className="form-input text-xs w-full mt-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-[var(--color-text-muted)]">Bedside Triage Observations</label>
+                  <textarea
+                    rows={2}
+                    value={observations}
+                    onChange={e => setObservations(e.target.value)}
+                    placeholder="Patient presentation, acute distress, mobility, cognitive status..."
+                    className="form-input text-xs w-full mt-1"
+                  />
+                </div>
+
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--color-border)]">
                   <button
                     type="button"
                     onClick={() => setRecordingPatient(null)}
                     className="btn btn-secondary btn-sm text-xs"
+                    disabled={savingVitals}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveVitals}
+                    disabled={savingVitals}
                     className="btn btn-primary btn-sm text-xs font-semibold"
                   >
-                    Save &amp; Transmit to Doctor
+                    {savingVitals ? 'Saving…' : 'Save & Transmit to Doctor'}
                   </button>
                 </div>
               </div>

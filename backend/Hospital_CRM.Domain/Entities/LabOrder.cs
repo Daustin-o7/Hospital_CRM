@@ -12,6 +12,10 @@ public class LabOrder : ITenantScoped
     public string TestName { get; set; } = null!;
     public string? Notes { get; set; }
     public LabOrderStatus Status { get; set; } = LabOrderStatus.Ordered;
+    public bool IsAbnormal { get; set; } = false;
+    public DateTimeOffset? DoctorReviewedAt { get; set; }
+    public Guid? DoctorReviewedByUserId { get; set; }
+    public string? DoctorReviewNotes { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
 

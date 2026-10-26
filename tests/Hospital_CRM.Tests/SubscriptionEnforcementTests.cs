@@ -337,7 +337,8 @@ public class SubscriptionEnforcementTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            TokenHash = rawToken.HashPassword(),
+            TenantId = tenantId,
+            TokenHash = rawToken.HashRefreshToken(),
             IssuedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
         };

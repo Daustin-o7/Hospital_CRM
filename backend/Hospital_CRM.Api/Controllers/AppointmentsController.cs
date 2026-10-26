@@ -172,7 +172,15 @@ public class AppointmentsController : ControllerBase
             _db.Appointments.Add(appointment);
 
             // Save appointment first so PrecheckService can query it (it checks type and lead time)
-            await _db.SaveChangesAsync(ct);
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation())
+            {
+                // Two receptionists booked the same slot: the DB index is the referee.
+                return Conflict(new { error = "slot_already_booked" });
+            }
 
             // FR-23-01: pre-check token generation inside the transaction,
             // committed atomically with the appointment via the single transaction.
@@ -192,23 +200,28 @@ public class AppointmentsController : ControllerBase
 
             // FR-20: notification fire-and-forget after commit. precheckPlaintext is captured
             // by value in the closure so the scoped DbContext can safely be disposed.
+            // FR-20: WhatsApp confirmation (only with opt-in per DPDP Section 1)
             var bookedAppointment = appointment;
-            var patient = await _db.Patients.FindAsync([bookedAppointment.PatientId], ct);
+            var patient = await _db.Patients.Include(p => p.Consents).FirstOrDefaultAsync(p => p.Id == bookedAppointment.PatientId, ct);
             var clinicName = clinic.Name;
             var slotDateTime = bookedAppointment.Date.ToDateTime(TimeOnly.Parse(bookedAppointment.TimeSlot));
-            _ = Task.Run(async () =>
+            var hasWhatsAppOptIn = patient?.Consents.Any(c => c.Purpose == "whatsapp_opt_in" && c.WithdrawnAt == null) ?? false;
+            if (hasWhatsAppOptIn)
             {
-                try
+                _ = Task.Run(async () =>
                 {
-                    var link = precheckPlaintext is null ? null : _precheckService.BuildLink(precheckPlaintext);
-                    if (patient != null)
+                    try
                     {
-                        await _notificationService.SendAppointmentConfirmationAsync(
-                            bookedAppointment.Id, patient.Phone, clinicName, slotDateTime, link);
+                        var link = precheckPlaintext is null ? null : _precheckService.BuildLink(precheckPlaintext);
+                        if (patient != null)
+                        {
+                            await _notificationService.SendAppointmentConfirmationAsync(
+                                bookedAppointment.Id, patient.Phone, clinicName, slotDateTime, link);
+                        }
                     }
-                }
-                catch { /* logged inside the service */ }
-            });
+                    catch { /* logged inside the service */ }
+                });
+            }
 
             return StatusCode(201, new
             {
@@ -226,36 +239,108 @@ public class AppointmentsController : ControllerBase
         var executionStrategy = _db.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
         {
-            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            await using var transaction = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
 
             var appointment = await _db.Appointments.FindAsync([id], ct);
             if (appointment is null)
                 return NotFound(new { error = "appointment_not_found" });
 
-            if (appointment.Status == AppointmentStatus.CheckedIn)
-                return Ok(new { status = "checked_in", queueToken = appointment.QueueToken });
+            // Idempotent: return already assigned tokens on double check-in
+            if (appointment.QueueToken.HasValue)
+            {
+                return Ok(new
+                {
+                    status = formatStatus(appointment.Status),
+                    queueToken = appointment.QueueToken,
+                    trackingToken = appointment.QueueTrackingToken
+                });
+            }
 
-            if (appointment.Status == AppointmentStatus.Completed || appointment.Status == AppointmentStatus.Cancelled)
-                return BadRequest(new { error = "cannot_check_in_completed_or_cancelled_appointment" });
+            if (appointment.Status == AppointmentStatus.Completed ||
+                appointment.Status == AppointmentStatus.Cancelled ||
+                appointment.Status == AppointmentStatus.NoShow)
+            {
+                return BadRequest(new { error = "cannot_check_in_terminal_appointment" });
+            }
 
             var clinic = await _db.Clinics.FindAsync([appointment.ClinicId], ct);
             var today = _timezoneService.GetClinicToday(clinic?.Timezone, HttpContext);
-            var maxToken = await _db.Appointments
-                .Where(a => a.ClinicId == appointment.ClinicId && a.Date == today && a.QueueToken.HasValue)
-                .MaxAsync(a => (int?)a.QueueToken, ct) ?? 0;
+
+            int nextToken;
+            if (_db.Database.IsRelational())
+            {
+                // Atomic counter per (tenant, doctor, date) via UPDATE RETURNING
+                var counter = await _db.DoctorDailyQueueCounters
+                    .FromSqlInterpolated($@"
+                        INSERT INTO ""DoctorDailyQueueCounters"" (""Id"", ""TenantId"", ""DoctorId"", ""Date"", ""LastToken"", ""UpdatedAt"")
+                        VALUES ({Guid.NewGuid()}, {appointment.TenantId}, {appointment.DoctorId}, {today}, 1, now())
+                        ON CONFLICT (""TenantId"", ""DoctorId"", ""Date"")
+                        DO UPDATE SET ""LastToken"" = ""DoctorDailyQueueCounters"".""LastToken"" + 1, ""UpdatedAt"" = now()
+                        RETURNING *")
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(ct);
+                nextToken = counter?.LastToken ?? 1;
+            }
+            else
+            {
+                var counter = await _db.DoctorDailyQueueCounters
+                    .FirstOrDefaultAsync(c => c.TenantId == appointment.TenantId && c.DoctorId == appointment.DoctorId && c.Date == today, ct);
+                if (counter is null)
+                {
+                    counter = new DoctorDailyQueueCounter
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = appointment.TenantId,
+                        DoctorId = appointment.DoctorId,
+                        Date = today,
+                        LastToken = 1,
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    };
+                    _db.DoctorDailyQueueCounters.Add(counter);
+                }
+                else
+                {
+                    counter.LastToken++;
+                    counter.UpdatedAt = DateTimeOffset.UtcNow;
+                }
+                nextToken = counter.LastToken;
+            }
+
+            var trackingBytes = RandomNumberGenerator.GetBytes(16);
+            var trackingToken = "qtrk_" + Convert.ToHexString(trackingBytes).ToLowerInvariant();
 
             appointment.Status = AppointmentStatus.CheckedIn;
-            appointment.QueueToken = maxToken + 1;
+            appointment.QueueToken = nextToken;
+            appointment.QueueTrackingToken = trackingToken;
+            appointment.UpdatedAt = DateTimeOffset.UtcNow;
 
             await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
+            if (transaction != null) await transaction.CommitAsync(ct);
 
-            return Ok(new { status = "checked_in", queueToken = appointment.QueueToken });
+            return Ok(new
+            {
+                status = "checked_in",
+                queueToken = appointment.QueueToken,
+                trackingToken = appointment.QueueTrackingToken
+            });
         });
     }
 
+    private static readonly Dictionary<AppointmentStatus, HashSet<AppointmentStatus>> AllowedTransitions = new()
+    {
+        [AppointmentStatus.Booked] = [AppointmentStatus.Confirmed, AppointmentStatus.CheckedIn, AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        [AppointmentStatus.Confirmed] = [AppointmentStatus.CheckedIn, AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        [AppointmentStatus.CheckedIn] = [AppointmentStatus.InNursing, AppointmentStatus.InConsultation, AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        [AppointmentStatus.InNursing] = [AppointmentStatus.InConsultation, AppointmentStatus.Completed, AppointmentStatus.Cancelled, AppointmentStatus.Parked],
+        [AppointmentStatus.InConsultation] = [AppointmentStatus.Completed, AppointmentStatus.Parked, AppointmentStatus.Cancelled],
+        [AppointmentStatus.Parked] = [AppointmentStatus.InConsultation, AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        [AppointmentStatus.Completed] = [], // Terminal
+        [AppointmentStatus.Cancelled] = [], // Terminal
+        [AppointmentStatus.NoShow] = []     // Terminal
+    };
+
     [HttpPut("{id:guid}")]
-    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Nurse")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAppointmentRequest request, CancellationToken ct)
     {
         var userId = User.GetUserId();
@@ -270,7 +355,77 @@ public class AppointmentsController : ControllerBase
         if (newStatus is null)
             return BadRequest(new { error = "invalid_status" });
 
-        var history = new AppointmentHistory
+        // A nurse runs the nursing station (ready for doctor, back to queue), not completion.
+        if (string.Equals(User.GetUserRole(), "Nurse", StringComparison.OrdinalIgnoreCase) &&
+            newStatus is not (AppointmentStatus.InNursing or AppointmentStatus.InConsultation))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "insufficient_permissions" });
+        }
+
+        if (appointment.Status != newStatus.Value)
+        {
+            if (!AllowedTransitions.TryGetValue(appointment.Status, out var allowed) || !allowed.Contains(newStatus.Value))
+            {
+                return BadRequest(new
+                {
+                    error = "invalid_status_transition",
+                    from = formatStatus(appointment.Status),
+                    to = formatStatus(newStatus.Value),
+                    message = $"Status transition from '{formatStatus(appointment.Status)}' to '{formatStatus(newStatus.Value)}' is not allowed."
+                });
+            }
+
+            var history = new AppointmentHistory
+            {
+                Id = Guid.NewGuid(),
+                AppointmentId = appointment.Id,
+                PreviousDate = appointment.Date,
+                PreviousTimeSlot = appointment.TimeSlot,
+                PreviousStatus = appointment.Status,
+                ChangedBy = userId.Value,
+                ChangedAt = DateTimeOffset.UtcNow
+            };
+
+            _db.AppointmentHistories.Add(history);
+            appointment.Status = newStatus.Value;
+            appointment.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return Ok(new { appointmentId = appointment.Id, status = formatStatus(appointment.Status) });
+    }
+
+    [HttpPost("{id:guid}/reschedule")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> Reschedule(Guid id, [FromBody] RescheduleAppointmentRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var appointment = await _db.Appointments.FindAsync([id], ct);
+        if (appointment is null) return NotFound(new { error = "appointment_not_found" });
+
+        if (appointment.Status == AppointmentStatus.Completed ||
+            appointment.Status == AppointmentStatus.Cancelled)
+        {
+            return BadRequest(new { error = "cannot_reschedule_terminal_appointment" });
+        }
+
+        if (!DateOnly.TryParse(request.NewDate, out var newDate))
+            return BadRequest(new { error = "invalid_date_format" });
+
+        var slotTaken = await _db.Appointments.AnyAsync(a =>
+            a.DoctorId == appointment.DoctorId &&
+            a.Date == newDate &&
+            a.TimeSlot == request.NewTimeSlot &&
+            a.Id != appointment.Id &&
+            a.Status != AppointmentStatus.Cancelled, ct);
+
+        if (slotTaken)
+            return Conflict(new { error = "slot_already_booked" });
+
+        _db.AppointmentHistories.Add(new AppointmentHistory
         {
             Id = Guid.NewGuid(),
             AppointmentId = appointment.Id,
@@ -279,13 +434,31 @@ public class AppointmentsController : ControllerBase
             PreviousStatus = appointment.Status,
             ChangedBy = userId.Value,
             ChangedAt = DateTimeOffset.UtcNow
-        };
+        });
 
-        _db.AppointmentHistories.Add(history);
-        appointment.Status = newStatus.Value;
+        appointment.Date = newDate;
+        appointment.TimeSlot = request.NewTimeSlot;
+        appointment.QueueToken = null;
+        appointment.QueueTrackingToken = null;
+        appointment.Status = AppointmentStatus.Booked;
+        appointment.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
-        return Ok(new { appointmentId = appointment.Id, status = appointment.Status.ToString().ToLower() });
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueViolation())
+        {
+            // Lost the race to another reschedule/booking for the same slot.
+            return Conflict(new { error = "slot_already_booked" });
+        }
+        return Ok(new
+        {
+            appointmentId = appointment.Id,
+            date = appointment.Date.ToString("yyyy-MM-dd"),
+            timeSlot = appointment.TimeSlot,
+            status = "booked"
+        });
     }
 
     [HttpGet]
@@ -312,6 +485,7 @@ public class AppointmentsController : ControllerBase
             {
                 appointmentId = a.Id,
                 patientId = a.PatientId,
+                patientUhid = a.Patient.Uhid,
                 patientName = a.Patient.Name,
                 patientPhone = a.Patient.Phone,
                 patientGender = a.Patient.Gender.ToString(),
@@ -320,9 +494,12 @@ public class AppointmentsController : ControllerBase
                 doctorId = a.DoctorId,
                 doctorName = a.Doctor.Name,
                 time = a.TimeSlot,
-                status = a.Status.ToString().ToLower(),
+                status = formatStatus(a.Status),
                 priority = a.Priority.ToString().ToLower(),
                 queueToken = a.QueueToken,
+                queueTrackingToken = a.QueueTrackingToken,
+                triageReasonCode = a.TriageReasonCode,
+                triageConfirmed = a.TriageConfirmedBy.HasValue,
                 type = a.Type.ToString().ToLower()
             })
             .ToListAsync(ct);
@@ -332,19 +509,48 @@ public class AppointmentsController : ControllerBase
 
     private static AppointmentStatus? parseStatus(string status)
     {
-        return status.ToLower() switch
+        return status.ToLowerInvariant().Replace("-", "_") switch
         {
             "booked" => AppointmentStatus.Booked,
+            "confirmed" => AppointmentStatus.Confirmed,
             "checked_in" or "checkedin" => AppointmentStatus.CheckedIn,
+            "in_nursing" or "innursing" => AppointmentStatus.InNursing,
+            "in_consultation" or "inconsultation" => AppointmentStatus.InConsultation,
             "completed" => AppointmentStatus.Completed,
             "cancelled" => AppointmentStatus.Cancelled,
-            "noshow" => AppointmentStatus.NoShow,
+            "noshow" or "no_show" => AppointmentStatus.NoShow,
+            "parked" => AppointmentStatus.Parked,
             _ => null
         };
     }
 
+    private static string formatStatus(AppointmentStatus status) => status switch
+    {
+        AppointmentStatus.Booked => "booked",
+        AppointmentStatus.Confirmed => "confirmed",
+        AppointmentStatus.CheckedIn => "checked_in",
+        AppointmentStatus.InNursing => "in_nursing",
+        AppointmentStatus.InConsultation => "in_consultation",
+        AppointmentStatus.Parked => "parked",
+        AppointmentStatus.Completed => "completed",
+        AppointmentStatus.Cancelled => "cancelled",
+        AppointmentStatus.NoShow => "no_show",
+        _ => status.ToString().ToLowerInvariant()
+    };
+
+    private static readonly HashSet<string> SevereTriageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "chest_pain", "breathing_difficulty", "severe_trauma", "loss_of_consciousness", "severe_allergic_reaction"
+    };
+
+    private static readonly HashSet<string> ValidTriageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "chest_pain", "breathing_difficulty", "severe_trauma", "loss_of_consciousness",
+        "acute_abdomen", "high_fever_infant", "severe_allergic_reaction", "other_clinical_urgency"
+    };
+
     [HttpPatch("{id:guid}/priority")]
-    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Nurse")]
     public async Task<IActionResult> UpdatePriority(Guid id, [FromBody] UpdatePriorityRequest request, CancellationToken ct)
     {
         var appointment = await _db.Appointments.FindAsync([id], ct);
@@ -352,29 +558,45 @@ public class AppointmentsController : ControllerBase
             return NotFound(new { error = "appointment_not_found" });
 
         if (!string.Equals(request.Priority, "emergency", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.Priority, "urgent", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(request.Priority, "normal", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { error = "priority_must_be_emergency_or_normal" });
+            return BadRequest(new { error = "priority_must_be_emergency_urgent_or_normal" });
 
-        var newPriority = string.Equals(request.Priority, "emergency", StringComparison.OrdinalIgnoreCase)
+        var newPriority = string.Equals(request.Priority, "emergency", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(request.Priority, "urgent", StringComparison.OrdinalIgnoreCase)
             ? AppointmentPriority.Emergency
             : AppointmentPriority.Normal;
 
         var role = User.GetUserRole();
-        // P2-C3: Receptionist must provide an operational reason (>= 10 chars) when flagging emergency
+        var userId = User.GetUserId();
+
+        // Front desk picks a structured clinical code. Free text was validation theater:
+        // ten characters of anything used to pass as an emergency justification.
         if (newPriority == AppointmentPriority.Emergency &&
-            string.Equals(role, nameof(UserRole.Receptionist), StringComparison.OrdinalIgnoreCase))
+            string.Equals(role, nameof(UserRole.Receptionist), StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(request.TriageReasonCode))
         {
-            if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
-            {
-                return BadRequest(new { error = "emergency_reason_required_min_10_chars" });
-            }
+            return BadRequest(new { error = "triage_reason_code_required", validCodes = ValidTriageCodes });
         }
 
-        if (appointment.Priority == newPriority)
-            return Ok(new { appointmentId = id, priority = newPriority.ToString().ToLower(), unchanged = true });
+        if (!string.IsNullOrWhiteSpace(request.TriageReasonCode) && !ValidTriageCodes.Contains(request.TriageReasonCode))
+        {
+            return BadRequest(new { error = "invalid_triage_reason_code", validCodes = ValidTriageCodes });
+        }
 
-        var userId = User.GetUserId();
         appointment.Priority = newPriority;
+        if (!string.IsNullOrWhiteSpace(request.TriageReasonCode))
+        {
+            appointment.TriageReasonCode = request.TriageReasonCode.ToLowerInvariant();
+        }
+
+        if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(role, "Nurse", StringComparison.OrdinalIgnoreCase) ||
+            request.ConfirmTriage)
+        {
+            appointment.TriageConfirmedBy = userId;
+            appointment.TriageConfirmedAt = DateTimeOffset.UtcNow;
+        }
 
         _db.PriorityLogs.Add(new PriorityLog
         {
@@ -382,13 +604,27 @@ public class AppointmentsController : ControllerBase
             AppointmentId = id,
             ChangedBy = userId!.Value,
             ChangedTo = newPriority.ToString().ToLower(),
-            Reason = request.Reason?.Trim(),
+            Reason = request.Reason?.Trim() ?? request.TriageReasonCode,
             ChangedAt = DateTimeOffset.UtcNow
         });
 
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { appointmentId = id, priority = newPriority.ToString().ToLower(), unchanged = false });
+        string? referralWarning = null;
+        if (appointment.TriageReasonCode != null && SevereTriageCodes.Contains(appointment.TriageReasonCode))
+        {
+            referralWarning = "Critical emergency condition suspected. Immediate hospital ER referral recommended.";
+        }
+
+        return Ok(new
+        {
+            appointmentId = id,
+            priority = newPriority.ToString().ToLower(),
+            triageReasonCode = appointment.TriageReasonCode,
+            triageConfirmed = appointment.TriageConfirmedBy.HasValue,
+            hospitalReferralAdvisory = referralWarning,
+            unchanged = false
+        });
     }
 
     /// <summary>FR-23-03 — Doctor reviews pre-check submission inline in consult flow.</summary>
@@ -532,10 +768,21 @@ public record UpdateAppointmentRequest(
     [Required(ErrorMessage = "Status is required")]
     string Status);
 
+public record RescheduleAppointmentRequest(
+    [Required(ErrorMessage = "New appointment date is required"), RegularExpression(@"^\d{4}-\d{2}-\d{2}$", ErrorMessage = "Date must be YYYY-MM-DD")]
+    string NewDate,
+
+    [Required(ErrorMessage = "New time slot is required"), RegularExpression(@"^([01]\d|2[0-3]):[0-5]\d$", ErrorMessage = "TimeSlot must be HH:mm format")]
+    string NewTimeSlot);
+
 public record UpdatePriorityRequest(
     [Required(ErrorMessage = "Priority is required"), RegularExpression("(?i)^(normal|emergency|urgent)$", ErrorMessage = "Priority must be normal, urgent, or emergency")]
     string Priority,
 
     [StringLength(300, ErrorMessage = "Reason cannot exceed 300 characters")]
-    string? Reason = null);
+    string? Reason = null,
+
+    string? TriageReasonCode = null,
+
+    bool ConfirmTriage = false);
 

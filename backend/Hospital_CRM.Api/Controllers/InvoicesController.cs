@@ -5,6 +5,7 @@ using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
+using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Infrastructure.Data;
@@ -29,98 +30,670 @@ public class InvoicesController : ControllerBase
         _razorpay = razorpay;
     }
 
+    private Guid TenantId => User.GetTenantId() ?? Guid.Empty;
+
+    /// <summary>
+    /// Finalize postings must balance: Total = Subtotal + GST - invoice discount.
+    /// The discount is a contra-revenue debit, so debits (AR + discount) equal credits.
+    /// </summary>
+    private void PostFinalizeLedger(Invoice invoice, string invoiceRef)
+    {
+        var userId = User.GetUserId();
+        var now = DateTimeOffset.UtcNow;
+
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = invoice.TenantId,
+            EntryType = FinanceEntryType.InvoiceFinalized,
+            ReferenceType = "Invoice",
+            ReferenceId = invoice.Id,
+            ReferenceNumber = invoiceRef,
+            AccountCategory = "AccountsReceivable",
+            DebitAmount = invoice.Total,
+            Narration = $"Finalized invoice {invoiceRef}",
+            PostedByUserId = userId,
+            CreatedAt = now
+        });
+
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = invoice.TenantId,
+            EntryType = FinanceEntryType.InvoiceFinalized,
+            ReferenceType = "Invoice",
+            ReferenceId = invoice.Id,
+            ReferenceNumber = invoiceRef,
+            AccountCategory = "ConsultationRevenue",
+            CreditAmount = invoice.Subtotal,
+            Narration = $"Revenue recognized from invoice {invoiceRef}",
+            PostedByUserId = userId,
+            CreatedAt = now
+        });
+
+        if (invoice.GstAmount > 0)
+        {
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = invoice.TenantId,
+                EntryType = FinanceEntryType.InvoiceFinalized,
+                ReferenceType = "Invoice",
+                ReferenceId = invoice.Id,
+                ReferenceNumber = invoiceRef,
+                AccountCategory = "GstPayable",
+                CreditAmount = invoice.GstAmount,
+                Narration = $"GST payable on invoice {invoiceRef}",
+                PostedByUserId = userId,
+                CreatedAt = now
+            });
+        }
+
+        if (invoice.DiscountAmount > 0)
+        {
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = invoice.TenantId,
+                EntryType = FinanceEntryType.InvoiceFinalized,
+                ReferenceType = "Invoice",
+                ReferenceId = invoice.Id,
+                ReferenceNumber = invoiceRef,
+                AccountCategory = "DiscountAllowed",
+                DebitAmount = invoice.DiscountAmount,
+                Narration = $"Discount on invoice {invoiceRef}: {invoice.DiscountReason}",
+                PostedByUserId = userId,
+                CreatedAt = now
+            });
+        }
+    }
+
     [HttpPost("invoices")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [RequirePermission(Permissions.InvoiceWrite)]
     public async Task<IActionResult> GenerateInvoice([FromBody] GenerateInvoiceRequest request, CancellationToken ct)
     {
+        var tenantId = TenantId;
+
+        if (request.LineItems is null || request.LineItems.Count == 0)
+            return BadRequest(new { error = "line_items_required" });
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             var existing = await _db.Invoices
-                .FirstOrDefaultAsync(i => i.IdempotencyKey == request.IdempotencyKey, ct);
+                .Include(i => i.LineItems)
+                .FirstOrDefaultAsync(i => i.IdempotencyKey == request.IdempotencyKey && i.TenantId == tenantId, ct);
             if (existing is not null)
                 return Ok(new
                 {
                     invoiceId = existing.Id,
-                    invoiceNumber = $"INV-{existing.InvoiceNumber:D6}",
+                    invoiceNumber = $"INV-{existing.FinancialYear}-{existing.InvoiceNumber:D6}",
+                    subtotal = existing.Subtotal,
                     gstAmount = existing.GstAmount,
                     total = existing.Total,
-                    status = "unpaid"
+                    balanceDue = existing.BalanceDue,
+                    status = existing.Status.ToString().ToLower()
                 });
         }
 
-        var appointment = await _db.Appointments.FindAsync([request.AppointmentId], ct);
+        var appointment = await _db.Appointments
+            .Include(a => a.Patient)
+            .FirstOrDefaultAsync(a => a.Id == request.AppointmentId && a.TenantId == tenantId, ct);
+
         if (appointment is null)
             return NotFound(new { error = "appointment_not_found" });
 
-        var subtotal = request.LineItems.Sum(li => li.Amount);
-        var gst = Math.Round(subtotal * 0.18m, 2);
-        var total = subtotal + gst;
+        // Retrieve tenant tax profile (or fallback to Notification 12/2017 healthcare exemption defaults)
+        var taxProfile = await _db.TenantTaxProfiles
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+
+        var defaultTaxCat = taxProfile?.DefaultOpdTaxCategory ?? TaxCategory.Exempt;
+        var defaultHsnSac = taxProfile?.DefaultOpdHsnSac ?? "999312";
+        var defaultGstRate = taxProfile?.DefaultOpdGstRate ?? 0.0m;
+        var docType = taxProfile?.DocumentType ?? InvoiceDocumentType.BillOfSupply;
+
+        decimal calculatedSubtotal = 0m;
+        decimal calculatedGst = 0m;
+
+        var lineItemsToCreate = new List<InvoiceLineItem>();
+
+        foreach (var item in request.LineItems)
+        {
+            if (item.Quantity <= 0)
+                return BadRequest(new { error = "invalid_line_quantity", description = item.Description });
+
+            var qty = item.Quantity;
+            var unitPrice = item.UnitPrice ?? (item.Amount / qty);
+
+            if (unitPrice <= 0)
+                return BadRequest(new { error = "invalid_line_amount", description = item.Description });
+
+            if (item.DiscountAmount < 0 || item.DiscountAmount > qty * unitPrice)
+                return BadRequest(new { error = "invalid_line_discount", description = item.Description });
+
+            var hsnSac = !string.IsNullOrWhiteSpace(item.HsnSacCode) ? item.HsnSacCode.Trim() : defaultHsnSac;
+
+            // Client input may raise tax, never zero-rate a taxable line by claiming exemption.
+            var taxCat = defaultTaxCat;
+            if (!string.IsNullOrWhiteSpace(item.TaxCategory) && Enum.TryParse<TaxCategory>(item.TaxCategory, true, out var parsedCat))
+            {
+                taxCat = parsedCat;
+            }
+
+            decimal lineGstRate;
+            if (taxCat is TaxCategory.Exempt or TaxCategory.Nil)
+            {
+                // Healthcare SAC 9993xx is the only exempt path when the clinic default is taxable.
+                if (defaultTaxCat == TaxCategory.Taxable && !hsnSac.StartsWith("9993", StringComparison.Ordinal))
+                    return BadRequest(new
+                    {
+                        error = "tax_category_not_permitted",
+                        description = item.Description,
+                        message = "This clinic is configured for taxable supplies; exempt lines must use a healthcare SAC (9993xx)."
+                    });
+
+                lineGstRate = 0.0m;
+            }
+            else
+            {
+                lineGstRate = item.GstRate ?? defaultGstRate;
+                if (lineGstRate <= 0)
+                    return BadRequest(new { error = "taxable_line_requires_gst_rate", description = item.Description });
+            }
+
+            var lineBaseAmount = Math.Max(0m, (qty * unitPrice) - item.DiscountAmount);
+            var lineTaxAmount = lineGstRate > 0 ? Math.Round(lineBaseAmount * (lineGstRate / 100.0m), 2) : 0.0m;
+            var lineTotalAmount = lineBaseAmount + lineTaxAmount;
+
+            calculatedSubtotal += lineBaseAmount;
+            calculatedGst += lineTaxAmount;
+
+            lineItemsToCreate.Add(new InvoiceLineItem
+            {
+                Id = Guid.NewGuid(),
+                Description = item.Description.Trim(),
+                Quantity = qty,
+                UnitPrice = unitPrice,
+                Amount = lineTotalAmount,
+                TaxCategory = taxCat,
+                HsnSacCode = hsnSac,
+                GstRate = lineGstRate,
+                TaxAmount = lineTaxAmount,
+                DiscountAmount = item.DiscountAmount
+            });
+        }
+
+        var gross = calculatedSubtotal + calculatedGst;
+        if (request.DiscountAmount < 0 || request.DiscountAmount > gross)
+            return BadRequest(new { error = "invalid_discount_amount", message = $"Discount must be between 0 and ₹{gross:F2}." });
+
+        if (request.DiscountAmount > 0 && string.IsNullOrWhiteSpace(request.DiscountReason))
+            return BadRequest(new { error = "discount_reason_required" });
+
+        var total = gross - request.DiscountAmount;
+
+        // A bill containing any taxable supply is a Tax Invoice, never a Bill of Supply.
+        if (calculatedGst > 0)
+            docType = InvoiceDocumentType.TaxInvoice;
+
+        var currentYear = DateTime.UtcNow.Year.ToString();
 
         var executionStrategy = _db.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
-            var maxNumber = await _db.Invoices.MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
-
             var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
                 TenantId = appointment.TenantId,
                 AppointmentId = request.AppointmentId,
-                InvoiceNumber = maxNumber + 1,
-                Subtotal = subtotal,
-                GstAmount = gst,
+                PatientId = appointment.PatientId,
+                FinancialYear = currentYear,
+                Series = "INV",
+                DocumentType = docType,
+                LinkedPharmacyInvoiceId = request.LinkedPharmacyInvoiceId,
+                Subtotal = calculatedSubtotal,
+                GstAmount = calculatedGst,
+                DiscountAmount = request.DiscountAmount,
+                DiscountReason = request.DiscountReason,
                 Total = total,
-                Status = InvoiceStatus.Issued,
+                PaidAmount = 0.0m,
+                BalanceDue = total,
+                Status = request.AutoFinalize ? InvoiceStatus.Finalized : InvoiceStatus.Draft,
                 IdempotencyKey = request.IdempotencyKey,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
             };
 
-            foreach (var item in request.LineItems)
+            // If auto-finalizing, assign sequential gapless invoice number immediately
+            if (request.AutoFinalize)
             {
-                _db.InvoiceLineItems.Add(new InvoiceLineItem
-                {
-                    Id = Guid.NewGuid(),
-                    InvoiceId = invoice.Id,
-                    Description = item.Description,
-                    Amount = item.Amount
-                });
+                var maxNumber = await _db.Invoices
+                    .Where(i => i.TenantId == tenantId && i.FinancialYear == currentYear && i.Series == "INV")
+                    .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
+                invoice.InvoiceNumber = maxNumber + 1;
+                invoice.FinalizedAt = DateTimeOffset.UtcNow;
+                invoice.FinalizedByUserId = User.GetUserId();
+
+                // Post append-only ledger entries
+                var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+                PostFinalizeLedger(invoice, invoiceRef);
+            }
+
+            foreach (var lineItem in lineItemsToCreate)
+            {
+                lineItem.InvoiceId = invoice.Id;
+                _db.InvoiceLineItems.Add(lineItem);
             }
 
             _db.Invoices.Add(invoice);
             await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
+            var invoiceNumStr = invoice.InvoiceNumber > 0
+                ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
+                : $"DRAFT-{invoice.Id:N}[..8]";
+
             return StatusCode(201, new
             {
                 invoiceId = invoice.Id,
-                invoiceNumber = $"INV-{invoice.InvoiceNumber:D6}",
+                invoiceNumber = invoiceNumStr,
+                documentType = invoice.DocumentType.ToString(),
+                subtotal = invoice.Subtotal,
                 gstAmount = invoice.GstAmount,
+                discountAmount = invoice.DiscountAmount,
                 total = invoice.Total,
-                status = "unpaid"
+                paidAmount = invoice.PaidAmount,
+                balanceDue = invoice.BalanceDue,
+                status = invoice.Status.ToString().ToLower()
             });
+        });
+    }
+
+    [HttpPost("invoices/{id:guid}/finalize")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [RequirePermission(Permissions.InvoiceWrite)]
+    public async Task<IActionResult> FinalizeInvoice(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status is InvoiceStatus.Finalized or InvoiceStatus.Paid or InvoiceStatus.Issued
+            or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
+            return BadRequest(new { error = "invoice_already_finalized" });
+
+        var currentYear = DateTime.UtcNow.Year.ToString();
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var maxNumber = await _db.Invoices
+                .Where(i => i.TenantId == tenantId && i.FinancialYear == currentYear && i.Series == invoice.Series)
+                .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
+
+            invoice.InvoiceNumber = maxNumber + 1;
+            invoice.FinancialYear = currentYear;
+            invoice.Status = InvoiceStatus.Finalized;
+            invoice.FinalizedAt = DateTimeOffset.UtcNow;
+            invoice.FinalizedByUserId = User.GetUserId();
+            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            invoice.UpdatedAt = DateTimeOffset.UtcNow;
+
+            var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+
+            // Append-only financial ledger entries
+            PostFinalizeLedger(invoice, invoiceRef);
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return Ok(new
+            {
+                invoiceId = invoice.Id,
+                invoiceNumber = invoiceRef,
+                status = "finalized",
+                total = invoice.Total,
+                balanceDue = invoice.BalanceDue,
+                finalizedAt = invoice.FinalizedAt
+            });
+        });
+    }
+
+    [HttpGet("invoices/{id:guid}/print")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> PrintInvoice(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+            .Include(i => i.Payments)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Doctor)
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
+            return BadRequest(new { error = "invoice_not_finalized", message = "Finalize the invoice before printing a receipt." });
+
+        var clinicId = invoice.Appointment?.ClinicId;
+        var clinic = clinicId.HasValue
+            ? await _db.Clinics.FirstOrDefaultAsync(c => c.Id == clinicId.Value, ct)
+            : await _db.Clinics.FirstOrDefaultAsync(ct);
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+
+        invoice.PrintCount++;
+        invoice.LastPrintedAt = DateTimeOffset.UtcNow;
+        var watermark = invoice.PrintCount > 1 ? "DUPLICATE COPY" : "ORIGINAL";
+
+        // Audit print event in append-only table
+        _db.InvoicePrintLogs.Add(new InvoicePrintLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            PrintedByUserId = currentUserId,
+            PrintedAt = DateTimeOffset.UtcNow,
+            CopyNumber = invoice.PrintCount,
+            Watermark = watermark,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        await _db.SaveChangesAsync(ct);
+
+        var invoiceRef = invoice.InvoiceNumber > 0
+            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
+            : "DRAFT";
+
+        return Ok(new
+        {
+            invoiceId = invoice.Id,
+            invoiceNumber = invoiceRef,
+            documentType = invoice.DocumentType.ToString(),
+            watermark,
+            printCount = invoice.PrintCount,
+            clinic = new
+            {
+                name = clinic?.Name,
+                legalName = clinic?.LegalName,
+                address = clinic?.Address,
+                phone = clinic?.Phone,
+                email = clinic?.Email
+            },
+            patient = new
+            {
+                name = invoice.Appointment?.Patient?.Name ?? invoice.WalkInCustomerName ?? "Walk-in Patient",
+                uhid = invoice.Appointment?.Patient?.Uhid,
+                phone = invoice.Appointment?.Patient?.Phone ?? invoice.WalkInCustomerPhone
+            },
+            doctor = new
+            {
+                name = invoice.Appointment?.Doctor?.Name
+            },
+            lineItems = invoice.LineItems.Select(li => new
+            {
+                description = li.Description,
+                quantity = li.Quantity,
+                unitPrice = li.UnitPrice,
+                taxCategory = li.TaxCategory.ToString(),
+                hsnSacCode = li.HsnSacCode,
+                gstRate = li.GstRate,
+                taxAmount = li.TaxAmount,
+                discountAmount = li.DiscountAmount,
+                totalAmount = li.Amount
+            }),
+            subtotal = invoice.Subtotal,
+            gstAmount = invoice.GstAmount,
+            discountAmount = invoice.DiscountAmount,
+            total = invoice.Total,
+            paidAmount = invoice.PaidAmount,
+            balanceDue = invoice.BalanceDue,
+            status = invoice.Status.ToString().ToLower(),
+            createdAt = invoice.CreatedAt,
+            finalizedAt = invoice.FinalizedAt
+        });
+    }
+
+    [HttpPost("invoices/{id:guid}/credit-notes")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> CreateCreditNote(Guid id, [FromBody] CreateCreditNoteRequest req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
+            return BadRequest(new { error = "invoice_not_finalized", message = "Credit notes can only be issued against a finalized invoice." });
+
+        var currentYear = DateTime.UtcNow.Year.ToString();
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var alreadyCredited = await _db.CreditNotes
+                .Where(c => c.InvoiceId == id)
+                .SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
+            var creditable = invoice.Total - alreadyCredited;
+
+            if (req.Amount <= 0 || req.Amount > creditable)
+                return BadRequest(new
+                {
+                    error = "invalid_credit_note_amount",
+                    message = $"Credit note amount must be between ₹0.01 and ₹{creditable:F2} (already credited: ₹{alreadyCredited:F2})."
+                });
+
+            // Fixed-width numbers sort lexicographically; MAX+1 survives any gap a count would collide on.
+            var prefix = $"CN-{currentYear}-";
+            var lastNumber = await _db.CreditNotes
+                .Where(c => c.TenantId == tenantId && c.CreditNoteNumber.StartsWith(prefix))
+                .OrderByDescending(c => c.CreditNoteNumber)
+                .Select(c => c.CreditNoteNumber)
+                .FirstOrDefaultAsync(ct);
+            var nextSequence = lastNumber is not null && int.TryParse(lastNumber[prefix.Length..], out var lastSeq)
+                ? lastSeq + 1
+                : 1;
+
+            var creditNoteNum = $"{prefix}{nextSequence:D6}";
+            var currentUserId = User.GetUserId() ?? Guid.Empty;
+            var now = DateTimeOffset.UtcNow;
+
+            var creditNote = new CreditNote
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                InvoiceId = id,
+                CreditNoteNumber = creditNoteNum,
+                Amount = req.Amount,
+                Reason = req.Reason.Trim(),
+                ApprovedByUserId = currentUserId,
+                IssuedAt = now,
+                CreatedAt = now
+            };
+
+            _db.CreditNotes.Add(creditNote);
+
+            // Reversal entry in append-only financial ledger
+            var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.CreditNoteIssued,
+                ReferenceType = "CreditNote",
+                ReferenceId = creditNote.Id,
+                ReferenceNumber = creditNoteNum,
+                AccountCategory = "SalesReturnsAndAllowances",
+                DebitAmount = req.Amount,
+                CreditAmount = 0.0m,
+                Narration = $"Credit note {creditNoteNum} issued against {invoiceRef}. Reason: {req.Reason}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.CreditNoteIssued,
+                ReferenceType = "Invoice",
+                ReferenceId = invoice.Id,
+                ReferenceNumber = invoiceRef,
+                AccountCategory = "AccountsReceivable",
+                DebitAmount = 0.0m,
+                CreditAmount = req.Amount,
+                Narration = $"Receivable reduced by {creditNoteNum}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            // Adjust invoice balance
+            invoice.BalanceDue = Math.Max(0m, invoice.BalanceDue - req.Amount);
+            invoice.UpdatedAt = now;
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                creditNoteId = creditNote.Id,
+                creditNoteNumber = creditNote.CreditNoteNumber,
+                invoiceId = invoice.Id,
+                amount = creditNote.Amount,
+                reason = creditNote.Reason,
+                newBalanceDue = invoice.BalanceDue,
+                issuedAt = creditNote.IssuedAt
+            });
+        });
+    }
+
+    [HttpGet("invoices/{id:guid}")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> GetInvoice(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+            .Include(i => i.Payments)
+            .Include(i => i.CreditNotes)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
+            .Include(i => i.Appointment).ThenInclude(a => a!.Doctor)
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        var invoiceRef = invoice.InvoiceNumber > 0
+            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
+            : "DRAFT";
+
+        return Ok(new
+        {
+            invoiceId = invoice.Id,
+            invoiceNumber = invoiceRef,
+            documentType = invoice.DocumentType.ToString(),
+            appointmentId = invoice.AppointmentId,
+            patient = new
+            {
+                id = invoice.Appointment?.Patient?.Id,
+                name = invoice.Appointment?.Patient?.Name ?? invoice.WalkInCustomerName ?? "Walk-in Patient",
+                uhid = invoice.Appointment?.Patient?.Uhid,
+                phone = invoice.Appointment?.Patient?.Phone ?? invoice.WalkInCustomerPhone
+            },
+            doctor = new
+            {
+                id = invoice.Appointment?.Doctor?.Id,
+                name = invoice.Appointment?.Doctor?.Name
+            },
+            lineItems = invoice.LineItems.Select(li => new
+            {
+                id = li.Id,
+                description = li.Description,
+                quantity = li.Quantity,
+                unitPrice = li.UnitPrice,
+                taxCategory = li.TaxCategory.ToString(),
+                hsnSacCode = li.HsnSacCode,
+                gstRate = li.GstRate,
+                taxAmount = li.TaxAmount,
+                discountAmount = li.DiscountAmount,
+                totalAmount = li.Amount
+            }),
+            payments = invoice.Payments.Select(p => new
+            {
+                id = p.Id,
+                method = p.Method.ToString(),
+                amount = p.Amount,
+                utr = p.Utr,
+                status = p.Status.ToString(),
+                verificationStatus = p.VerificationStatus.ToString(),
+                paidAt = p.PaidAt
+            }),
+            creditNotes = invoice.CreditNotes.Select(cn => new
+            {
+                id = cn.Id,
+                creditNoteNumber = cn.CreditNoteNumber,
+                amount = cn.Amount,
+                reason = cn.Reason,
+                issuedAt = cn.IssuedAt
+            }),
+            linkedPharmacyInvoiceId = invoice.LinkedPharmacyInvoiceId,
+            subtotal = invoice.Subtotal,
+            gstAmount = invoice.GstAmount,
+            discountAmount = invoice.DiscountAmount,
+            total = invoice.Total,
+            paidAmount = invoice.PaidAmount,
+            balanceDue = invoice.BalanceDue,
+            printCount = invoice.PrintCount,
+            status = invoice.Status.ToString().ToLower(),
+            createdAt = invoice.CreatedAt,
+            finalizedAt = invoice.FinalizedAt
         });
     }
 
     [HttpPost("invoices/{id:guid}/payment")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [RequirePermission(Permissions.PaymentRecord)]
     public async Task<IActionResult> CollectPayment(Guid id, [FromBody] CollectPaymentRequest request, CancellationToken ct)
     {
+        var tenantId = TenantId;
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             var existingPayment = await _db.Payments
-                .FirstOrDefaultAsync(p => p.InvoiceId == id && p.IdempotencyKey == request.IdempotencyKey, ct);
+                .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.InvoiceId == id && p.IdempotencyKey == request.IdempotencyKey, ct);
             if (existingPayment is not null)
-                return Ok(new { status = existingPayment.Status.ToString().ToLower() });
+                return Ok(new { status = existingPayment.Status.ToString().ToLower(), paymentId = existingPayment.Id });
         }
 
-        var invoice = await _db.Invoices.FindAsync([id], ct);
+        var invoice = await _db.Invoices
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
         if (invoice is null)
             return NotFound(new { error = "invoice_not_found" });
 
-        if (invoice.Status == InvoiceStatus.Paid)
+        if (invoice.Status is InvoiceStatus.Draft)
+            return BadRequest(new { error = "invoice_not_finalized", message = "Finalize the invoice before collecting payment." });
+
+        if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
             return BadRequest(new { error = "invoice_already_paid" });
+
+        if (request.Amount <= 0 || request.Amount > invoice.BalanceDue)
+            return BadRequest(new
+            {
+                error = "amount_exceeds_balance",
+                message = $"Payment must be between ₹0.01 and the balance due of ₹{invoice.BalanceDue:F2}."
+            });
 
         if (string.Equals(request.Method, "razorpay", StringComparison.OrdinalIgnoreCase))
         {
@@ -140,6 +713,7 @@ public class InvoicesController : ControllerBase
                 Amount = request.Amount,
                 RazorpayOrderId = orderId,
                 Status = PaymentStatus.Pending,
+                VerificationStatus = PaymentVerificationStatus.Pending,
                 IdempotencyKey = request.IdempotencyKey,
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -156,8 +730,6 @@ public class InvoicesController : ControllerBase
             });
         }
 
-        // B2: manual "Mark as Paid" — cash, an offline card swipe, or a UPI transfer
-        // seen on the clinic's own phone. The UTR is what reconciles it later.
         var manualMethod = request.Method.Trim().ToLowerInvariant() switch
         {
             "cash" => PaymentMethod.Cash,
@@ -170,6 +742,19 @@ public class InvoicesController : ControllerBase
         if (manualMethod is null)
             return BadRequest(new { error = "invalid_payment_method" });
 
+        var taxProfile = await _db.TenantTaxProfiles.FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+        var utrThreshold = taxProfile?.ThresholdHighValueUtr ?? 2000.0m;
+        if (manualMethod != PaymentMethod.Cash
+            && request.Amount >= utrThreshold
+            && string.IsNullOrWhiteSpace(request.Utr))
+        {
+            return BadRequest(new
+            {
+                error = "utr_mandatory_above_threshold",
+                message = $"Bank UTR / Transaction Reference is mandatory for electronic payments of ₹{utrThreshold:N0} and above."
+            });
+        }
+
         var manualPayment = new Payment
         {
             Id = Guid.NewGuid(),
@@ -179,17 +764,55 @@ public class InvoicesController : ControllerBase
             Amount = request.Amount,
             Utr = string.IsNullOrWhiteSpace(request.Utr) ? null : request.Utr.Trim(),
             Status = PaymentStatus.Completed,
+            VerificationStatus = PaymentVerificationStatus.Confirmed,
             PaidAt = DateTimeOffset.UtcNow,
+            ConfirmedAt = DateTimeOffset.UtcNow,
+            ConfirmedByUserId = User.GetUserId(),
             IdempotencyKey = request.IdempotencyKey,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
         _db.Payments.Add(manualPayment);
-        invoice.Status = InvoiceStatus.Paid;
+        invoice.PaidAmount += request.Amount;
+        invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+        invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
         invoice.UpdatedAt = DateTimeOffset.UtcNow;
+
+        // Every confirmed payment posts to the append-only ledger, whichever endpoint took it.
+        var invoiceRef = invoice.InvoiceNumber > 0 ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}" : "DRAFT";
+        var cashOrBank = manualMethod == PaymentMethod.Cash ? "Cash" : "Bank";
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.PaymentConfirmed,
+            ReferenceType = "Payment",
+            ReferenceId = manualPayment.Id,
+            ReferenceNumber = manualPayment.Utr ?? invoiceRef,
+            AccountCategory = cashOrBank,
+            DebitAmount = request.Amount,
+            Narration = $"Payment recorded for {invoiceRef} via {manualMethod}. UTR: {manualPayment.Utr ?? "N/A"}",
+            PostedByUserId = User.GetUserId(),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.PaymentConfirmed,
+            ReferenceType = "Invoice",
+            ReferenceId = invoice.Id,
+            ReferenceNumber = invoiceRef,
+            AccountCategory = "AccountsReceivable",
+            CreditAmount = request.Amount,
+            Narration = $"Receivable offset for {invoiceRef} from payment {manualPayment.Id:N}",
+            PostedByUserId = User.GetUserId(),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { status = "paid", utr = manualPayment.Utr });
+        return Ok(new { status = "paid", utr = manualPayment.Utr, paidAmount = invoice.PaidAmount, balanceDue = invoice.BalanceDue });
     }
 
     [HttpPost("webhooks/razorpay")]
@@ -199,8 +822,6 @@ public class InvoicesController : ControllerBase
         if (!Request.Headers.TryGetValue("X-Razorpay-Signature", out var signatureHeader) || string.IsNullOrWhiteSpace(signatureHeader))
             return BadRequest(new { error = "missing_webhook_signature" });
 
-        // SEC-013: Never fall back to a hardcoded webhook secret in production.
-        // An attacker who knows the default can forge webhook signatures.
         var secret = _config["Razorpay:WebhookSecret"];
         if (string.IsNullOrWhiteSpace(secret))
         {
@@ -225,9 +846,6 @@ public class InvoicesController : ControllerBase
             return BadRequest(new { error = "invalid_webhook_signature" });
         }
 
-        // RLS is enabled on Payments/Invoices. An anonymous webhook has no tenant, and the
-        // platform Razorpay account legitimately spans tenants, so this one signed handler
-        // is explicitly granted the cross-tenant context for the duration of its transaction.
         await using var rlsTransaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.Database.ExecuteSqlAsync($"SELECT set_config('app.is_platform_admin', 'true', true)", ct);
 
@@ -254,8 +872,6 @@ public class InvoicesController : ControllerBase
                                 .FirstOrDefaultAsync(p => p.RazorpayPaymentId == razorpayPaymentId, ct);
                         }
 
-                        // F6: a checkout payment is only identified by its order until the
-                        // capture webhook arrives, so match on the order we created.
                         if (payment is null && !string.IsNullOrEmpty(razorpayOrderId))
                         {
                             payment = await _db.Payments.IgnoreQueryFilters()
@@ -265,7 +881,9 @@ public class InvoicesController : ControllerBase
                         if (payment is not null && payment.Status != PaymentStatus.Completed)
                         {
                             payment.Status = PaymentStatus.Completed;
+                            payment.VerificationStatus = PaymentVerificationStatus.Confirmed;
                             payment.PaidAt = DateTimeOffset.UtcNow;
+                            payment.ConfirmedAt = DateTimeOffset.UtcNow;
                             if (!string.IsNullOrEmpty(razorpayPaymentId))
                                 payment.RazorpayPaymentId = razorpayPaymentId;
 
@@ -275,8 +893,40 @@ public class InvoicesController : ControllerBase
                             {
                                 if (payment.TenantId == Guid.Empty)
                                     payment.TenantId = invoice.TenantId;
-                                invoice.Status = InvoiceStatus.Paid;
+                                invoice.PaidAmount += payment.Amount;
+                                invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+                                invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
                                 invoice.UpdatedAt = DateTimeOffset.UtcNow;
+
+                                var invoiceRef = invoice.InvoiceNumber > 0
+                                    ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
+                                    : $"RAZORPAY-{razorpayPaymentId ?? razorpayOrderId}";
+                                _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+                                {
+                                    Id = Guid.NewGuid(),
+                                    TenantId = invoice.TenantId,
+                                    EntryType = FinanceEntryType.PaymentConfirmed,
+                                    ReferenceType = "Payment",
+                                    ReferenceId = payment.Id,
+                                    ReferenceNumber = razorpayPaymentId ?? invoiceRef,
+                                    AccountCategory = "Bank",
+                                    DebitAmount = payment.Amount,
+                                    Narration = $"Razorpay capture for {invoiceRef}",
+                                    CreatedAt = DateTimeOffset.UtcNow
+                                });
+                                _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+                                {
+                                    Id = Guid.NewGuid(),
+                                    TenantId = invoice.TenantId,
+                                    EntryType = FinanceEntryType.PaymentConfirmed,
+                                    ReferenceType = "Invoice",
+                                    ReferenceId = invoice.Id,
+                                    ReferenceNumber = invoiceRef,
+                                    AccountCategory = "AccountsReceivable",
+                                    CreditAmount = payment.Amount,
+                                    Narration = $"Receivable offset for {invoiceRef} from Razorpay payment {payment.Id:N}",
+                                    CreatedAt = DateTimeOffset.UtcNow
+                                });
                             }
                             await _db.SaveChangesAsync(ct);
                         }
@@ -289,12 +939,12 @@ public class InvoicesController : ControllerBase
         catch
         {
             await rlsTransaction.RollbackAsync(ct);
-            // Signature was valid; avoid failing webhook delivery on malformed event json
+            // Non-2xx so Razorpay retries; returning 200 here silently loses the capture.
+            return StatusCode(500, new { error = "webhook_processing_failed" });
         }
 
         return Ok(new { status = "ok" });
     }
-
 
     [HttpGet("invoices")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
@@ -310,15 +960,22 @@ public class InvoicesController : ControllerBase
             .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
             .AsQueryable();
 
-        // Doctor sees only their invoices; Receptionist & Admin can view list (FR-17/18/19)
-        // Note: Pharmacy invoices have AppointmentId = null, filter them out for doctor-scoped queries
         if (string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == userId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))
-            query = query.Where(i => i.Status == statusEnum);
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (string.Equals(status, "unpaid", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(i => i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Cancelled && i.Status != InvoiceStatus.Refunded);
+            }
+            else if (Enum.TryParse<InvoiceStatus>(status, true, out var statusEnum))
+            {
+                query = query.Where(i => i.Status == statusEnum);
+            }
+        }
 
         if (doctorId.HasValue)
             query = query.Where(i => i.Appointment != null && i.Appointment.DoctorId == doctorId.Value);
@@ -328,9 +985,14 @@ public class InvoicesController : ControllerBase
             .Select(i => new
             {
                 invoiceId = i.Id,
-                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
+                invoiceNumber = i.InvoiceNumber > 0 ? $"INV-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
                 patientName = i.Appointment != null ? i.Appointment.Patient.Name : (i.WalkInCustomerName ?? "Walk-in Customer"),
+                subtotal = i.Subtotal,
+                gstAmount = i.GstAmount,
+                discountAmount = i.DiscountAmount,
                 total = i.Total,
+                paidAmount = i.PaidAmount,
+                balanceDue = i.BalanceDue,
                 status = i.Status.ToString().ToLower(),
                 createdAt = i.CreatedAt
             })
@@ -348,14 +1010,33 @@ public record GenerateInvoiceRequest(
     List<InvoiceLineItemRequest> LineItems,
 
     [RegularExpression(@"^IDEMP-INV-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-INV-{UUID}")]
-    string? IdempotencyKey);
+    string? IdempotencyKey = null,
+
+    decimal DiscountAmount = 0.0m,
+    string? DiscountReason = null,
+    Guid? LinkedPharmacyInvoiceId = null,
+    bool AutoFinalize = false);
 
 public record InvoiceLineItemRequest(
     [Required(ErrorMessage = "Description is required"), StringLength(150, MinimumLength = 2, ErrorMessage = "Description must be between 2 and 150 characters")]
     string Description,
 
     [Range(0.01, 1000000.00, ErrorMessage = "Amount must be between ₹0.01 and ₹10,00,000")]
-    decimal Amount);
+    decimal Amount,
+
+    int Quantity = 1,
+    decimal? UnitPrice = null,
+    string? TaxCategory = null,
+    string? HsnSacCode = null,
+    decimal? GstRate = null,
+    decimal DiscountAmount = 0.0m);
+
+public record CreateCreditNoteRequest(
+    [Range(0.01, 1000000.00, ErrorMessage = "Credit note amount must be positive")]
+    decimal Amount,
+
+    [Required, MinLength(3), MaxLength(500)]
+    string Reason);
 
 public record CollectPaymentRequest(
     [Required(ErrorMessage = "Payment Method is required"), RegularExpression("(?i)^(cash|upi|card|netbanking|razorpay)$", ErrorMessage = "Method must be cash, upi, card, netbanking or razorpay")]
@@ -365,7 +1046,8 @@ public record CollectPaymentRequest(
     decimal Amount,
 
     [RegularExpression(@"^IDEMP-PAY-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-PAY-{UUID}")]
-    string? IdempotencyKey,
+    string? IdempotencyKey = null,
 
     [MaxLength(64)]
     string? Utr = null);
+

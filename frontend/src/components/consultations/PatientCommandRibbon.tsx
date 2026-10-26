@@ -13,6 +13,11 @@ interface PatientCommandRibbonProps {
   onPrevPatient: () => void
   onNextPatient: () => void
   showToast: (msg: string, type?: 'success' | 'err') => void
+  onClaimPatient?: () => void
+  onParkPatient?: () => void
+  onRecallPatient?: () => void
+  onToggleContextPanel?: () => void
+  isContextPanelOpen?: boolean
 }
 
 export default function PatientCommandRibbon({
@@ -24,7 +29,12 @@ export default function PatientCommandRibbon({
   onSelectAppointment,
   onPrevPatient,
   onNextPatient,
-  showToast
+  showToast,
+  onClaimPatient,
+  onParkPatient,
+  onRecallPatient,
+  onToggleContextPanel,
+  isContextPanelOpen
 }: PatientCommandRibbonProps) {
   const [copiedPhone, setCopiedPhone] = useState(false)
 
@@ -160,14 +170,77 @@ export default function PatientCommandRibbon({
           </div>
         </div>
 
-        {/* Queue Switcher with Prev / Next Patient Arrows */}
-        <div className="flex items-center gap-2 self-start lg:self-center">
+        {/* Queue Actions & Patient Switcher */}
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-center">
+          {/* Clinical Context Panel Toggle */}
+          {onToggleContextPanel && (
+            <button
+              type="button"
+              onClick={onToggleContextPanel}
+              className={`btn btn-xs flex items-center gap-1 transition-colors ${
+                isContextPanelOpen
+                  ? 'btn-primary'
+                  : 'btn-secondary text-teal-800 border-teal-200 hover:bg-teal-50'
+              }`}
+              title="Toggle Clinical History, Vitals & Allergies"
+            >
+              <span>📊 Context &amp; Vitals</span>
+              {patientDetails?.allergies && patientDetails.allergies !== 'NKDA' && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="Allergy recorded" />
+              )}
+            </button>
+          )}
+
+          {/* Atomic Queue Action Buttons */}
+          {selectedAppointment && (
+            <>
+              {/* Claim Button: when patient is waiting / checked-in */}
+              {(selectedAppointment.status === 'CheckedIn' ||
+                selectedAppointment.status === 'Waiting' ||
+                selectedAppointment.status === 'InNursing') && onClaimPatient && (
+                <button
+                  type="button"
+                  onClick={onClaimPatient}
+                  className="btn btn-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shadow-2xs"
+                  title="Claim this patient for consultation (atomic)"
+                >
+                  <span>🩺 Claim Patient</span>
+                </button>
+              )}
+
+              {/* Park Button: when patient steps out for urine/lab test */}
+              {selectedAppointment.status === 'InConsultation' && onParkPatient && (
+                <button
+                  type="button"
+                  onClick={onParkPatient}
+                  className="btn btn-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold flex items-center gap-1 shadow-2xs"
+                  title="Park patient (e.g. stepping out for tests)"
+                >
+                  <span>⏸️ Park</span>
+                </button>
+              )}
+
+              {/* Recall Button: recall parked patient */}
+              {selectedAppointment.status === 'Parked' && onRecallPatient && (
+                <button
+                  type="button"
+                  onClick={onRecallPatient}
+                  className="btn btn-xs bg-cyan-600 hover:bg-cyan-700 text-white font-semibold flex items-center gap-1 shadow-2xs"
+                  title="Recall parked patient back to consultation"
+                >
+                  <span>▶️ Recall</span>
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Queue Prev/Next & Dropdown */}
           <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
             <button
               type="button"
               onClick={onPrevPatient}
               disabled={currentQueueIndex <= 0}
-              className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border-r border-slate-200 transition-colors"
+              className="px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border-r border-slate-200 transition-colors"
               title="Previous patient in queue"
               aria-label="Previous patient"
             >
@@ -177,7 +250,7 @@ export default function PatientCommandRibbon({
               type="button"
               onClick={onNextPatient}
               disabled={currentQueueIndex >= appointments.length - 1}
-              className="px-2 py-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="px-2 py-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="Next patient in queue"
               aria-label="Next patient"
             >
@@ -194,7 +267,7 @@ export default function PatientCommandRibbon({
                 onSelectAppointment(found)
               }
             }}
-            className="form-select text-xs py-1.5 min-w-[210px] bg-white border-teal-300 font-medium"
+            className="form-select text-xs py-1 min-w-[190px] bg-white border-teal-300 font-medium"
             aria-label="Select Queue Patient"
           >
             {appointments.map((a) => (

@@ -77,11 +77,32 @@ public class LabOrdersController : ControllerBase
 
     private const long MaxLabFileSizeBytes = 25 * 1024 * 1024; // 25 MB
 
+    [HttpPost("lab-orders/{id:guid}/collect-sample")]
+    [AuthorizeRoles("Nurse", "ClinicAdmin")]
+    public async Task<IActionResult> CollectSample(Guid id, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var order = await _db.LabOrders.FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tenantId, ct);
+        if (order is null) return NotFound(new { error = "order_not_found" });
+
+        order.Status = LabOrderStatus.SampleCollected;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { id = order.Id, status = "sample_collected" });
+    }
+
     // ----- FR-08-02: Enter/Upload Lab Result -----
 
     [HttpPatch("lab-orders/{id:guid}/result")]
     [AuthorizeRoles("Doctor", "ClinicAdmin")]
-    public async Task<IActionResult> EnterResult(Guid id, [FromForm] string? resultText, IFormFile? file, CancellationToken ct)
+    public async Task<IActionResult> EnterResult(
+        Guid id,
+        [FromForm] string? resultText,
+        [FromForm] bool isAbnormal,
+        [FromForm] string? referenceRange,
+        [FromForm] string? units,
+        IFormFile? file,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(resultText) && file is null)
             return BadRequest(new { error = "result_text_or_file_required" });
@@ -122,7 +143,6 @@ public class LabOrdersController : ControllerBase
             fileUrl = $"/lab-uploads/{fileName}";
         }
 
-
         var userId = User.GetUserId();
         if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
@@ -132,13 +152,17 @@ public class LabOrdersController : ControllerBase
             LabOrderId = id,
             ResultText = resultText,
             FileUrl = fileUrl,
+            IsAbnormal = isAbnormal,
+            ReferenceRange = referenceRange,
+            Units = units,
             Version = version,
             PreviousVersionId = latest?.Id,
             EnteredBy = userId.Value,
             EnteredAt = DateTimeOffset.UtcNow
         };
         _db.LabResults.Add(result);
-        order.Status = LabOrderStatus.Completed;
+        order.Status = LabOrderStatus.Resulted;
+        order.IsAbnormal = isAbnormal;
         order.CompletedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -149,7 +173,93 @@ public class LabOrdersController : ControllerBase
             previousVersionId = result.PreviousVersionId,
             resultText = result.ResultText,
             fileUrl = result.FileUrl,
+            isAbnormal = result.IsAbnormal,
             orderStatus = order.Status.ToString().ToLower()
+        });
+    }
+
+    [HttpGet("lab-orders/{id:guid}")]
+    [AuthorizeRoles("Doctor", "ClinicAdmin", "Nurse")]
+    public async Task<IActionResult> GetOrder(Guid id, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var order = await _db.LabOrders
+            .AsNoTracking()
+            .Include(o => o.Patient)
+            .FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tenantId, ct);
+
+        if (order is null) return NotFound(new { error = "order_not_found" });
+
+        // The review step is meaningless without the result, so the detail read returns it.
+        var result = await _db.LabResults
+            .AsNoTracking()
+            .Where(r => r.LabOrderId == id)
+            .OrderByDescending(r => r.Version)
+            .FirstOrDefaultAsync(ct);
+
+        return Ok(new
+        {
+            id = order.Id,
+            consultationId = order.ConsultationId,
+            patientId = order.PatientId,
+            patientName = order.Patient?.Name,
+            doctorId = order.DoctorId,
+            testName = order.TestName,
+            notes = order.Notes,
+            status = order.Status.ToString().ToLower(),
+            isAbnormal = order.IsAbnormal,
+            doctorReviewedAt = order.DoctorReviewedAt,
+            doctorReviewNotes = order.DoctorReviewNotes,
+            createdAt = order.CreatedAt,
+            completedAt = order.CompletedAt,
+            latestResult = result is null ? null : new
+            {
+                id = result.Id,
+                version = result.Version,
+                previousVersionId = result.PreviousVersionId,
+                resultText = result.ResultText,
+                fileUrl = result.FileUrl,
+                isAbnormal = result.IsAbnormal,
+                referenceRange = result.ReferenceRange,
+                units = result.Units,
+                enteredAt = result.EnteredAt
+            }
+        });
+    }
+
+    [HttpPost("lab-orders/{id:guid}/doctor-review")]
+    [AuthorizeRoles("Doctor")]
+    public async Task<IActionResult> DoctorReview(
+        Guid id,
+        [FromBody] DoctorReviewLabOrderRequest request,
+        CancellationToken ct)
+    {
+        var doctorId = User.GetUserId();
+        if (!doctorId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var order = await _db.LabOrders.FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tenantId, ct);
+        if (order is null) return NotFound(new { error = "order_not_found" });
+
+        // "Reviewed" with nothing to read would be a false clinical attestation.
+        if (!await _db.LabResults.AnyAsync(r => r.LabOrderId == id, ct))
+            return Conflict(new { error = "no_result_to_review", status = order.Status.ToString() });
+
+        order.Status = LabOrderStatus.ReviewedByDoctor;
+        order.DoctorReviewedAt = DateTimeOffset.UtcNow;
+        order.DoctorReviewedByUserId = doctorId.Value;
+        order.DoctorReviewNotes = request.ReviewNotes?.Trim();
+        if (request.IsAbnormal.HasValue) order.IsAbnormal = request.IsAbnormal.Value;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            id = order.Id,
+            status = "reviewed_by_doctor",
+            doctorReviewedAt = order.DoctorReviewedAt,
+            isAbnormal = order.IsAbnormal,
+            reviewNotes = order.DoctorReviewNotes
         });
     }
 
@@ -194,3 +304,5 @@ public class LabOrdersController : ControllerBase
 }
 
 public record CreateLabOrderRequest(string TestName, string? Notes);
+
+public record DoctorReviewLabOrderRequest(string? ReviewNotes, bool? IsAbnormal);

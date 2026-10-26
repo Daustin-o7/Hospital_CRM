@@ -12,36 +12,40 @@ namespace Hospital_CRM.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/ledger")]
-[RequireModule(ModuleRegistry.Finance)]
 public class LedgerController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
 
     public LedgerController(HospitalCrmDbContext db) => _db = db;
 
-    // ----- FR-11-01: Income read directly from invoices/payments -----
+    private Guid TenantId => User.GetTenantId() ?? Guid.Empty;
+
+    // ----- Section 5 / FR-11-01: Income read directly from invoices/payments -----
 
     [HttpGet("income")]
-    [AuthorizeRoles("ClinicAdmin")]
+    [AuthorizeRoles("ClinicAdmin", "Receptionist", "Doctor")]
     public async Task<IActionResult> Income([FromQuery] string? month, CancellationToken ct)
     {
-        // month param format: "YYYY-MM" (defaults to current month)
         var (year, monthNum) = ParseMonth(month);
 
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var tenantId = TenantId;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
-        // Sum completed payments where the linked invoice is in the month
         var payments = await _db.Payments
             .Include(p => p.Invoice)
-            .Where(p => p.Status == PaymentStatus.Completed
+            .Where(p => p.TenantId == tenantId
+                     && p.Status == PaymentStatus.Completed
                      && p.PaidAt >= startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
                      && p.PaidAt < endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc))
             .ToListAsync(ct);
 
         var totalIncome = payments.Sum(p => p.Amount);
-        var gstCollected = payments.Sum(p => p.Invoice?.GstAmount ?? 0);
+        // GST is recognized once per invoice, pro-rata to what was actually collected this month.
+        var gstCollected = payments
+            .GroupBy(p => p.Invoice)
+            .Where(g => g.Key is { Total: > 0 })
+            .Sum(g => g.Key!.GstAmount * Math.Min(1m, g.Sum(p => p.Amount) / g.Key!.Total));
         var invoiceCount = payments.Select(p => p.InvoiceId).Distinct().Count();
 
         return Ok(new
@@ -54,9 +58,137 @@ public class LedgerController : ControllerBase
         });
     }
 
-    // ----- FR-11-02: Manual Expense Entry -----
+    // ----- Section 5: Daily Collection by Payment Tender (Cash, UPI, Card, etc.) -----
+
+    [HttpGet("daily-collection")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> DailyCollection([FromQuery] string? date, CancellationToken ct)
+    {
+        var targetDate = DateOnly.TryParse(date, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow);
+        var start = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var end = start.AddDays(1);
+        var tenantId = TenantId;
+
+        var payments = await _db.Payments
+            .Include(p => p.Invoice)
+            .Where(p => p.TenantId == tenantId
+                     && ((p.PaidAt >= start && p.PaidAt < end)
+                         || (p.ReportedAt >= start && p.ReportedAt < end)))
+            .ToListAsync(ct);
+
+        var confirmedPayments = payments.Where(p => p.Status == PaymentStatus.Completed).ToList();
+        var reportedPayments = payments.Where(p => p.VerificationStatus == PaymentVerificationStatus.Reported && p.Status != PaymentStatus.Completed).ToList();
+
+        var confirmedByMethod = confirmedPayments
+            .GroupBy(p => p.Method)
+            .Select(g => new
+            {
+                method = g.Key.ToString().ToLower(),
+                amount = g.Sum(p => p.Amount),
+                count = g.Count()
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            date = targetDate.ToString("yyyy-MM-dd"),
+            totalConfirmed = confirmedPayments.Sum(p => p.Amount),
+            totalReportedPending = reportedPayments.Sum(p => p.Amount),
+            confirmedCount = confirmedPayments.Count,
+            reportedCount = reportedPayments.Count,
+            byMethod = confirmedByMethod
+        });
+    }
+
+    // ----- Section 5: Outstanding Patient Dues & Aging Analysis -----
+
+    [HttpGet("outstanding-dues")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    public async Task<IActionResult> OutstandingDues(CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var now = DateTimeOffset.UtcNow;
+
+        var unpaidInvoices = await _db.Invoices
+            .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
+            .Where(i => i.TenantId == tenantId
+                     && i.Status != InvoiceStatus.Paid
+                     && i.Status != InvoiceStatus.Cancelled
+                     && i.Status != InvoiceStatus.Refunded
+                     && i.BalanceDue > 0)
+            .OrderByDescending(i => i.CreatedAt)
+            .ToListAsync(ct);
+
+        var totalOutstanding = unpaidInvoices.Sum(i => i.BalanceDue);
+
+        // Aging buckets: 0-30, 31-60, 61-90, 90+ days
+        var bucket0To30 = unpaidInvoices.Where(i => (now - i.CreatedAt).TotalDays <= 30).Sum(i => i.BalanceDue);
+        var bucket31To60 = unpaidInvoices.Where(i => (now - i.CreatedAt).TotalDays > 30 && (now - i.CreatedAt).TotalDays <= 60).Sum(i => i.BalanceDue);
+        var bucket61To90 = unpaidInvoices.Where(i => (now - i.CreatedAt).TotalDays > 60 && (now - i.CreatedAt).TotalDays <= 90).Sum(i => i.BalanceDue);
+        var bucket90Plus = unpaidInvoices.Where(i => (now - i.CreatedAt).TotalDays > 90).Sum(i => i.BalanceDue);
+
+        var list = unpaidInvoices.Select(i => new
+        {
+            invoiceId = i.Id,
+            invoiceNumber = i.InvoiceNumber > 0 ? $"INV-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
+            patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Walk-in Patient",
+            patientPhone = i.Appointment?.Patient?.Phone ?? i.WalkInCustomerPhone,
+            total = i.Total,
+            paidAmount = i.PaidAmount,
+            balanceDue = i.BalanceDue,
+            status = i.Status.ToString().ToLower(),
+            daysPast = (int)(now - i.CreatedAt).TotalDays,
+            createdAt = i.CreatedAt
+        }).ToList();
+
+        return Ok(new
+        {
+            totalOutstanding,
+            aging = new
+            {
+                current0To30Days = bucket0To30,
+                past31To60Days = bucket31To60,
+                past61To90Days = bucket61To90,
+                over90Days = bucket90Plus
+            },
+            invoices = list
+        });
+    }
+
+    // ----- Section 5: Append-Only Financial Ledger Audit Journal -----
+
+    [HttpGet("journal")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> Journal([FromQuery] int limit = 50, CancellationToken ct = default)
+    {
+        var tenantId = TenantId;
+        var entries = await _db.FinanceLedgerEntries
+            .Where(e => e.TenantId == tenantId)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(Math.Min(limit, 200))
+            .Select(e => new
+            {
+                id = e.Id,
+                entryType = e.EntryType.ToString(),
+                referenceType = e.ReferenceType,
+                referenceId = e.ReferenceId,
+                referenceNumber = e.ReferenceNumber,
+                accountCategory = e.AccountCategory,
+                debitAmount = e.DebitAmount,
+                creditAmount = e.CreditAmount,
+                narration = e.Narration,
+                postedByUserId = e.PostedByUserId,
+                createdAt = e.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(entries);
+    }
+
+    // ----- FR-11-02: Manual Expense Entry (gated by Finance module) -----
 
     [HttpPost("expenses")]
+    [RequireModule(ModuleRegistry.Finance)]
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> CreateExpense([FromBody] CreateExpenseRequest request, CancellationToken ct)
     {
@@ -72,7 +204,7 @@ public class LedgerController : ControllerBase
         var userId = User.GetUserId();
         if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
 
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var tenantId = TenantId;
         var expense = new LedgerExpense
         {
             Id = Guid.NewGuid(),
@@ -100,10 +232,11 @@ public class LedgerController : ControllerBase
     }
 
     [HttpPatch("expenses/{id:guid}")]
+    [RequireModule(ModuleRegistry.Finance)]
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> UpdateExpense(Guid id, [FromBody] UpdateExpenseRequest request, CancellationToken ct)
     {
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var tenantId = TenantId;
         var expense = await _db.LedgerExpenses.FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, ct);
         if (expense is null)
             return NotFound(new { error = "expense_not_found" });
@@ -126,7 +259,6 @@ public class LedgerController : ControllerBase
         if (DateOnly.TryParse(request.ExpenseDate, out var date))
             expense.ExpenseDate = date;
 
-        // FR-11-02 edge case: edit logged via EditedAt
         expense.EditedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -140,11 +272,12 @@ public class LedgerController : ControllerBase
     }
 
     [HttpGet("expenses")]
+    [RequireModule(ModuleRegistry.Finance)]
     [AuthorizeRoles("ClinicAdmin")]
     public async Task<IActionResult> ListExpenses([FromQuery] string? month, CancellationToken ct)
     {
         var (year, monthNum) = ParseMonth(month);
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var tenantId = TenantId;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
@@ -165,7 +298,7 @@ public class LedgerController : ControllerBase
         return Ok(expenses);
     }
 
-    // ----- FR-11-03: Monthly Summary (JSON only for now; export format unconfirmed per FRD) -----
+    // ----- FR-11-03 / Section 5: Monthly EOD & Reconciliation Summary -----
 
     [HttpGet("summary")]
     [AuthorizeRoles("ClinicAdmin")]
@@ -173,19 +306,28 @@ public class LedgerController : ControllerBase
     {
         var (year, monthNum) = ParseMonth(month);
         var monthLabel = $"{year:D4}-{monthNum:D2}";
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var tenantId = TenantId;
         var startDate = new DateOnly(year, monthNum, 1);
         var endDate = startDate.AddMonths(1);
 
-        // Income (from payments, no separate table — FR-11-01 reconciliation)
-        var income = await _db.Payments
+        var payments = await _db.Payments
             .Include(p => p.Invoice)
-            .Where(p => p.Status == PaymentStatus.Completed
+            .Where(p => p.TenantId == tenantId
                      && p.PaidAt >= startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
                      && p.PaidAt < endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc))
-            .SumAsync(p => p.Amount, ct);
+            .ToListAsync(ct);
 
-        // Expenses (from ledger_expenses, aggregated by category)
+        var confirmedIncome = payments.Where(p => p.Status == PaymentStatus.Completed).Sum(p => p.Amount);
+        var reportedPending = payments.Where(p => p.VerificationStatus == PaymentVerificationStatus.Reported && p.Status != PaymentStatus.Completed).Sum(p => p.Amount);
+
+        // Credit notes in month
+        var creditNotes = await _db.CreditNotes
+            .Where(c => c.TenantId == tenantId
+                     && c.IssuedAt >= startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+                     && c.IssuedAt < endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc))
+            .SumAsync(c => c.Amount, ct);
+
+        // Expenses (if any)
         var expenseByCategory = await _db.LedgerExpenses
             .Where(e => e.TenantId == tenantId && e.ExpenseDate >= startDate && e.ExpenseDate < endDate)
             .GroupBy(e => e.Category)
@@ -201,15 +343,15 @@ public class LedgerController : ControllerBase
         return Ok(new
         {
             month = monthLabel,
-            income,
+            income = confirmedIncome,
+            reportedPendingIncome = reportedPending,
+            creditNotesIssued = creditNotes,
             expenses = new
             {
                 total = totalExpenses,
                 byCategory = expenseByCategory
             },
-            net = income - totalExpenses,
-            // FR-11-03: format parameter is acknowledged but not yet implemented —
-            // the spec explicitly flags export format as unconfirmed for pilot validation
+            net = confirmedIncome - creditNotes - totalExpenses,
             exportFormat = "json"
         });
     }
@@ -223,21 +365,23 @@ public class LedgerController : ControllerBase
         var targetDate = DateOnly.TryParse(date, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow);
         var start = targetDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var end = start.AddDays(1);
+        var tenantId = TenantId;
 
-        // Income from completed payments on the given date
         var payments = await _db.Payments
             .Include(p => p.Invoice)
-            .Where(p => p.Status == PaymentStatus.Completed
+            .Where(p => p.TenantId == tenantId
+                     && p.Status == PaymentStatus.Completed
                      && p.PaidAt >= start
                      && p.PaidAt < end)
             .ToListAsync(ct);
 
         var totalIncome = payments.Sum(p => p.Amount);
-        var gstCollected = payments.Sum(p => p.Invoice?.GstAmount ?? 0);
+        var gstCollected = payments
+            .GroupBy(p => p.Invoice)
+            .Where(g => g.Key is { Total: > 0 })
+            .Sum(g => g.Key!.GstAmount * Math.Min(1m, g.Sum(p => p.Amount) / g.Key!.Total));
         var paymentCount = payments.Count;
 
-        // Expenses recorded on the given date
-        var tenantId = User.GetTenantId() ?? Guid.Empty;
         var expenses = await _db.LedgerExpenses
             .Where(e => e.TenantId == tenantId && e.ExpenseDate == targetDate)
             .ToListAsync(ct);

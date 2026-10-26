@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "agentrouter/gpt-5.6-sol",
   "plugin": [
     "@dietrichgebert/ponytail"
   ],
@@ -12,27 +13,6 @@
         "apiKey": "{env:AGENTROUTER_API_KEY}"
       },
       "models": {
-        "claude-opus-4-8": {
-          "name": "Claude Opus 4.8",
-          "limit": {
-            "context": 200000,
-            "output": 8192
-          }
-        },
-        "claude-opus-5": {
-          "name": "Claude Opus 5",
-          "limit": {
-            "context": 200000,
-            "output": 8192
-          }
-        },
-        "deepseek-v4-flash": {
-          "name": "DeepSeek v4 Flash",
-          "limit": {
-            "context": 128000,
-            "output": 8192
-          }
-        },
         "gpt-5.6-sol": {
           "name": "GPT-5.6 Sol",
           "limit": {
@@ -42,6 +22,13 @@
         },
         "gpt-6-astra": {
           "name": "GPT-6 Astra",
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          }
+        },
+        "gpt-6.1-sol": {
+          "name": "GPT-6.1 Sol",
           "limit": {
             "context": 128000,
             "output": 8192

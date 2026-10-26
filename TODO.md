@@ -14,6 +14,40 @@
 
 ---
 
+## 🏥 Section 4: Pharmacy (4A) & External Prescription (4B) [SHIPPED ✅]
+> Complete tracker: `docs/product/SECTION-4-TODO.md`
+- [x] **4.1 CDCI & TrueMD Three-Layer Catalogue**: Flat-file CDCI integration (`GenericMaster`, `BrandMaster`) with checkpoint badge (*"Open Source - Needs Pharmacist Review"*) and search miss logging (`MedicineSearchMissLogs`).
+- [x] **4.2 Append-Only Stock Movement Ledger**: `DrugStockMovement` ledger with `CHECK ("QuantityRemaining" >= 0)` and row-locking on dispense.
+- [x] **4.3 Stock-In Purchase Entry**: Supplier, licence numbers, invoice #, batch, expiry, MRP, purchase rate, pack size via `POST /api/v1/pharmacy/stock-in`.
+- [x] **4.4 Same-Generic Substitution**: Suggest identical generic+strength+form; final decision by user; audit prescribed vs dispensed + `SubstitutionReason`.
+- [x] **4.5 Schedule H1 Inspection Register**: Auto-generated immutable supply log, exportable for 3-year statutory compliance inspections.
+- [x] **4.6 Retail License & Registered Pharmacist Gate**: Gated on Form 20/21 licence on `Clinic` and registered pharmacist role.
+- [x] **4.7 NDPS Digital Prohibition**: Hard block on electronic dispensing of narcotic drugs (`ndps_digital_dispensing_prohibited`).
+- [x] **4.8 Sequential Pharmacy Invoicing**: `PHARM-YYYY-XXXXXX` series and reverse MRP-inclusive GST calculation.
+- [x] **4.9 Loose Units, Expiry & Batch Recall**: Base unit tablets, expired batch blocks, near-expiry warnings, batch recall flags (`POST /api/v1/pharmacy/batches/{id}/recall`).
+- [x] **4.10 Finalized Rx Gate & Least Privilege**: Restrict dispense to finalized consultations; lock dispensed prescription items against silent amendment.
+- [x] **4.11 Server-Side Print Payload & Duplicate Reprints**: `GET /api/v1/prescriptions/{id}/print` returns the printable payload (no PDF renderer yet) with watermarked `DUPLICATE COPY` and `PrescriptionPrintLogs` audit trail.
+- [x] **4.12 Public QR Verification**: Dedicated `frontend/src/pages/VerifyRx.tsx` with per-version superseded detection (only older printed copies) and expiring HMAC-signed share links.
+
+> Re-verified 2026-10-26: verify/version semantics, dispense matching + NDPS from the stored line, POS MRP/GST as server truth, recall stock zeroing, ledger FK `Restrict` + DB role revokes, module gates on all four pharmacy controllers. Known limits: no PDF/QR image, no pharmacy UI, Rx dispense is not billed. See `docs/SESSION-LOG.md`.
+
+---
+
+## 💳 Section 5: Billing, Payments & Financial Ledger [SHIPPED ✅]
+> Complete tracker: `docs/product/SECTION-5-TODO.md`
+- [x] **5.1 Statutory Tax**: Exempt/Bill of Supply default (SAC 999312), per-line taxable GST, mixed bill becomes a Tax Invoice, client cannot zero-rate a taxable line.
+- [x] **5.2 Finalization**: Draft → Finalized, gapless `MAX+1` numbering, unique DB index, immutable totals, ledger postings that balance (including discount).
+- [x] **5.3 Credit Notes**: Finalized-only, `CN-YYYY-XXXXXX` sequence, cumulative cap at invoice total, append-only reversal.
+- [x] **5.4 Direct Payments**: Dynamic NPCI UPI QR with primary/backup toggle, cash/card/NEFT, split payments, projected UTR threshold.
+- [x] **5.5 Verification**: Reported (hint) vs Confirmed (financial truth); double-confirm and over-balance rejected; idempotent retries.
+- [x] **5.6 Payee Security**: ClinicAdmin-only, password + MFA step-up, 24h cooling-off, admin email alerts, priority guard.
+- [x] **5.7 Append-Only Ledger**: RBAC revokes for ledger/print/credit notes, EF guard, webhook posting, tender/aging/journal reports.
+- [x] **5.8 PWA**: `Billing.tsx` tabs, QR modal, print modal, credit-note modal.
+
+> Re-verified 2026-10-26: double-confirm/overpay, legacy collect ledger, discount-balanced finalize, credit-note caps, invoice-number unique index, webhook fail-loud, tax downgrade, draft print, payee MFA/alerts, ledger GST/reported/net. Known limits: no PDF, deposits, refunds, dual-approval threshold, Indian FY numbering, reported-payment caps/alerts, payee daily limit, statement import. See `docs/SESSION-LOG.md`.
+
+---
+
 ## Phase 0: Security & Hardening (🔴 Blocking — Current Sprint)
 
 Target: Close all Critical, High, and Medium vulnerabilities identified in the OWASP security audit.

@@ -102,7 +102,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Clinic Beta",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -123,7 +123,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Clinic Gamma",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -154,7 +154,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Clinic Delta",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Enterprise,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -186,7 +186,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Tenant A",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -195,7 +195,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Tenant B",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -232,7 +232,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Clinic Zero Writes",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };
@@ -260,7 +260,7 @@ public class ModuleGateServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Clinic Case Sensitivity",
-            ActivatedModules = "core,pharmacy",
+            ActivatedModules = "core,pharmacy,inventory",
             SubscriptionTier = SubscriptionTier.Professional,
             SubscriptionStatus = SubscriptionStatus.Active
         };

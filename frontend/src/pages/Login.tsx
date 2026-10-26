@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth, type TenantMembership } from '../context/AuthContext'
 import api from '../services/api'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { BrandLogo } from '../components/ui/BrandLogo'
@@ -19,7 +19,9 @@ export default function Login() {
   const [mfaMethod, setMfaMethod] = useState<'totp' | 'email'>('totp')
   const [resending, setResending] = useState(false)
   const [resent, setResent]       = useState(false)
-  const { login, loginWithEntra, isEntraEnabled, completeMfa } = useAuth()
+  const [selectableMemberships, setSelectableMemberships] = useState<TenantMembership[]>([])
+  const [selectionToken, setSelectionToken] = useState<string | null>(null)
+  const { login, loginWithEntra, isEntraEnabled, completeMfa, selectTenant } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +43,9 @@ export default function Login() {
         setMfaMethod(result.method === 'email' ? 'email' : 'totp')
         setMfaCode('')
         setResent(false)
+      } else if (result.requiresTenantSelection && result.selectionToken && result.memberships) {
+        setSelectionToken(result.selectionToken)
+        setSelectableMemberships(result.memberships)
       }
     } catch (err: any) {
       setError(friendlyError(err))
@@ -62,7 +67,24 @@ export default function Login() {
     }
     setLoading(true)
     try {
-      await completeMfa(mfaChallenge!, mfaCode.trim())
+      const result = await completeMfa(mfaChallenge!, mfaCode.trim())
+      if (result && result.requiresTenantSelection && result.selectionToken && result.memberships) {
+        setMfaChallenge(null)
+        setSelectionToken(result.selectionToken)
+        setSelectableMemberships(result.memberships)
+      }
+    } catch (err: any) {
+      setError(friendlyError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSelectClinic = async (tenantId: string, clinicId?: string | null) => {
+    setError('')
+    setLoading(true)
+    try {
+      await selectTenant(tenantId, selectionToken || undefined, clinicId ?? null)
     } catch (err: any) {
       setError(friendlyError(err))
     } finally {
@@ -255,7 +277,62 @@ export default function Login() {
               </div>
             )}
 
-            {mfaChallenge ? (
+            {selectionToken && selectableMemberships.length > 0 ? (
+              <div>
+                <p style={{ fontSize: 13.5, color: 'var(--color-text-muted)', marginBottom: 18 }}>
+                  Your account is registered with multiple clinics. Choose a practice to enter your session:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                  {selectableMemberships.map((m) => (
+                    <button
+                      key={`${m.tenantId}:${m.clinicId ?? ''}`}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSelectClinic(m.tenantId, m.clinicId)}
+                      className="card"
+                      style={{
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s ease',
+                        border: '1px solid var(--color-border)',
+                        width: '100%'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 20 }}>🏥</span>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--color-text)' }}>
+                              {m.clinicName}
+                            </span>
+                            {m.isDefault && (
+                              <span className="badge badge-subtle" style={{ fontSize: 10 }}>Primary</span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11.5, color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>
+                            Role: {m.role}
+                          </span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-accent)' }}>
+                        Enter →
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectionToken(null); setSelectableMemberships([]); setError(''); }}
+                  className="mt-3 w-full text-center text-xs font-semibold text-[var(--color-text-muted)] hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            ) : mfaChallenge ? (
               <form onSubmit={handleMfaSubmit} noValidate>
                 <p style={{ fontSize: 13.5, color: 'var(--color-text-muted)', marginBottom: 18 }}>
                   {mfaMethod === 'email'

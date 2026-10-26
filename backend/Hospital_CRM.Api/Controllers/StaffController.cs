@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -146,6 +147,20 @@ public class StaffController : ControllerBase
 
         _db.Users.Add(user);
 
+        // Section 0: invited staff get an explicit membership, not a legacy User.TenantId row.
+        _db.TenantMemberships.Add(new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TenantId = invite.TenantId,
+            ClinicId = invite.ClinicId,
+            Role = invite.Role,
+            IsDefault = true,
+            Status = "active",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
         // Create NurseProfile if role is Nurse
         if (invite.Role == UserRole.Nurse)
         {
@@ -196,6 +211,9 @@ public class StaffController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RoleGranted, "success",
+            user.Id, invite.TenantId, user.Email, $"role={invite.Role}", ct);
 
         return Ok(new { message = "invite_accepted", userId = user.Id });
     }

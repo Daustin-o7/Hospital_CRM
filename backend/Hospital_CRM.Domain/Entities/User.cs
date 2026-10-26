@@ -69,4 +69,5 @@ public class User
     public virtual ICollection<Appointment> AppointmentsAsDoctor { get; set; } = [];
     public virtual ICollection<Consultation> Consultations { get; set; } = [];
     public virtual ICollection<StaffInvite> SentInvites { get; set; } = [];
+    public virtual ICollection<TenantMembership> Memberships { get; set; } = [];
 }

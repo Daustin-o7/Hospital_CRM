@@ -2,7 +2,6 @@ using System.Data;
 using System.Text;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
-using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -28,15 +27,66 @@ public class PharmacyComplianceController : ControllerBase
         _logger = logger;
     }
 
-    // [RequireModule] already rejected callers without the pharmacy entitlement.
     private Guid TenantId => User.GetTenantId()!.Value;
+
+    /// <summary>Fail-closed Form 20/21 gate: a missing clinic row or licence is "not licensed".</summary>
+    private async Task<Clinic?> GetLicensedClinicAsync(CancellationToken ct)
+    {
+        var clinic = await _db.Clinics.FirstOrDefaultAsync(ct);
+        return clinic != null &&
+               (!string.IsNullOrWhiteSpace(clinic.PharmacyLicenceNumber20) ||
+                !string.IsNullOrWhiteSpace(clinic.PharmacyLicenceNumber21))
+            ? clinic
+            : null;
+    }
+
+    private static BadRequestObjectResult NdpsBlocked() => new(new
+    {
+        error = "ndps_digital_dispensing_prohibited",
+        message = "NDPS drugs are legally prohibited from digital retail dispensing under NDPS Rules. Physical triplicate official register required."
+    });
+
+    /// <summary>
+    /// Item → catalogue drug: explicit id first, then exact brand/medicine text, then exact
+    /// generic + strength + form. A mismatch is refused; nothing is guessed.
+    /// </summary>
+    private static Drug? ResolveDrug(PrescriptionItem rxItem, IReadOnlyCollection<Drug> candidates)
+    {
+        if (rxItem.DrugId is { } id) return candidates.FirstOrDefault(d => d.Id == id);
+
+        var byText = candidates.FirstOrDefault(d =>
+            string.Equals(d.Name, rxItem.MedicineText.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (byText != null) return byText;
+
+        return candidates.FirstOrDefault(d =>
+            string.Equals(d.GenericName, rxItem.GenericName.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(d.Strength, rxItem.Strength.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(d.DosageForm, rxItem.DosageForm.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            (string.IsNullOrWhiteSpace(rxItem.BrandName) ||
+             string.Equals(d.Name, rxItem.BrandName.Trim(), StringComparison.OrdinalIgnoreCase)));
+    }
 
     [HttpPost("dispense")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
     public async Task<IActionResult> DispensePrescription([FromBody] DispensePrescriptionRequest req, CancellationToken ct)
     {
+        var tenantId = TenantId;
+
+        // 1. Regulatory Licence Gate (Form 20 / Form 21). Fail closed: no clinic row or no
+        // licence number means no dispensing.
+        if (await GetLicensedClinicAsync(ct) is null)
+        {
+            return StatusCode(403, new
+            {
+                error = "pharmacy_licence_missing",
+                message = "Clinic must register Form 20 or Form 21 Retail Drug Licence before dispensing medications."
+            });
+        }
+
         var prescription = await _db.Prescriptions
             .Include(p => p.Items)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c.Doctor)
             .Include(p => p.Consultation)
                 .ThenInclude(c => c.Appointment)
                     .ThenInclude(a => a.Patient)
@@ -45,7 +95,11 @@ public class PharmacyComplianceController : ControllerBase
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
 
-        var tenantId = TenantId;
+        // Ensure prescription is from a finalized consultation (not draft)
+        if (prescription.Consultation != null && prescription.Consultation.Status == ConsultationStatus.Draft)
+        {
+            return BadRequest(new { error = "cannot_dispense_draft_prescription", message = "Prescription must be finalized by doctor before dispensing." });
+        }
 
         // Idempotency check
         if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
@@ -64,16 +118,83 @@ public class PharmacyComplianceController : ControllerBase
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
+            // Two concurrent callers can pass the pre-transaction check; the in-transaction
+            // check plus the filtered unique index turn the second one into a duplicate.
+            if (!string.IsNullOrWhiteSpace(req.IdempotencyKey) &&
+                await _db.DispenseRecords.AnyAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct))
+            {
+                return Ok(new { message = "idempotent_duplicate" });
+            }
+
             var patientName = req.PatientName ?? prescription.Consultation?.Appointment?.Patient?.Name ?? "Walk-in Patient";
             var patientAddress = req.PatientAddress ?? "Local";
 
             var prescriptionItems = prescription.Items.ToList();
-            var drugNames = prescriptionItems.Select(i => i.MedicineText.Trim().ToLower()).ToList();
+            var drugIds = prescriptionItems.Where(i => i.DrugId.HasValue).Select(i => i.DrugId!.Value).Distinct().ToList();
+            var medicineTexts = prescriptionItems.Select(i => i.MedicineText.Trim().ToLower()).Distinct().ToList();
+            var genericNames = prescriptionItems.Select(i => i.GenericName.Trim().ToLower()).Distinct().ToList();
 
-            var matchedDrugs = await _db.Drugs
+            var candidateDrugs = await _db.Drugs
                 .Include(d => d.Batches)
-                .Where(d => drugNames.Contains(d.Name.ToLower()) || drugNames.Contains(d.GenericName.ToLower()))
+                .Where(d => drugIds.Contains(d.Id)
+                    || medicineTexts.Contains(d.Name.ToLower())
+                    || genericNames.Contains(d.GenericName.ToLower()))
                 .ToListAsync(ct);
+
+            // 2. NDPS hard block. The prescription's own schedule is authoritative, so a line
+            // carrying NDPS is refused even when no catalogue row can be matched.
+            if (prescriptionItems.Any(i => i.ScheduleClass == ScheduleClass.NDPS))
+                return NdpsBlocked();
+
+            var rxTargets = new List<(PrescriptionItem RxItem, Drug Drug)>();
+            foreach (var rxItem in prescriptionItems)
+            {
+                var targetDrug = ResolveDrug(rxItem, candidateDrugs);
+                if (targetDrug is null)
+                {
+                    return BadRequest(new
+                    {
+                        error = "drug_not_matched",
+                        message = $"'{rxItem.MedicineText}' is not in the pharmacy catalogue. Curate the medicine before dispensing.",
+                        prescriptionItemId = rxItem.Id
+                    });
+                }
+
+                if (targetDrug.ScheduleClass == ScheduleClass.NDPS)
+                    return NdpsBlocked();
+
+                var itemSelection = req.ItemSelections?.FirstOrDefault(s => s.PrescriptionItemId == rxItem.Id);
+
+                // Substitution is optional and must stay same generic + strength + form.
+                if (itemSelection?.SubstitutedDrugId is { } substitutedId && substitutedId != targetDrug.Id)
+                {
+                    var substitutedDrug = candidateDrugs.FirstOrDefault(d => d.Id == substitutedId)
+                        ?? await _db.Drugs.Include(d => d.Batches).FirstOrDefaultAsync(d => d.Id == substitutedId, ct);
+
+                    if (substitutedDrug is null)
+                        return BadRequest(new { error = "substitution_drug_not_found" });
+
+                    if (!string.Equals(targetDrug.GenericName, substitutedDrug.GenericName, StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(targetDrug.Strength, substitutedDrug.Strength, StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(targetDrug.DosageForm, substitutedDrug.DosageForm, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return BadRequest(new
+                        {
+                            error = "substitution_generic_mismatch",
+                            message = $"Substitution permitted only for same generic, strength and form '{targetDrug.GenericName} {targetDrug.Strength}'. Therapeutic substitution requires doctor amendment."
+                        });
+                    }
+
+                    if (substitutedDrug.ScheduleClass == ScheduleClass.NDPS)
+                        return NdpsBlocked();
+
+                    targetDrug = substitutedDrug;
+                    rxItem.SubstitutedDrugId = substitutedDrug.Id;
+                    rxItem.SubstitutionReason = itemSelection.SubstitutionReason ?? "Pharmacist generic substitution";
+                }
+
+                rxTargets.Add((rxItem, targetDrug));
+            }
 
             var dispenseRecord = new DispenseRecord
             {
@@ -91,59 +212,95 @@ public class PharmacyComplianceController : ControllerBase
             decimal totalAmount = 0m;
             var scheduleH1Items = new List<(DrugBatch Batch, int Qty, Drug Drug)>();
 
-            foreach (var rxItem in prescriptionItems)
+            foreach (var (rxItem, targetDrug) in rxTargets)
             {
-                var drugName = rxItem.MedicineText.Trim();
-                var matchedDrug = matchedDrugs.FirstOrDefault(d =>
-                    d.Name.Equals(drugName, StringComparison.OrdinalIgnoreCase) ||
-                    d.GenericName.Equals(drugName, StringComparison.OrdinalIgnoreCase));
+                var itemSelection = req.ItemSelections?.FirstOrDefault(s => s.PrescriptionItemId == rxItem.Id);
 
-                if (matchedDrug == null)
+                var remaining = Math.Max(0, rxItem.TotalQuantity - rxItem.DispensedQuantity);
+                if (remaining == 0)
+                    return BadRequest(new { error = "prescription_item_already_dispensed", prescriptionItemId = rxItem.Id });
+
+                var dispenseQty = itemSelection?.Quantity ?? remaining;
+                if (dispenseQty < 1 || dispenseQty > remaining)
                 {
-                    dispenseRecord.Items.Add(new DispenseItem
+                    return BadRequest(new
                     {
-                        Id = Guid.NewGuid(),
-                        DispenseRecordId = dispenseRecord.Id,
-                        PrescriptionItemId = rxItem.Id,
-                        DrugBatchId = Guid.Empty,
-                        Quantity = 1,
-                        UnitPrice = 0m
+                        error = "dispense_quantity_exceeds_prescribed",
+                        prescriptionItemId = rxItem.Id,
+                        prescribed = rxItem.TotalQuantity,
+                        alreadyDispensed = rxItem.DispensedQuantity,
+                        requested = dispenseQty
                     });
-                    continue;
                 }
 
-                var availableBatch = matchedDrug.Batches
-                    .Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today)
-                    .OrderBy(b => b.ExpiryDate)
-                    .FirstOrDefault();
+                // FEFO selection excluding recalled and expired batches; an explicit batch must
+                // belong to the resolved drug.
+                DrugBatch? availableBatch = null;
+                if (itemSelection?.DrugBatchId is { } batchId && batchId != Guid.Empty)
+                {
+                    availableBatch = targetDrug.Batches.FirstOrDefault(b =>
+                        b.Id == batchId && !b.IsRecalled && b.ExpiryDate >= today && b.QuantityRemaining > 0);
+                }
 
                 if (availableBatch == null)
                 {
-                    return BadRequest(new { error = $"no_stock_for_drug: {matchedDrug.Name}", drugName = matchedDrug.Name });
+                    availableBatch = targetDrug.Batches
+                        .Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && !b.IsRecalled)
+                        .OrderBy(b => b.ExpiryDate)
+                        .FirstOrDefault();
                 }
 
-                var dispenseQty = 1;
+                if (availableBatch == null)
+                {
+                    return BadRequest(new { error = $"no_active_batch_in_stock: {targetDrug.Name}", drugName = targetDrug.Name });
+                }
 
                 // SEC-006: Guard against driving batch stock negative
                 if (availableBatch.QuantityRemaining < dispenseQty)
                 {
-                    return BadRequest(new { error = $"insufficient_stock_for_drug: {matchedDrug.Name}", drugName = matchedDrug.Name, available = availableBatch.QuantityRemaining, requested = dispenseQty });
+                    return BadRequest(new { error = $"insufficient_stock_for_drug: {targetDrug.Name}", drugName = targetDrug.Name, available = availableBatch.QuantityRemaining, requested = dispenseQty });
                 }
 
-                if (matchedDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
+                // Statutory register fields come from the signed consultation, never from the caller.
+                var prescriberName = prescription.Consultation?.Doctor?.Name;
+                var prescriberRegNo = prescription.Consultation?.DoctorRegistrationNumber;
+
+                if (targetDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.ScheduleX)
                 {
-                    if (string.IsNullOrWhiteSpace(req.PrescriberName) || string.IsNullOrWhiteSpace(req.PrescriberRegNo))
+                    if (string.IsNullOrWhiteSpace(prescriberName) || string.IsNullOrWhiteSpace(prescriberRegNo))
                     {
                         return BadRequest(new
                         {
                             error = "schedule_h1_prescriber_required",
-                            message = "Prescriber name and registration number required for Schedule H1/NDPS/ScheduleX drugs."
+                            message = "The signed consultation has no prescribing doctor registration number; amend or re-sign before dispensing Schedule H1/X drugs."
                         });
                     }
-                    scheduleH1Items.Add((availableBatch, dispenseQty, matchedDrug));
+                    scheduleH1Items.Add((availableBatch, dispenseQty, targetDrug));
                 }
 
+                // Row-locked atomic stock deduction
                 availableBatch.QuantityRemaining -= dispenseQty;
+
+                // Append-only stock movement ledger
+                _db.DrugStockMovements.Add(new DrugStockMovement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    DrugId = targetDrug.Id,
+                    DrugBatchId = availableBatch.Id,
+                    Quantity = dispenseQty,
+                    Direction = MovementDirection.Out,
+                    ReferenceType = "Dispense",
+                    ReferenceId = dispenseRecord.Id,
+                    Note = $"Dispensed for Rx #{prescription.Id:N}",
+                    RecordedBy = currentUserId,
+                    RecordedAt = DateTimeOffset.UtcNow
+                });
+
+                // Update prescription item dispensed state
+                rxItem.IsDispensed = true;
+                rxItem.DispensedQuantity += dispenseQty;
+                rxItem.DispensedBatchId = availableBatch.Id;
 
                 dispenseRecord.Items.Add(new DispenseItem
                 {
@@ -157,7 +314,7 @@ public class PharmacyComplianceController : ControllerBase
 
                 totalAmount += availableBatch.Mrp * dispenseQty;
 
-                if (matchedDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.NDPS or ScheduleClass.ScheduleX)
+                if (targetDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.ScheduleX)
                 {
                     var dispenserUser = await _db.Users.FindAsync([currentUserId], ct);
                     var dispenserName = dispenserUser?.Name ?? "Pharmacist";
@@ -167,15 +324,15 @@ public class PharmacyComplianceController : ControllerBase
                         Id = Guid.NewGuid(),
                         TenantId = tenantId,
                         DispenseRecordId = dispenseRecord.Id,
-                        DrugId = matchedDrug.Id,
-                        ScheduleClass = matchedDrug.ScheduleClass,
-                        DrugName = matchedDrug.Name,
+                        DrugId = targetDrug.Id,
+                        ScheduleClass = targetDrug.ScheduleClass,
+                        DrugName = targetDrug.Name,
                         BatchNumber = availableBatch.BatchNumber,
                         Quantity = dispenseQty,
                         PatientName = patientName,
                         PatientAddress = patientAddress,
-                        PrescriberName = req.PrescriberName!,
-                        PrescriberRegNo = req.PrescriberRegNo!,
+                        PrescriberName = prescriberName!,
+                        PrescriberRegNo = prescriberRegNo!,
                         DispensedBy = currentUserId,
                         DispenserName = dispenserName,
                         DispensedAt = DateTimeOffset.UtcNow
@@ -194,22 +351,7 @@ public class PharmacyComplianceController : ControllerBase
                 totalAmount,
                 status = "dispensed",
                 createdAt = dispenseRecord.DispensedAt,
-                itemCount = dispenseRecord.Items.Count,
-                items = dispenseRecord.Items.Select(di =>
-                {
-                    var rxItem = prescriptionItems.FirstOrDefault(pi => pi.Id == di.PrescriptionItemId);
-                    return new
-                    {
-                        drugName = di.DrugBatchId != Guid.Empty
-                            ? (matchedDrugs.FirstOrDefault(d => d.Batches.Any(b => b.Id == di.DrugBatchId))?.Name ?? "Unknown")
-                            : (rxItem?.MedicineText ?? "Unknown"),
-                        quantity = di.Quantity,
-                        unitPrice = di.UnitPrice,
-                        batchNumber = di.DrugBatchId != Guid.Empty
-                            ? (_db.DrugBatches.FirstOrDefault(b => b.Id == di.DrugBatchId)?.BatchNumber ?? "")
-                            : ""
-                    };
-                })
+                itemCount = dispenseRecord.Items.Count
             });
         });
     }
@@ -263,7 +405,7 @@ public class PharmacyComplianceController : ControllerBase
             }
 
             var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-            return File(bytes, "text/csv", $"statutory_controlled_substance_register_{DateTime.UtcNow:yyyyMMdd}.csv");
+            return File(bytes, "text/csv", $"statutory_h1_register_{DateTime.UtcNow:yyyyMMdd}.csv");
         }
 
         return Ok(new

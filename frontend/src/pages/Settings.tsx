@@ -210,6 +210,8 @@ export default function Settings() {
       {/* ── Account: optional two-factor authentication ── */}
       <TwoFactorSettings />
 
+      <SessionSettings />
+
       {/* ── Doctor Specialization & Clinical Practice Preferences ── */}
       <DoctorSpecialtySettingsEditor />
 
@@ -250,6 +252,34 @@ export default function Settings() {
         onSave={onUpdateProfile}
         saving={loading}
       />
+    </div>
+  )
+}
+
+function SessionSettings() {
+  const { revokeAllSessions } = useAuth()
+  const [busy, setBusy] = useState(false)
+
+  const onRevoke = async () => {
+    if (!window.confirm('Sign out of every device, including this one? Unsaved drafts and queued invoices on this browser will be cleared.')) return
+    setBusy(true)
+    try {
+      await revokeAllSessions()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card p-6 space-y-3">
+      <h2 className="section-title">Sessions</h2>
+      <p className="text-sm text-[var(--color-text-muted)]">
+        On a shared front-desk PC, revoke every device when you leave or suspect a leak. Local
+        drafts and queued invoices are cleared as well.
+      </p>
+      <button type="button" className="btn btn-danger" onClick={onRevoke} disabled={busy}>
+        {busy ? 'Revoking…' : 'Sign out of all devices'}
+      </button>
     </div>
   )
 }

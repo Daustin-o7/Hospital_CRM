@@ -395,12 +395,16 @@ public class NurseController : ControllerBase
     }
 
     [HttpPost("leave-requests/{id:guid}/review")]
-    [AuthorizeRoles("ClinicAdmin")]
+    [AuthorizeRoles("ClinicAdmin", "Nurse")]
     public async Task<IActionResult> ReviewLeave(Guid id, [FromBody] ReviewLeaveRequest request, CancellationToken ct)
     {
         var adminId = User.GetUserId();
         if (!adminId.HasValue)
             return Unauthorized(new { error = "invalid_token" });
+
+        var adminUser = await _db.Users.FindAsync([adminId.Value], ct);
+        if (adminUser?.ClinicId is null)
+            return Forbid();
 
         var leave = await _db.LeaveRequests.FindAsync([id], ct);
         if (leave == null)
@@ -409,9 +413,42 @@ public class NurseController : ControllerBase
         if (!Enum.TryParse<LeaveStatus>(request.Status, true, out var newStatus))
             return BadRequest(new { error = "invalid_leave_status" });
 
+        Guid? approvedOnBehalfOf = null;
+        if (adminUser.Role == UserRole.Nurse)
+        {
+            var myProfile = await _db.NurseProfiles
+                .FirstOrDefaultAsync(p => p.UserId == adminId.Value && p.User.ClinicId == adminUser.ClinicId, ct);
+
+            if (myProfile != null && myProfile.Id == leave.NurseProfileId)
+                return BadRequest(new { error = "cannot_approve_own_leave_request" });
+
+            var activeProxy = await _db.AuthorityProxies
+                .FirstOrDefaultAsync(p => p.DesigneeUserId == adminId.Value &&
+                    p.ClinicId == adminUser.ClinicId &&
+                    !p.IsRevoked &&
+                    p.ValidFrom <= DateTimeOffset.UtcNow &&
+                    p.ValidUntil >= DateTimeOffset.UtcNow &&
+                    p.Permissions.Contains("leave.approve"), ct);
+
+            if (activeProxy is null)
+                return Forbid();
+
+            // Acting for the person whose leave is being decided is still self-approval.
+            var delegatorProfile = await _db.NurseProfiles
+                .FirstOrDefaultAsync(p => p.UserId == activeProxy.DelegatorUserId, ct);
+
+            if (delegatorProfile != null && delegatorProfile.Id == leave.NurseProfileId)
+                return BadRequest(new { error = "cannot_approve_on_behalf_of_leave_requester" });
+
+            approvedOnBehalfOf = activeProxy.DelegatorUserId;
+        }
+
         leave.Status = newStatus;
         leave.ReviewNote = request.Note ?? string.Empty;
         leave.ReviewedBy = adminId.Value;
+        leave.ApprovedOnBehalfOfUserId = approvedOnBehalfOf;
+        if (request.CertificateSeen.HasValue)
+            leave.CertificateSeen = request.CertificateSeen.Value;
         leave.UpdatedAt = DateTimeOffset.UtcNow;
 
         List<string> rosterConflicts = new();
@@ -421,9 +458,22 @@ public class NurseController : ControllerBase
                 s.NurseProfileId == leave.NurseProfileId &&
                 s.Date >= leave.StartDate && s.Date <= leave.EndDate &&
                 s.Status == ShiftStatus.Assigned).ToListAsync(ct);
+
             if (conflictingShifts.Count > 0)
             {
                 rosterConflicts = conflictingShifts.Select(s => s.Id.ToString()).ToList();
+                leave.CoverageGapAlertCreated = true;
+
+                // Release assigned shift to open-shift board so colleagues can claim coverage
+                foreach (var shift in conflictingShifts)
+                {
+                    shift.NurseProfileId = null;
+                    shift.Status = ShiftStatus.Open;
+                    shift.UpdatedAt = DateTimeOffset.UtcNow;
+                    shift.Notes = string.IsNullOrWhiteSpace(shift.Notes)
+                        ? "Coverage needed: Nurse on approved leave"
+                        : $"{shift.Notes} | Coverage needed: Nurse on approved leave";
+                }
             }
         }
 
@@ -433,7 +483,9 @@ public class NurseController : ControllerBase
             message = "leave_reviewed",
             status = leave.Status.ToString(),
             hasRosterConflict = rosterConflicts.Count > 0,
-            rosterConflicts
+            coverageGapAlertCreated = leave.CoverageGapAlertCreated,
+            rosterConflicts,
+            approvedOnBehalfOf
         });
     }
 
@@ -507,5 +559,6 @@ public record CreateLeaveRequest(
 
 public record ReviewLeaveRequest(
     [Required] string Status,
-    string? Note);
+    string? Note,
+    bool? CertificateSeen = null);
 

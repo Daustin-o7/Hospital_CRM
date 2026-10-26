@@ -28,8 +28,10 @@ public class MedicinesSearchTests
     [Fact]
     public async Task Search_Returns_EmptyArray_WhenQueryBlank()
     {
+        var db = CreateInMemoryDb();
         var searchService = new FakePatientSearchService();
-        var controller = new MedicinesController(searchService, NullLogger<MedicinesController>.Instance);
+        var cdci = new MockCdciMedicineCatalogService();
+        var controller = new MedicinesController(db, searchService, cdci, NullLogger<MedicinesController>.Instance);
 
         var claims = new[] { new Claim("sub", Guid.NewGuid().ToString()), new Claim("role", "Doctor") };
         controller.ControllerContext = new ControllerContext
@@ -45,6 +47,8 @@ public class MedicinesSearchTests
     [Fact]
     public async Task Search_CallsService_AndMapsFieldsCorrectly()
     {
+        var db = CreateInMemoryDb();
+        var cdci = new MockCdciMedicineCatalogService();
         var expectedId = Guid.NewGuid();
         var searchService = new MockMedicineSearchService(new List<MedicineSearchHit>
         {
@@ -59,7 +63,7 @@ public class MedicinesSearchTests
             )
         });
 
-        var controller = new MedicinesController(searchService, NullLogger<MedicinesController>.Instance);
+        var controller = new MedicinesController(db, searchService, cdci, NullLogger<MedicinesController>.Instance);
 
         var claims = new[] { new Claim("sub", Guid.NewGuid().ToString()), new Claim("role", "Doctor") };
         controller.ControllerContext = new ControllerContext
@@ -94,5 +98,20 @@ public class MockMedicineSearchService : FakePatientSearchService
     public override Task<List<MedicineSearchHit>> MedicinesSearchAsync(string query, Guid tenantId, int limit = 10, CancellationToken ct = default)
     {
         return Task.FromResult(_hits);
+    }
+}
+
+public class MockCdciMedicineCatalogService : Hospital_CRM.Api.Services.ICdciMedicineCatalogService
+{
+    private readonly List<Hospital_CRM.Api.Services.CdciMedicineSearchResult> _results;
+
+    public MockCdciMedicineCatalogService(List<Hospital_CRM.Api.Services.CdciMedicineSearchResult>? results = null)
+    {
+        _results = results ?? new List<Hospital_CRM.Api.Services.CdciMedicineSearchResult>();
+    }
+
+    public Task<List<Hospital_CRM.Api.Services.CdciMedicineSearchResult>> SearchAsync(string query, int limit = 20, CancellationToken ct = default)
+    {
+        return Task.FromResult(_results);
     }
 }

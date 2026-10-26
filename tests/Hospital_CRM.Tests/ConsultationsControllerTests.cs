@@ -97,11 +97,20 @@ public class ConsultationsControllerTests
         Assert.Equal("Fever and sore throat", savedConsultation.ChiefComplaint);
 
         // 2. Amend Consultation (v2) - Non-destructive clinical amendment
-        var amendRequest = new CreateConsultationRequest(
+        var amendRequest = new AmendConsultationRequest(
+            AmendmentReason: "Patient reported persistent mild cough on review",
             ChiefComplaint: "Fever, sore throat, and mild cough",
             Observations: "Tonsillar hyperemia + clear chest",
             Diagnosis: "Acute Viral Pharyngitis",
-            PreviousVersionId: savedConsultation.Id
+            AdvisedInvestigations: null,
+            IcdCode: null,
+            IcdTitle: null,
+            FollowUpDate: null,
+            FollowUpNotes: null,
+            TemplateId: null,
+            TemplateVersion: null,
+            StructuredObservationsJson: null,
+            PrescriptionItems: null
         );
 
         var amendResult = await controller.AmendConsultation(savedConsultation.Id, amendRequest, CancellationToken.None);

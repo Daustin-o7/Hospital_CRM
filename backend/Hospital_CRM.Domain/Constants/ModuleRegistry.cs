@@ -18,15 +18,40 @@ public static class ModuleRegistry
     public const string Emergency = "emergency";
     public const string Precheck = "precheck";
     public const string Notifications = "notifications";
+    public const string StaffRoster = "staff_roster";
 
     public static readonly string[] All =
     [
-        Core, Pharmacy, Lab, Inventory, Finance, Wishlist, Emergency, Precheck, Notifications
+        Core, Pharmacy, Lab, Inventory, Finance, Wishlist, Emergency, Precheck, Notifications, StaffRoster
     ];
 
     public static bool IsKnown(string? code) =>
         !string.IsNullOrWhiteSpace(code) &&
         All.Contains(code.Trim().ToLowerInvariant(), StringComparer.Ordinal);
+
+    /// <summary>
+    /// Module the tenant must also own before this one is usable. Pharmacy dispensing
+    /// reads stock that the inventory module owns, so it cannot stand alone.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string[]> Requires =
+        new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            [Pharmacy] = [Inventory]
+        };
+
+    /// <summary>True when the tenant owns the module and every module it depends on.</summary>
+    public static bool IsEntitled(IReadOnlyCollection<string> entitled, string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        var normalized = code.Trim().ToLowerInvariant();
+        if (!entitled.Contains(normalized))
+            return false;
+
+        return !Requires.TryGetValue(normalized, out var dependencies)
+            || dependencies.All(entitled.Contains);
+    }
 
     /// <summary>Parses the stored comma-separated value into a normalised, de-duplicated set.</summary>
     public static string[] Parse(string? stored) =>

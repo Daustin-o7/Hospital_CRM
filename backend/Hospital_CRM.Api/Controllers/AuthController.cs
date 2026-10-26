@@ -54,10 +54,18 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
         if (user == null)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.LoginFailed, "failure",
+                email: request.Email, detail: "unknown_email", ct: ct);
             return Unauthorized(new { error = "invalid_credentials" });
+        }
 
         if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTimeOffset.UtcNow)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.LoginLocked, "denied",
+                user.Id, user.TenantId, user.Email, "account_locked", ct);
             return Unauthorized(new { error = "invalid_credentials" });
+        }
 
         if (!request.Password.VerifyPassword(user.PasswordHash))
         {
@@ -71,29 +79,11 @@ public class AuthController : ControllerBase
             user.UpdatedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
 
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.LoginFailed, "failure",
+                user.Id, user.TenantId, user.Email,
+                user.LockedUntil.HasValue ? "bad_password_locked" : "bad_password", ct);
+
             return Unauthorized(new { error = "invalid_credentials" });
-        }
-
-        // A4.3: Enforce subscription lifecycle on login
-        if (user.Role != UserRole.PlatformAdmin && user.TenantId.HasValue && user.TenantId.Value != Guid.Empty)
-        {
-            var tenant = await _db.Tenants.AsNoTracking()
-                .Where(t => t.Id == user.TenantId.Value)
-                .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
-                .FirstOrDefaultAsync(ct);
-
-            if (tenant is null)
-                return StatusCode(StatusCodes.Status403Forbidden, new { error = "tenant_not_found" });
-
-            var access = SubscriptionPolicy.EffectiveAccess(tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
-            if (access == EffectiveAccessLevel.Blocked)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    error = "tenant_suspended",
-                    message = "Tenant subscription is suspended or expired."
-                });
-            }
         }
 
         // With a second factor enrolled, the password alone yields a short-lived challenge only.
@@ -110,71 +100,236 @@ public class AuthController : ControllerBase
                 });
             }
 
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.MfaRequired, "success",
+                user.Id, user.TenantId, user.Email, method, ct);
+
             return Ok(new { mfaRequired = true, challengeToken = CreateMfaChallenge(user), method });
         }
 
-        return await IssueSessionAsync(user, ct);
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.LoginSucceeded, "success",
+            user.Id, user.TenantId, user.Email, detail: "password", ct: ct);
+
+        return await ResolveTenantAndIssueSessionAsync(user, request.TenantId, ct);
     }
 
-    /// <summary>Issues access and refresh tokens, including the A1 setup flags the UI reads.</summary>
-    private async Task<IActionResult> IssueSessionAsync(User user, CancellationToken ct)
+    private async Task<IActionResult> ResolveTenantAndIssueSessionAsync(User user, Guid? requestedTenantId, CancellationToken ct)
     {
-        if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
-            tokenExpiry = 15;
-
-        if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
-            refreshExpiryDays = 7;
-
-        var accessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), user.TenantId, tokenExpiry, ct, SessionClaims(user));
-        var refreshToken = Guid.NewGuid().ToString("N");
-
-        _db.RefreshTokens.Add(new RefreshToken
+        if (user.Role == UserRole.PlatformAdmin)
         {
-            Id = Guid.NewGuid(),
-            UserId = user.Id,
-            TokenHash = refreshToken.HashPassword(),
-            IssuedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
-            LastUsedAt = DateTimeOffset.UtcNow
-        });
+            return await IssueSessionAsync(user, ct, null, null, UserRole.PlatformAdmin);
+        }
+
+        var memberships = await _db.TenantMemberships
+            .AsNoTracking()
+            .Include(m => m.Clinic)
+            .Where(m => m.UserId == user.Id && m.Status == "active")
+            .ToListAsync(ct);
+
+        if (requestedTenantId.HasValue && requestedTenantId.Value != Guid.Empty)
+        {
+            var chosen = memberships.FirstOrDefault(m => m.TenantId == requestedTenantId.Value);
+            if (chosen == null && user.TenantId != requestedTenantId.Value)
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "unauthorized_tenant" });
+
+            var targetTenant = chosen?.TenantId ?? user.TenantId;
+            var targetClinic = chosen?.ClinicId ?? user.ClinicId;
+            var targetRole = chosen?.Role ?? user.Role;
+            return await CheckSubscriptionAndIssueSessionAsync(user, targetTenant, targetClinic, targetRole, ct);
+        }
+
+        // Multiple memberships -> return clinic selection prompt
+        if (memberships.Count > 1)
+        {
+            var options = await ActiveMembershipsAsync(user.Id, ct);
+            return Ok(new
+            {
+                requiresTenantSelection = true,
+                selectionToken = CreateTenantSelectionChallenge(user),
+                memberships = options
+            });
+        }
+
+        // Single membership
+        if (memberships.Count == 1)
+        {
+            return await CheckSubscriptionAndIssueSessionAsync(user, memberships[0].TenantId, memberships[0].ClinicId, memberships[0].Role, ct);
+        }
+
+        // Fallback for legacy seed users without explicit TenantMembership rows
+        return await CheckSubscriptionAndIssueSessionAsync(user, user.TenantId, user.ClinicId, user.Role, ct);
+    }
+
+    private async Task<IActionResult> CheckSubscriptionAndIssueSessionAsync(
+        User user,
+        Guid? tenantId,
+        Guid? clinicId,
+        UserRole role,
+        CancellationToken ct)
+    {
+        if (role != UserRole.PlatformAdmin && tenantId.HasValue && tenantId.Value != Guid.Empty)
+        {
+            var tenant = await _db.Tenants.AsNoTracking()
+                .Where(t => t.Id == tenantId.Value)
+                .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
+                .FirstOrDefaultAsync(ct);
+
+            if (tenant is null)
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "tenant_not_found" });
+
+            var access = SubscriptionPolicy.EffectiveAccess(tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
+            if (access == EffectiveAccessLevel.Blocked)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    error = "tenant_suspended",
+                    message = "Tenant subscription is suspended or expired."
+                });
+            }
+        }
+
+        return await IssueSessionAsync(user, ct, tenantId, clinicId, role);
+    }
+
+    /// <summary>Issues access and refresh tokens scoped to the selected tenant and clinic.</summary>
+    private async Task<IActionResult> IssueSessionAsync(
+        User user,
+        CancellationToken ct,
+        Guid? tenantId = null,
+        Guid? clinicId = null,
+        UserRole? role = null)
+    {
+        var (tokenExpiry, refreshExpiryDays) = TokenLifetimes();
+
+        var effectiveTenantId = tenantId ?? user.TenantId;
+        var effectiveClinicId = clinicId ?? user.ClinicId;
+        var effectiveRole = role ?? user.Role;
+
+        var extraClaims = SessionClaims(user, effectiveRole);
+        if (effectiveClinicId.HasValue && effectiveClinicId.Value != Guid.Empty)
+            extraClaims["clinicId"] = effectiveClinicId.Value.ToString();
+
+        var accessToken = await GenerateJwtAsync(
+            user.Id, user.Email, effectiveRole.ToString(), effectiveTenantId, tokenExpiry, ct, extraClaims);
+
+        var refreshToken = Guid.NewGuid().ToString("N");
+        _db.RefreshTokens.Add(NewRefreshToken(
+            user.Id, refreshToken, effectiveTenantId, effectiveClinicId,
+            effectiveRole, Guid.NewGuid(), refreshExpiryDays));
 
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+        AppendRefreshCookie(refreshToken, refreshExpiryDays);
+
+        return Ok(await BuildSessionResponseAsync(
+            user, accessToken, tokenExpiry, effectiveTenantId, effectiveClinicId, effectiveRole, ct));
+    }
+
+    private (int AccessMinutes, int RefreshDays) TokenLifetimes()
+    {
+        if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
+            tokenExpiry = 15;
+        if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
+            refreshExpiryDays = 7;
+        return (tokenExpiry, refreshExpiryDays);
+    }
+
+    private static RefreshToken NewRefreshToken(
+        Guid userId, string rawToken, Guid? tenantId, Guid? clinicId,
+        UserRole role, Guid familyId, int refreshExpiryDays) => new()
+    {
+        Id = Guid.NewGuid(),
+        UserId = userId,
+        FamilyId = familyId,
+        TenantId = tenantId,
+        ClinicId = clinicId,
+        Role = role,
+        TokenHash = rawToken.HashRefreshToken(),
+        IssuedAt = DateTimeOffset.UtcNow,
+        ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
+        LastUsedAt = DateTimeOffset.UtcNow
+    };
+
+    private void AppendRefreshCookie(string token, int days) =>
+        Response.Cookies.Append("refreshToken", token, new CookieOptions
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Lax,
             Secure = !_env.IsDevelopment() || Request.IsHttps,
             Path = "/",
-            Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
+            Expires = DateTimeOffset.UtcNow.AddDays(days)
         });
 
-        return Ok(new
+    private void DeleteRefreshCookie() =>
+        Response.Cookies.Delete("refreshToken", new CookieOptions
         {
-            accessToken,
-            refreshToken,
-            expiresIn = tokenExpiry * 60,
-            mustChangePassword = user.MustChangePassword,
-            mfaEnabled = user.MfaEnabled,
-            mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
-            user = new { id = user.Id, name = user.Name, email = user.Email, role = user.Role.ToString().ToLower() }
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = !_env.IsDevelopment() || Request.IsHttps,
+            Path = "/"
         });
+
+    private sealed record SessionMembership(
+        Guid TenantId, Guid? ClinicId, string ClinicName, string Role, bool IsDefault);
+
+    private async Task<List<SessionMembership>> ActiveMembershipsAsync(Guid userId, CancellationToken ct)
+    {
+        var rows = await _db.TenantMemberships
+            .AsNoTracking()
+            .Include(m => m.Clinic)
+            .Where(m => m.UserId == userId && m.Status == "active")
+            .ToListAsync(ct);
+
+        return rows.Select(m => new SessionMembership(
+            m.TenantId,
+            m.ClinicId,
+            m.Clinic?.Name ?? "Main Clinic",
+            m.Role.ToString().ToLowerInvariant(),
+            m.IsDefault)).ToList();
     }
 
-    private static Dictionary<string, object?> SessionClaims(User user)
+    private async Task<object> BuildSessionResponseAsync(
+        User user, string accessToken, int tokenExpiry,
+        Guid? tenantId, Guid? clinicId, UserRole role, CancellationToken ct) => new
+    {
+        accessToken,
+        expiresIn = tokenExpiry * 60,
+        tenantId,
+        clinicId,
+        mustChangePassword = user.MustChangePassword,
+        mfaEnabled = user.MfaEnabled,
+        mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
+        mfaEnrolmentRequired = !user.MfaEnabled && MfaPolicy.RequiresEnrolment(role),
+        mfaRequiredForRole = MfaPolicy.RequiresEnrolment(role),
+        user = new
+        {
+            id = user.Id,
+            name = user.Name,
+            email = user.Email,
+            role = role.ToString().ToLowerInvariant()
+        },
+        memberships = await ActiveMembershipsAsync(user.Id, ct)
+    };
+
+
+    private static Dictionary<string, object?> SessionClaims(User user, UserRole role)
     {
         var claims = new Dictionary<string, object?>();
         if (user.MustChangePassword)
             claims["must_change_password"] = "true";
         if (user.MfaEnabled)
             claims["mfa_enabled"] = "true";
+        // The scoped role decides: an admin membership needs MFA even if the account's
+        // primary role is a nurse, and vice versa.
+        else if (MfaPolicy.RequiresEnrolment(role))
+            claims["mfa_enrolment_required"] = "true";
         return claims;
     }
 
     [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request, CancellationToken ct)
     {
         var rawToken = !string.IsNullOrWhiteSpace(request?.RefreshToken)
@@ -186,84 +341,256 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(rawToken))
             return NoContent();
 
-        var candidateTokens = await _db.RefreshTokens
-            .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow && t.RevokedAt == null)
-            .OrderByDescending(t => t.IssuedAt)
-            .Take(100)
-            .ToListAsync(ct);
-
-        var storedToken = candidateTokens.FirstOrDefault(t => rawToken.VerifyPassword(t.TokenHash));
+        // Deterministic digest => one indexed lookup. No scan, no BCrypt cost.
+        var tokenHash = rawToken.HashRefreshToken();
+        var storedToken = await _db.RefreshTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, ct);
 
         if (storedToken is null)
-            return Unauthorized(new { error = "invalid_refresh_token" });
-
-        var user = await _db.Users.FindAsync([storedToken.UserId], ct);
-        if (user is null)
-            return Unauthorized(new { error = "invalid_refresh_token" });
-
-        // A4.3: Enforce subscription lifecycle on refresh
-        if (user.Role != UserRole.PlatformAdmin && user.TenantId.HasValue && user.TenantId.Value != Guid.Empty)
         {
-            var tenant = await _db.Tenants.AsNoTracking()
-                .Where(t => t.Id == user.TenantId.Value)
-                .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
-                .FirstOrDefaultAsync(ct);
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRejected, "failure",
+                detail: "unknown_token", ct: ct);
+            return Unauthorized(new { error = "invalid_refresh_token" });
+        }
 
-            if (tenant is null)
-                return StatusCode(StatusCodes.Status403Forbidden, new { error = "tenant_not_found" });
+        // Presenting an already-revoked token means the credential leaked. Burn the family.
+        if (storedToken.RevokedAt is not null)
+        {
+            var family = await _db.RefreshTokens
+                .Where(t => t.FamilyId == storedToken.FamilyId && t.RevokedAt == null)
+                .ToListAsync(ct);
 
-            var access = SubscriptionPolicy.EffectiveAccess(tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
-            if (access == EffectiveAccessLevel.Blocked)
+            foreach (var token in family)
+                token.RevokedAt = DateTimeOffset.UtcNow;
+
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshReuseDetected, "denied",
+                storedToken.UserId, storedToken.TenantId,
+                detail: $"family={storedToken.FamilyId}; additionally_revoked={family.Count}", ct: ct);
+
+            DeleteRefreshCookie();
+            return Unauthorized(new
             {
-                storedToken.RevokedAt = DateTimeOffset.UtcNow;
-                await _db.SaveChangesAsync(ct);
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    error = "tenant_suspended",
-                    message = "Tenant subscription is suspended or expired."
-                });
-            }
+                error = "token_theft_detected",
+                message = "Refresh token reuse detected. All active sessions have been revoked for security."
+            });
+        }
+
+        if (storedToken.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRejected, "failure",
+                storedToken.UserId, storedToken.TenantId, detail: "expired", ct: ct);
+            return Unauthorized(new { error = "invalid_refresh_token" });
+        }
+
+        var user = storedToken.User ?? await _db.Users.FindAsync([storedToken.UserId], ct);
+        if (user is null)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRejected, "failure",
+                storedToken.UserId, storedToken.TenantId, detail: "user_missing", ct: ct);
+            return Unauthorized(new { error = "invalid_refresh_token" });
+        }
+
+        var scope = await ResolveStoredScopeAsync(storedToken, user, ct);
+        if (!scope.Allowed)
+        {
+            storedToken.RevokedAt = DateTimeOffset.UtcNow;
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRejected, "denied",
+                user.Id, storedToken.TenantId, detail: scope.Error, ct: ct);
+
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = scope.Error,
+                message = scope.Error == "tenant_suspended"
+                    ? "Tenant subscription is suspended or expired."
+                    : "The selected clinic is no longer available to this account."
+            });
         }
 
         storedToken.RevokedAt = DateTimeOffset.UtcNow;
 
-        if (!int.TryParse(_config["Jwt:AccessTokenExpiryMinutes"], out var tokenExpiry))
-            tokenExpiry = 15;
+        var (tokenExpiry, refreshExpiryDays) = TokenLifetimes();
+        var extraClaims = SessionClaims(user, scope.Role);
+        if (scope.ClinicId.HasValue && scope.ClinicId.Value != Guid.Empty)
+            extraClaims["clinicId"] = scope.ClinicId.Value.ToString();
 
-        if (!int.TryParse(_config["Jwt:RefreshTokenExpiryDays"], out var refreshExpiryDays))
-            refreshExpiryDays = 7;
+        var newAccessToken = await GenerateJwtAsync(
+            user.Id, user.Email, scope.Role.ToString(), scope.TenantId, tokenExpiry, ct, extraClaims);
 
-        var newAccessToken = await GenerateJwtAsync(user.Id, user.Email, user.Role.ToString(), user.TenantId, tokenExpiry, ct, SessionClaims(user));
         var newRefreshToken = Guid.NewGuid().ToString("N");
-
-        _db.RefreshTokens.Add(new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            UserId = user.Id,
-            TokenHash = newRefreshToken.HashPassword(),
-            IssuedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
-            LastUsedAt = DateTimeOffset.UtcNow
-        });
+        _db.RefreshTokens.Add(NewRefreshToken(
+            user.Id, newRefreshToken, scope.TenantId, scope.ClinicId,
+            scope.Role, storedToken.FamilyId ?? Guid.NewGuid(), refreshExpiryDays));
 
         await _db.SaveChangesAsync(ct);
+        AppendRefreshCookie(newRefreshToken, refreshExpiryDays);
 
-        Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
-        {
-            HttpOnly = true,
-            SameSite = SameSiteMode.Lax,
-            Secure = !_env.IsDevelopment() || Request.IsHttps,
-            Path = "/",
-            Expires = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays)
-        });
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRotated, "success",
+            user.Id, scope.TenantId, detail: $"family={storedToken.FamilyId}", ct: ct);
 
-        return Ok(new
+        return Ok(await BuildSessionResponseAsync(
+            user, newAccessToken, tokenExpiry, scope.TenantId, scope.ClinicId, scope.Role, ct));
+    }
+
+    private sealed record ScopeResolution(
+        bool Allowed, Guid? TenantId, Guid? ClinicId, UserRole Role, string? Error);
+
+    /// <summary>
+    /// Rebuilds the exact tenant/clinic/role the session was issued for. Falling back to
+    /// <see cref="User.TenantId"/> here would silently move a multi-clinic practitioner.
+    /// </summary>
+    private async Task<ScopeResolution> ResolveStoredScopeAsync(
+        RefreshToken token, User user, CancellationToken ct)
+    {
+        var effectiveTenantId = (token.TenantId.HasValue && token.TenantId != Guid.Empty)
+            ? token.TenantId.Value
+            : user.TenantId;
+
+        if (effectiveTenantId is null || effectiveTenantId == Guid.Empty)
+            return new ScopeResolution(true, user.TenantId, user.ClinicId, user.Role, null);
+
+        var tenant = await _db.Tenants.AsNoTracking()
+            .Where(t => t.Id == effectiveTenantId.Value)
+            .Select(t => new { t.SubscriptionStatus, t.SubscriptionEndsAt })
+            .FirstOrDefaultAsync(ct);
+
+        if (tenant is null)
+            return new ScopeResolution(false, null, null, token.Role, "tenant_not_found");
+
+        var access = SubscriptionPolicy.EffectiveAccess(
+            tenant.SubscriptionStatus, tenant.SubscriptionEndsAt, DateTimeOffset.UtcNow);
+        if (access == EffectiveAccessLevel.Blocked)
+            return new ScopeResolution(false, null, null, token.Role, "tenant_suspended");
+
+        if (token.TenantId is null || token.TenantId == Guid.Empty)
+            return new ScopeResolution(true, user.TenantId, user.ClinicId, user.Role, null);
+
+        var membership = await _db.TenantMemberships.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.UserId == user.Id
+                && m.TenantId == token.TenantId
+                && m.ClinicId == token.ClinicId
+                && m.Status == "active", ct);
+
+        if (membership is not null)
+            return new ScopeResolution(true, membership.TenantId, membership.ClinicId, membership.Role, null);
+
+        // Legacy rows predate TenantMembership; they only stay valid on the primary tenant.
+        var hasMemberships = await _db.TenantMemberships.AnyAsync(m => m.UserId == user.Id, ct);
+        if (!hasMemberships && user.TenantId == token.TenantId)
+            return new ScopeResolution(true, token.TenantId, token.ClinicId, token.Role, null);
+
+        return new ScopeResolution(false, null, null, token.Role, "unauthorized_tenant");
+    }
+
+
+    /// <summary>
+    /// Switches the active clinic / tenant scope for a multi-clinic practitioner
+    /// or completes clinic selection from a login challenge.
+    /// Issues a new 15-minute token strictly scoped to the chosen tenant.
+    /// </summary>
+    [HttpPost("select-tenant")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> SelectTenant([FromBody] SelectTenantRequest request, CancellationToken ct)
+    {
+        Guid? userId = User.GetUserId();
+        if (!userId.HasValue && !string.IsNullOrWhiteSpace(request.SelectionToken))
         {
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken,
-            expiresIn = tokenExpiry * 60,
-            user = new { id = user.Id, name = user.Name, email = user.Email, role = user.Role.ToString().ToLower() }
-        });
+            userId = ReadTenantSelectionChallenge(request.SelectionToken);
+        }
+
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "invalid_credentials" });
+
+        var user = await _db.Users.FindAsync([userId.Value], ct);
+        if (user is null)
+            return Unauthorized(new { error = "invalid_credentials" });
+
+        var membership = await _db.TenantMemberships
+            .Include(m => m.Clinic)
+            .FirstOrDefaultAsync(m => m.UserId == user.Id
+                && m.TenantId == request.TenantId
+                && (request.ClinicId == null || m.ClinicId == request.ClinicId)
+                && m.Status == "active", ct);
+
+        if (membership is null && user.TenantId == request.TenantId)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.TenantSelected, "success",
+                user.Id, request.TenantId, user.Email, detail: "legacy_primary", ct: ct);
+            return await CheckSubscriptionAndIssueSessionAsync(user, request.TenantId, user.ClinicId, user.Role, ct);
+        }
+
+        if (membership is null)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.TenantSelected, "denied",
+                user.Id, request.TenantId, user.Email, detail: "no_membership", ct: ct);
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                error = "unauthorized_tenant",
+                message = "User has no active membership with the specified clinic/tenant."
+            });
+        }
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.TenantSelected, "success",
+            user.Id, membership.TenantId, user.Email, detail: $"clinic={membership.ClinicId}", ct: ct);
+
+        return await CheckSubscriptionAndIssueSessionAsync(user, membership.TenantId, membership.ClinicId, membership.Role, ct);
+    }
+
+    /// <summary>Lists all active clinic / tenant memberships for the current user.</summary>
+    [HttpGet("memberships")]
+    [Authorize]
+    public async Task<IActionResult> GetMemberships(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "not_authenticated" });
+
+        var memberships = await _db.TenantMemberships
+            .AsNoTracking()
+            .Include(m => m.Clinic)
+            .Include(m => m.Tenant)
+            .Where(m => m.UserId == userId.Value && m.Status == "active")
+            .Select(m => new
+            {
+                tenantId = m.TenantId,
+                tenantName = m.Tenant.Name,
+                clinicId = m.ClinicId,
+                clinicName = m.Clinic != null ? m.Clinic.Name : m.Tenant.Name,
+                role = m.Role.ToString().ToLower(),
+                isDefault = m.IsDefault,
+                status = m.Status
+            })
+            .ToListAsync(ct);
+
+        return Ok(memberships);
+    }
+
+    /// <summary>Revokes all active sessions / refresh tokens for the current user (front-desk shared PC safety).</summary>
+    [HttpPost("revoke-all")]
+    [Authorize]
+    public async Task<IActionResult> RevokeAllSessions(CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue)
+            return Unauthorized(new { error = "not_authenticated" });
+
+        var activeTokens = await _db.RefreshTokens
+            .Where(t => t.UserId == userId.Value && t.RevokedAt == null)
+            .ToListAsync(ct);
+
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAt = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        DeleteRefreshCookie();
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.SessionsRevoked, "success",
+            userId.Value, User.GetTenantId(), detail: $"revoked={activeTokens.Count}", ct: ct);
+
+        return Ok(new { message = "all_sessions_revoked", revokedCount = activeTokens.Count });
     }
 
     [HttpPost("logout")]
@@ -275,13 +602,12 @@ public class AuthController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(rawToken))
         {
-            var candidateTokens = await _db.RefreshTokens
-                .Where(t => t.ExpiresAt > DateTimeOffset.UtcNow && t.RevokedAt == null)
-                .OrderByDescending(t => t.IssuedAt)
-                .Take(100)
-                .ToListAsync(ct);
+            // Same deterministic digest as refresh; a BCrypt scan here would silently
+            // never match and leave the row alive after "log out".
+            var tokenHash = rawToken.HashRefreshToken();
+            var storedToken = await _db.RefreshTokens
+                .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.RevokedAt == null, ct);
 
-            var storedToken = candidateTokens.FirstOrDefault(t => rawToken.VerifyPassword(t.TokenHash));
             if (storedToken != null)
             {
                 storedToken.RevokedAt = DateTimeOffset.UtcNow;
@@ -289,13 +615,10 @@ public class AuthController : ControllerBase
             }
         }
 
-        Response.Cookies.Delete("refreshToken", new CookieOptions
-        {
-            HttpOnly = true,
-            SameSite = SameSiteMode.Lax,
-            Secure = !_env.IsDevelopment() || Request.IsHttps,
-            Path = "/"
-        });
+        DeleteRefreshCookie();
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.Logout, "success",
+            User.GetUserId(), User.GetTenantId(), ct: ct);
 
         return Ok(new { message = "logged_out" });
     }
@@ -339,8 +662,16 @@ public class AuthController : ControllerBase
         foreach (var token in liveTokens)
             token.RevokedAt = DateTimeOffset.UtcNow;
 
-        return await IssueSessionAsync(user, ct);
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.PasswordChanged, "success",
+            user.Id, User.GetTenantId(), user.Email, ct: ct);
+
+        // Keep the clinic the caller is currently scoped to; never snap back to the primary tenant.
+        return await IssueSessionAsync(user, ct,
+            User.GetTenantId(), User.GetClinicId(), CurrentTokenRole() ?? user.Role);
     }
+
+    private UserRole? CurrentTokenRole() =>
+        Enum.TryParse<UserRole>(User.GetUserRole(), ignoreCase: true, out var role) ? role : null;
 
     /// <summary>Current second-factor state for the signed-in user.</summary>
     [HttpGet("mfa/status")]
@@ -451,8 +782,13 @@ public class AuthController : ControllerBase
 
         user.MfaEnabled = true;
         user.MfaMethod = method;
-        // A fresh session so the mfa_enabled claim is current.
-        return await IssueSessionAsync(user, ct);
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.MfaEnabled, "success",
+            user.Id, User.GetTenantId(), user.Email, method, ct);
+
+        // A fresh session so the mfa_enabled claim is current. Keep the selected clinic.
+        return await IssueSessionAsync(user, ct,
+            User.GetTenantId(), User.GetClinicId(), CurrentTokenRole() ?? user.Role);
     }
 
     [HttpPost("mfa/disable")]
@@ -471,6 +807,16 @@ public class AuthController : ControllerBase
         if (!user.MfaEnabled)
             return Ok(new { mfaEnabled = false });
 
+        // Mandatory for money/clinical/platform roles; self-service disable would defeat it.
+        // Check the scoped role as well as the account's primary role: a multi-clinic user
+        // must not be able to strip MFA from a nurse-scoped session.
+        if (MfaPolicy.RequiresEnrolment(user.Role) || MfaPolicy.RequiresEnrolment(CurrentTokenRole() ?? user.Role))
+            return BadRequest(new
+            {
+                error = "mfa_required_for_role",
+                message = "Two-factor authentication is mandatory for this role and cannot be disabled."
+            });
+
         // Password re-entry: a stolen session alone must not strip the second factor.
         if (string.IsNullOrWhiteSpace(request.Password) || !request.Password.VerifyPassword(user.PasswordHash))
             return BadRequest(new { error = "invalid_password" });
@@ -480,6 +826,9 @@ public class AuthController : ControllerBase
         user.MfaMethod = null;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.MfaDisabled, "success",
+            user.Id, User.GetTenantId(), user.Email, ct: ct);
 
         return Ok(new { mfaEnabled = false });
     }
@@ -533,10 +882,17 @@ public class AuthController : ControllerBase
             user.UpdatedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
 
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.MfaFailed, "failure",
+                user.Id, user.TenantId, user.Email,
+                user.LockedUntil.HasValue ? "bad_code_locked" : "bad_code", ct);
+
             return Unauthorized(new { error = "invalid_code" });
         }
 
-        return await IssueSessionAsync(user, ct);
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.MfaVerified, "success",
+            user.Id, user.TenantId, user.Email, NormalizeMethod(user.MfaMethod), ct);
+
+        return await ResolveTenantAndIssueSessionAsync(user, null, ct);
     }
 
     /// <summary>"email" is the only alternative to the authenticator app; anything else means TOTP.</summary>
@@ -578,6 +934,31 @@ public class AuthController : ControllerBase
 
         var parts = raw.Split('|');
         if (parts.Length != 3 || parts[0] != "mfa")
+            return null;
+
+        if (!long.TryParse(parts[2], out var expiresAt) ||
+            expiresAt < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+        {
+            return null;
+        }
+
+        return Guid.TryParse(parts[1], out var userId) ? userId : null;
+    }
+
+    private string CreateTenantSelectionChallenge(User user) =>
+        _secretProtector.Protect($"tsel|{user.Id}|{DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds()}");
+
+    private Guid? ReadTenantSelectionChallenge(string? selectionToken)
+    {
+        if (string.IsNullOrWhiteSpace(selectionToken))
+            return null;
+
+        var raw = _secretProtector.Unprotect(selectionToken);
+        if (raw is null)
+            return null;
+
+        var parts = raw.Split('|');
+        if (parts.Length != 3 || parts[0] != "tsel")
             return null;
 
         if (!long.TryParse(parts[2], out var expiresAt) ||
@@ -651,7 +1032,14 @@ public record LoginRequest(
     string Email,
 
     [Required(ErrorMessage = "Password is required")]
-    string Password);
+    string Password,
+
+    Guid? TenantId = null);
+
+public record SelectTenantRequest(
+    Guid TenantId,
+    Guid? ClinicId = null,
+    string? SelectionToken = null);
 
 public record RefreshRequest(
     string? RefreshToken = null);

@@ -214,4 +214,82 @@ public class TenantScopedInsertTests
             Assert.Equal(2, allPatients.Count);
         }
     }
+
+    [Fact]
+    public void BuildGuard_All_ITenantScoped_Entities_Must_Have_Tenant_Query_Filter()
+    {
+        var options = new DbContextOptionsBuilder<HospitalCrmDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        using var db = new HospitalCrmDbContext(options, new TestTenantContext { CurrentTenantId = Guid.NewGuid() });
+        var model = db.Model;
+
+        var missingFilters = new List<string>();
+
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (typeof(ITenantScoped).IsAssignableFrom(entityType.ClrType) &&
+                entityType.BaseType == null &&
+                !entityType.IsOwned())
+            {
+#pragma warning disable CS0618
+                var queryFilter = entityType.GetQueryFilter();
+#pragma warning restore CS0618
+                if (queryFilter == null)
+                {
+                    missingFilters.Add(entityType.ClrType.Name);
+                }
+            }
+        }
+
+        Assert.True(
+            missingFilters.Count == 0,
+            $"CRITICAL TENANT LEAK GUARD: The following ITenantScoped entities are missing EF Core global tenant query filters: {string.Join(", ", missingFilters)}");
+    }
+
+    [Fact]
+    public void BuildGuard_All_Tenant_Owned_Entities_Must_Implement_ITenantScoped()
+    {
+        var options = new DbContextOptionsBuilder<HospitalCrmDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        using var db = new HospitalCrmDbContext(options, new TestTenantContext { CurrentTenantId = Guid.NewGuid() });
+        var model = db.Model;
+
+        var nonCompliantEntities = new List<string>();
+
+        // Whitelisted non-tenant-scoped entities that legitimately hold TenantId:
+        // - Tenant itself
+        // - TenantMembership (cross-tenant user link table)
+        // - User (global user record)
+        // - ImpersonationLog & ImpersonationPhiAccessLog (platform-admin cross-tenant audit trails per FR-14-03)
+        var whitelist = new HashSet<string>
+        {
+            nameof(Tenant),
+            nameof(TenantMembership),
+            nameof(User),
+            nameof(AuthAuditLog),
+            nameof(RefreshToken),
+            nameof(ImpersonationLog),
+            nameof(ImpersonationPhiAccessLog)
+        };
+
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (whitelist.Contains(entityType.ClrType.Name))
+                continue;
+
+            var hasTenantIdProp = entityType.FindProperty("TenantId") != null;
+            if (hasTenantIdProp && !typeof(ITenantScoped).IsAssignableFrom(entityType.ClrType))
+            {
+                nonCompliantEntities.Add(entityType.ClrType.Name);
+            }
+        }
+
+        Assert.True(
+            nonCompliantEntities.Count == 0,
+            $"SECURITY GUARD: Entities with TenantId property must implement ITenantScoped to guarantee dual-layer isolation: {string.Join(", ", nonCompliantEntities)}");
+    }
 }

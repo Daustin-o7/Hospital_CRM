@@ -15,6 +15,16 @@ public class DrugBatch : ITenantScoped
     public decimal Mrp { get; set; }
     public decimal PurchaseRate { get; set; }
     public Guid? SupplierId { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public DateOnly? InvoiceDate { get; set; }
+
+    /// <summary>Supplier's own Form 20/21 wholesale licence, captured for drug-inspector audits.</summary>
+    [MaxLength(50)]
+    public string? SupplierLicenceNumber { get; set; }
+    public string? PackSize { get; set; } = "10 Tablets";
+    public int BaseUnitQuantity { get; set; } = 1;
+    public bool IsRecalled { get; set; } = false;
+    public string? RecallReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     [ConcurrencyCheck]
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -93,6 +93,14 @@ public class Clinic : ITenantScoped
     public decimal DefaultGstRate { get; set; } = 18.0m;
     public bool DefaultInvoiceStatus { get; set; } = false;
 
+    // Section 4: Pharmacy Retail Licensing (Form 20 & 21) & Tax
+    [MaxLength(100)]
+    public string? PharmacyLicenceNumber20 { get; set; }
+    [MaxLength(100)]
+    public string? PharmacyLicenceNumber21 { get; set; }
+    [MaxLength(50)]
+    public string? PharmacyGstNumber { get; set; }
+
     // MOD-14: Platform-admin-controlled subscription fields
     public SubscriptionTier SubscriptionTier { get; set; } = SubscriptionTier.Trial;
     public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.Active;

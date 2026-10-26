@@ -47,21 +47,10 @@ export function getAccessToken(): string | null {
   return inMemoryAccessToken
 }
 
-export function setRefreshToken(token: string | null) {
-  if (token) {
-    sessionStorage.setItem('refreshToken', token)
-  } else {
-    sessionStorage.removeItem('refreshToken')
-  }
-}
-
-export function getRefreshToken(): string | null {
-  return sessionStorage.getItem('refreshToken')
-}
-
+// The refresh token lives only in the HttpOnly cookie set by the API. Never in JS storage:
+// XSS on a shared front-desk browser must not be able to exfiltrate a 7-day credential.
 export function clearTokens() {
   inMemoryAccessToken = null
-  sessionStorage.removeItem('refreshToken')
 }
 
 const api = axios.create({
@@ -109,16 +98,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true
       try {
-        const refreshToken = getRefreshToken()
-        // Send body token if present; HttpOnly cookie will automatically be sent via withCredentials
-        const res = await refreshClient.post('/auth/refresh', refreshToken ? { refreshToken } : {})
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = res.data
+        // Cookie-only: the API rotates the HttpOnly refresh cookie on every call.
+        const res = await refreshClient.post('/auth/refresh', {})
+        const { accessToken: newAccessToken } = res.data
 
         setAccessToken(newAccessToken)
-        if (newRefreshToken) {
-          setRefreshToken(newRefreshToken)
-        }
-
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return api(originalRequest)
       } catch (refreshError) {

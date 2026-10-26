@@ -10,6 +10,9 @@ public class LabResult
     public Guid LabOrderId { get; set; }
     public string? ResultText { get; set; }
     public string? FileUrl { get; set; }
+    public bool IsAbnormal { get; set; } = false;
+    public string? ReferenceRange { get; set; }
+    public string? Units { get; set; }
     public int Version { get; set; } = 1;
     public Guid? PreviousVersionId { get; set; }
     public Guid EnteredBy { get; set; }
