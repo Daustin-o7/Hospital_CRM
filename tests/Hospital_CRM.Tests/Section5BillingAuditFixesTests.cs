@@ -424,5 +424,9 @@ public class Section5BillingAuditFixesTests
 
         Assert.Contains("aarogyam@okicici", doc.RootElement.GetProperty("upiUri").GetString());
         Assert.DoesNotContain("sibling@okhdfcbank", json);
+
+        // A scannable QR, not a drawing: the SVG must encode the same UPI intent.
+        var qrSvg = doc.RootElement.GetProperty("qrSvg").GetString() ?? string.Empty;
+        Assert.Contains("<svg", qrSvg);
     }
 }

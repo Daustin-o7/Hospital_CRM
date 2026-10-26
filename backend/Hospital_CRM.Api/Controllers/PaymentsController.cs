@@ -9,6 +9,7 @@ using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QRCoder;
 
 namespace Hospital_CRM.Api.Controllers;
 
@@ -93,6 +94,11 @@ public class PaymentsController : ControllerBase
         // Standard NPCI UPI Intent / Deep Link specification
         var upiUri = $"upi://pay?pa={selectedAccount.Vpa}&pn={encodedClinic}&am={amountPayable:F2}&tr={invoice.Id:N}&cu=INR&tn={encodedNote}";
 
+        // Scannable QR: the patient scans this with any UPI app. No QR image means the
+        // receptionist has to read out a VPA, so render it here rather than in the browser.
+        using var qrData = QRCodeGenerator.GenerateQrCode(upiUri, QRCodeGenerator.ECCLevel.M);
+        var qrSvg = new SvgQRCode(qrData).GetGraphic(10);
+
         return Ok(new
         {
             invoiceId = invoice.Id,
@@ -100,6 +106,7 @@ public class PaymentsController : ControllerBase
             amount = amountPayable,
             currency = "INR",
             upiUri,
+            qrSvg,
             account = new
             {
                 id = selectedAccount.Id,

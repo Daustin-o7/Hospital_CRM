@@ -591,6 +591,341 @@ public class InvoicesController : ControllerBase
         });
     }
 
+    [HttpPost("invoices/{id:guid}/refund")]
+    [AuthorizeRoles("ClinicAdmin", "Receptionist")]
+    [RequirePermission(Permissions.PaymentRecord)]
+    public async Task<IActionResult> ProcessRefund(Guid id, [FromBody] CreateRefundRequest req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+
+        if (req.Amount <= 0)
+            return BadRequest(new { error = "invalid_refund_amount", message = "Refund amount must be greater than zero." });
+
+        if (string.IsNullOrWhiteSpace(req.RefundReference))
+            return BadRequest(new { error = "refund_reference_required", message = "A valid refund reference (UTR, payment gateway refund ID, or voucher reference) is mandatory." });
+
+        if (string.IsNullOrWhiteSpace(req.Reason))
+            return BadRequest(new { error = "refund_reason_required", message = "Reason for refund is mandatory." });
+
+        var invoice = await _db.Invoices
+            .Include(i => i.Payments)
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
+            return BadRequest(new { error = "invoice_not_refundable", message = "Refunds cannot be issued against a draft or cancelled invoice." });
+
+        // Idempotency check
+        if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
+        {
+            var existingRefund = await _db.Payments
+                .FirstOrDefaultAsync(p => p.InvoiceId == id && p.IdempotencyKey == req.IdempotencyKey, ct);
+            if (existingRefund != null)
+            {
+                return Ok(new
+                {
+                    refundId = existingRefund.Id,
+                    amount = Math.Abs(existingRefund.Amount),
+                    method = existingRefund.Method.ToString(),
+                    refundReference = existingRefund.RefundReference,
+                    status = existingRefund.Status.ToString().ToLower(),
+                    verificationStatus = existingRefund.VerificationStatus.ToString().ToLower(),
+                    message = "idempotent_duplicate"
+                });
+            }
+        }
+
+        // Calculate maximum refundable based on confirmed payments minus prior refunds
+        var totalPaid = invoice.Payments
+            .Where(p => p.Status == PaymentStatus.Completed)
+            .Sum(p => p.Amount);
+        var totalRefunded = invoice.Payments
+            .Where(p => p.Status == PaymentStatus.Refunded && p.VerificationStatus == PaymentVerificationStatus.Confirmed)
+            .Sum(p => Math.Abs(p.Amount));
+        var maxRefundable = Math.Max(0m, totalPaid - totalRefunded);
+
+        if (req.Amount > maxRefundable)
+        {
+            return BadRequest(new
+            {
+                error = "refund_exceeds_paid_balance",
+                message = $"Requested refund of ₹{req.Amount:F2} exceeds refundable paid balance of ₹{maxRefundable:F2}."
+            });
+        }
+
+        // Clinic-set dual approval threshold from TenantTaxProfile (defaults to ₹1,000.00)
+        var taxProfile = await _db.TenantTaxProfiles
+            .FirstOrDefaultAsync(tp => tp.TenantId == tenantId, ct);
+        var threshold = taxProfile?.ThresholdRefundApproval ?? 1000.0m;
+
+        bool requiresDualApproval = req.Amount > threshold;
+        Guid? secondApproverId = null;
+
+        if (requiresDualApproval)
+        {
+            if (req.SecondApprovedByUserId.HasValue)
+            {
+                if (req.SecondApprovedByUserId.Value == currentUserId)
+                {
+                    return BadRequest(new
+                    {
+                        error = "dual_approval_self_approval_blocked",
+                        message = "The initiating user cannot serve as their own second approver for refunds exceeding the threshold."
+                    });
+                }
+
+                var secondApprover = await _db.Users
+                    .FirstOrDefaultAsync(u => u.Id == req.SecondApprovedByUserId.Value && u.TenantId == tenantId, ct);
+                if (secondApprover == null || secondApprover.Role is not (UserRole.ClinicAdmin or UserRole.Doctor))
+                {
+                    return BadRequest(new
+                    {
+                        error = "invalid_second_approver",
+                        message = "Second approver must be a valid ClinicAdmin or Doctor within the clinic."
+                    });
+                }
+
+                secondApproverId = req.SecondApprovedByUserId.Value;
+            }
+            else
+            {
+                // Create pending refund requiring second approval
+                var pendingRefund = new Payment
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    InvoiceId = id,
+                    Method = req.Method,
+                    Amount = -req.Amount,
+                    Status = PaymentStatus.Pending,
+                    VerificationStatus = PaymentVerificationStatus.Pending,
+                    ConfirmedByUserId = currentUserId,
+                    RefundReference = req.RefundReference.Trim(),
+                    RefundReason = req.Reason.Trim(),
+                    IdempotencyKey = req.IdempotencyKey,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+
+                _db.Payments.Add(pendingRefund);
+                await _db.SaveChangesAsync(ct);
+
+                return StatusCode(202, new
+                {
+                    refundId = pendingRefund.Id,
+                    amount = req.Amount,
+                    status = "pending_approval",
+                    verificationStatus = "pending",
+                    threshold,
+                    message = $"Refund amount ₹{req.Amount:F2} exceeds the clinic threshold of ₹{threshold:F2}. Dual approval required before funds are disbursed."
+                });
+            }
+        }
+
+        // If approved, execute within serializable transaction with reversal ledger entries
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var now = DateTimeOffset.UtcNow;
+            var refundPayment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                InvoiceId = id,
+                Method = req.Method,
+                Amount = -req.Amount,
+                Status = PaymentStatus.Refunded,
+                VerificationStatus = PaymentVerificationStatus.Confirmed,
+                ConfirmedByUserId = currentUserId,
+                SecondApprovedByUserId = secondApproverId,
+                RefundReference = req.RefundReference.Trim(),
+                RefundReason = req.Reason.Trim(),
+                IdempotencyKey = req.IdempotencyKey,
+                PaidAt = now,
+                ConfirmedAt = now,
+                CreatedAt = now
+            };
+
+            _db.Payments.Add(refundPayment);
+
+            invoice.PaidAmount -= req.Amount;
+            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            if (invoice.PaidAmount <= 0m)
+                invoice.Status = InvoiceStatus.Refunded;
+            else
+                invoice.Status = InvoiceStatus.PartiallyPaid;
+            invoice.UpdatedAt = now;
+
+            var invoiceRef = invoice.FormatInvoiceNumber();
+            var cashOrBank = req.Method == PaymentMethod.Cash ? "Cash" : "Bank";
+
+            // Append-only reversal entry 1: Credit Cash/Bank (funds disbursed back)
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.RefundProcessed,
+                ReferenceType = "Refund",
+                ReferenceId = refundPayment.Id,
+                ReferenceNumber = req.RefundReference.Trim(),
+                AccountCategory = cashOrBank,
+                DebitAmount = 0.0m,
+                CreditAmount = req.Amount,
+                Narration = $"Refund of ₹{req.Amount:F2} issued for {invoiceRef} via {req.Method}. Ref: {req.RefundReference}. Reason: {req.Reason}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            // Append-only reversal entry 2: Debit AccountsReceivable (offset reversal)
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.RefundProcessed,
+                ReferenceType = "Invoice",
+                ReferenceId = invoice.Id,
+                ReferenceNumber = invoiceRef,
+                AccountCategory = "AccountsReceivable",
+                DebitAmount = req.Amount,
+                CreditAmount = 0.0m,
+                Narration = $"Receivable reinstatement from refund {refundPayment.Id:N} on {invoiceRef}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return StatusCode(201, new
+            {
+                refundId = refundPayment.Id,
+                invoiceId = invoice.Id,
+                invoiceNumber = invoiceRef,
+                amount = req.Amount,
+                method = req.Method.ToString(),
+                refundReference = req.RefundReference,
+                status = "refunded",
+                verificationStatus = "confirmed",
+                paidAmount = invoice.PaidAmount,
+                balanceDue = invoice.BalanceDue,
+                dualApproved = requiresDualApproval,
+                secondApprovedByUserId = secondApproverId,
+                refundedAt = now
+            });
+        });
+    }
+
+    [HttpPost("invoices/{id:guid}/refunds/{refundId:guid}/approve")]
+    [AuthorizeRoles("ClinicAdmin")]
+    public async Task<IActionResult> ApproveRefund(Guid id, Guid refundId, [FromBody] ApproveRefundRequest? req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+
+        var refundPayment = await _db.Payments
+            .FirstOrDefaultAsync(p => p.Id == refundId && p.InvoiceId == id && p.TenantId == tenantId, ct);
+
+        if (refundPayment == null)
+            return NotFound(new { error = "refund_not_found" });
+
+        if (refundPayment.Status != PaymentStatus.Pending || refundPayment.VerificationStatus != PaymentVerificationStatus.Pending)
+            return BadRequest(new { error = "refund_not_pending_approval", message = "Refund is not pending approval." });
+
+        if (refundPayment.ConfirmedByUserId == currentUserId)
+        {
+            return BadRequest(new
+            {
+                error = "dual_approval_self_approval_blocked",
+                message = "The initiating user cannot serve as their own second approver."
+            });
+        }
+
+        var invoice = await _db.Invoices
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        var refundAmount = Math.Abs(refundPayment.Amount);
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IActionResult>(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+            var now = DateTimeOffset.UtcNow;
+            refundPayment.Status = PaymentStatus.Refunded;
+            refundPayment.VerificationStatus = PaymentVerificationStatus.Confirmed;
+            refundPayment.SecondApprovedByUserId = currentUserId;
+            refundPayment.ConfirmedAt = now;
+            refundPayment.PaidAt = now;
+
+            invoice.PaidAmount -= refundAmount;
+            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            if (invoice.PaidAmount <= 0m)
+                invoice.Status = InvoiceStatus.Refunded;
+            else
+                invoice.Status = InvoiceStatus.PartiallyPaid;
+            invoice.UpdatedAt = now;
+
+            var invoiceRef = invoice.FormatInvoiceNumber();
+            var cashOrBank = refundPayment.Method == PaymentMethod.Cash ? "Cash" : "Bank";
+
+            // Post append-only ledger entries
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.RefundProcessed,
+                ReferenceType = "Refund",
+                ReferenceId = refundPayment.Id,
+                ReferenceNumber = refundPayment.RefundReference ?? refundPayment.Id.ToString("N"),
+                AccountCategory = cashOrBank,
+                DebitAmount = 0.0m,
+                CreditAmount = refundAmount,
+                Narration = $"Dual-approved refund of ₹{refundAmount:F2} issued for {invoiceRef} via {refundPayment.Method}. Ref: {refundPayment.RefundReference}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.RefundProcessed,
+                ReferenceType = "Invoice",
+                ReferenceId = invoice.Id,
+                ReferenceNumber = invoiceRef,
+                AccountCategory = "AccountsReceivable",
+                DebitAmount = refundAmount,
+                CreditAmount = 0.0m,
+                Narration = $"Receivable reinstatement from approved refund {refundPayment.Id:N} on {invoiceRef}",
+                PostedByUserId = currentUserId,
+                CreatedAt = now
+            });
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return Ok(new
+            {
+                refundId = refundPayment.Id,
+                invoiceId = invoice.Id,
+                invoiceNumber = invoiceRef,
+                amount = refundAmount,
+                status = "refunded",
+                verificationStatus = "confirmed",
+                paidAmount = invoice.PaidAmount,
+                balanceDue = invoice.BalanceDue,
+                secondApprovedByUserId = currentUserId,
+                approvedAt = now
+            });
+        });
+    }
+
     [HttpGet("invoices/{id:guid}")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     public async Task<IActionResult> GetInvoice(Guid id, CancellationToken ct)
@@ -1059,4 +1394,26 @@ public record CollectPaymentRequest(
 
     [MaxLength(64)]
     string? Utr = null);
+
+public record CreateRefundRequest(
+    [Range(0.01, 1000000.00, ErrorMessage = "Refund amount must be between ₹0.01 and ₹10,00,000")]
+    decimal Amount,
+
+    PaymentMethod Method,
+
+    [Required(ErrorMessage = "Refund reference (UTR / Gateway refund id / voucher) is required"), MaxLength(100)]
+    string RefundReference,
+
+    [Required(ErrorMessage = "Reason is required"), MinLength(3), MaxLength(500)]
+    string Reason,
+
+    Guid? SecondApprovedByUserId = null,
+
+    [RegularExpression(@"^IDEMP-REF-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-REF-{UUID}")]
+    string? IdempotencyKey = null);
+
+public record ApproveRefundRequest(
+    [MaxLength(500)]
+    string? Note = null);
+
 

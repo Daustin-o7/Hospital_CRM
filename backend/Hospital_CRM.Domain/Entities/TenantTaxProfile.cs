@@ -35,6 +35,9 @@ public class TenantTaxProfile : ITenantScoped
     [Column(TypeName = "decimal(18,2)")]
     public decimal ThresholdHighValueUtr { get; set; } = 2000.0m;
 
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal ThresholdRefundApproval { get; set; } = 1000.0m;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

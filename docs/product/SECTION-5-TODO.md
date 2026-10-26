@@ -87,6 +87,7 @@
   - `Card`: Terminal POS swipe, staff records card slip transaction reference.
   - `UpiQr`: Dynamic UPI QR generated on screen using NPCI UPI Deep Link standards:
     `upi://pay?pa={VPA}&pn={ClinicName}&am={Amount}&tr={InvoiceRef}&cu=INR&tn=Invoice+{InvoiceNum}`
+    - The endpoint returns a server-rendered `qrSvg` (QRCoder) that the billing modal shows as an image, so any UPI app can scan it; `upiUri` stays in the payload for copy/phone handoff.
     - Displays primary payee account with a prominent **"Use Backup Account"** toggle.
   - `BankTransfer`: NEFT / RTGS / IMPS.
 - **Partial & Split Payments:**

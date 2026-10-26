@@ -2814,8 +2814,19 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("RefundReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("RefundReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateTimeOffset?>("ReportedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SecondApprovedByUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -4097,6 +4108,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("ThresholdHighValueUtr")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ThresholdRefundApproval")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")

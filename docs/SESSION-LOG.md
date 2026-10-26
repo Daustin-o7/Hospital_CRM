@@ -514,3 +514,45 @@ Gaps found:
 
 
 
+
+## 2026-10-27 - Section 5 "complete" claim re-verified (branch feat/sections-1-to-5-hardening)
+
+Tree check first: the Section 5 code is **not** on `feat/security-hardening` (the branch this checkout was on). It is committed on `feat/sections-1-to-5-hardening` (`7a9b721`), which is now checked out. Anyone verifying Section 5 from `feat/security-hardening` will find no payments controller, no payee accounts, no ledger entities and no Section 5 migrations at all.
+
+Claims that are not true as written:
+
+| Pri | Claim | Reality |
+|---|---|---|
+| P1 | "Dynamic UPI QR ... on-screen QR rendering" | `Billing.tsx` drew a **fake QR**: fixed `<rect>`s labelled "Fallback SVG QR representation". Scanning it did nothing, and the backend returned only the `upi:` string. Fixed below. |
+| P2 | "Dual-control reversal endpoint" / "Dual-Control Corrections" | Single control. `CreateCreditNote` is `ClinicAdmin`-only and stores `ApprovedByUserId = currentUserId`; there is no second approver, no threshold and no approval record. |
+| P2 | "Restricted to ClinicAdmin/**Owner**" | No `Owner` role exists (`ClinicAdmin, Doctor, Receptionist, PlatformAdmin, Pharmacist, Nurse`). |
+| P2 | "{TenantId}-{FinancialYear}-{Series}-{Sequence}" | The rendered number is `INV-{YYYY}-{6-digit}`. Tenant and series exist only as unique-index columns; the year is the calendar year, not the Indian FY. |
+| P2 | "Draft (autosaved while services are administered)" | Autosave exists for consultation drafts only (`ConsultationsController`). Invoices have no autosave and no update endpoint. |
+| P2 | "EF Core `PreventAppendOnlyModifications`" | The guard method is `EnforceAppendOnlyAuditLogs`; the behaviour (ledger, print log, credit notes) is correct, the cited name is not. |
+| P2 | Verification block: 301 tests, one migration | Branch has **310** tests and **two** Section 5 migrations (the `...145940_Section5BillingGuards` one is missing from the claim). |
+
+Verified true on that branch: balanced credit-note reversal postings, ledger webhook posting with a 500 on failure, clinic-scoped payee accounts, payee step-up + cooling-off + admin alerts, append-only DB revokes, print watermark, UTR threshold, double-confirm/over-pay rejection, journal/daily-collection/outstanding endpoints.
+
+### Fix applied - real scannable UPI QR
+
+- `Hospital_CRM.Api.csproj`: added `QRCoder 1.6.0` (a QR encoder is not a few lines; no dependency-free option exists in .NET).
+- `PaymentsController.GenerateDynamicQr`: renders the exact `upi://pay?...` payload as an SVG with `SvgQRCode` and returns it as `qrSvg` alongside `upiUri`.
+- `Billing.tsx`: the fake QR block is gone. The modal renders `qrSvg` as a `data:image/svg+xml` image with explicit 224x224 dimensions and alt text, and falls back to "QR unavailable, pay <VPA>" when the field is absent.
+- `Section5BillingAuditFixesTests.DynamicQr_OnlyUsesTheInvoicesOwnClinicPayeeAccount`: now also asserts the response contains an `<svg` QR payload.
+
+Remaining P2 items above were left as documented limits (no dual approver, no Owner role, calendar-year numbering, no invoice autosave, guard method name) - none of them hides a money bug.
+
+### Verification
+
+- `dotnet build`: 0 errors (same 4 pre-existing `MedicinesController.cs` nullable warnings).
+- `dotnet test`: **310 passed, 0 failed, 0 skipped**.
+- `npm run build`: exit 0; `npm run lint`: exit 0 (pre-existing warnings only).
+- No schema change, so no new migration; both Section 5 migrations are already applied.
+
+> Note: while this review ran, a second agent left uncommitted refund/dual-approval work in the same tree (`Payment.SecondApprovedByUserId`/`RefundReference`/`RefundReason`, `TenantTaxProfile.ThresholdRefundApproval`, migration `20261026185507_Section5RefundDualApprovalAndLedgerReversals`). It is not reviewed here, its migration is not applied, and it touches the P2 "no dual approval / no refunds" rows above - coordinate before closing those.
+
+## 2026-10-27 — P1 Hardening Item 2 (Refund Reversals & Dual Approval)
+- Implemented `ProcessRefund` (`POST /api/v1/invoices/{id}/refund`) and `ApproveRefund` (`POST /api/v1/invoices/{id}/refunds/{refundId}/approve`) with negative payment amounts, balance updates, and mandatory refund references.
+- Added clinic-set threshold (`TenantTaxProfile.ThresholdRefundApproval`, default ₹1,000) requiring second approver (ClinicAdmin/Doctor) with self-approval prevention; posts append-only `RefundProcessed` reversal entries to financial ledger.
+- Verified with 5 tests in `Section5RefundTests.cs`; total suite **319 passed, 0 failed**; EF migration applied.
+

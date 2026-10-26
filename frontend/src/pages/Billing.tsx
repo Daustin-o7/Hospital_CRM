@@ -83,6 +83,7 @@ interface DynamicQrData {
   invoiceNumber: string
   amount: number
   upiUri: string
+  qrSvg?: string
   account: {
     id: string
     vpa: string
@@ -778,31 +779,24 @@ export default function Billing() {
         {qrData && (
           <div className="space-y-4 text-center">
             <div className="p-4 bg-white rounded-2xl border border-[var(--color-border)] inline-block shadow-sm">
-              {/* Fallback SVG QR representation */}
-              <div className="w-56 h-56 mx-auto bg-gray-50 flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl">
-                <svg width="180" height="180" viewBox="0 0 200 200" fill="none">
-                  <rect width="200" height="200" fill="white"/>
-                  {/* Outer corner boxes */}
-                  <rect x="20" y="20" width="50" height="50" stroke="#000" strokeWidth="8" fill="none"/>
-                  <rect x="35" y="35" width="20" height="20" fill="#000"/>
-                  <rect x="130" y="20" width="50" height="50" stroke="#000" strokeWidth="8" fill="none"/>
-                  <rect x="145" y="35" width="20" height="20" fill="#000"/>
-                  <rect x="20" y="130" width="50" height="50" stroke="#000" strokeWidth="8" fill="none"/>
-                  <rect x="35" y="145" width="20" height="20" fill="#000"/>
-                  {/* Mock data pixels */}
-                  <rect x="85" y="25" width="12" height="12" fill="#000"/>
-                  <rect x="105" y="35" width="12" height="12" fill="#000"/>
-                  <rect x="85" y="85" width="30" height="30" fill="#0d9488"/>
-                  <rect x="25" y="85" width="12" height="12" fill="#000"/>
-                  <rect x="135" y="95" width="12" height="12" fill="#000"/>
-                  <rect x="155" y="115" width="12" height="12" fill="#000"/>
-                  <rect x="85" y="145" width="12" height="12" fill="#000"/>
-                  <rect x="115" y="155" width="12" height="12" fill="#000"/>
-                </svg>
-                <span className="text-[11px] font-mono font-bold text-gray-700 mt-2">
-                  ₹{qrData.amount.toLocaleString('en-IN')} • {qrData.invoiceNumber}
-                </span>
+              <div className="w-56 h-56 mx-auto flex items-center justify-center p-1">
+                {qrData.qrSvg ? (
+                  <img
+                    src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrData.qrSvg)}`}
+                    alt={`UPI payment QR for ${qrData.invoiceNumber}`}
+                    width={224}
+                    height={224}
+                    className="w-56 h-56"
+                  />
+                ) : (
+                  <p className="text-xs text-[var(--color-text-muted)] px-4">
+                    QR unavailable. Ask the patient to pay {qrData.account.vpa} directly.
+                  </p>
+                )}
               </div>
+              <span className="block text-[11px] font-mono font-bold text-[var(--color-text)] mt-2">
+                ₹{qrData.amount.toLocaleString('en-IN')} • {qrData.invoiceNumber}
+              </span>
             </div>
 
             <div className="p-3 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl text-left text-xs space-y-1">

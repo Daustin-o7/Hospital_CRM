@@ -33,6 +33,13 @@ public class Payment : ITenantScoped
     public DateTimeOffset? ReportedAt { get; set; }
     public DateTimeOffset? ConfirmedAt { get; set; }
     public Guid? ConfirmedByUserId { get; set; }
+    public Guid? SecondApprovedByUserId { get; set; }
+
+    [MaxLength(100)]
+    public string? RefundReference { get; set; }
+
+    [MaxLength(500)]
+    public string? RefundReason { get; set; }
 
     public Guid? PayeeAccountId { get; set; }
     
