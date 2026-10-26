@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Data;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -9,6 +10,7 @@ using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using QRCoder;
 
 namespace Hospital_CRM.Api.Controllers;
@@ -18,8 +20,18 @@ namespace Hospital_CRM.Api.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly ILogger<PaymentsController>? _logger;
+    private readonly IEmailSender? _email;
 
-    public PaymentsController(HospitalCrmDbContext db) => _db = db;
+    public PaymentsController(
+        HospitalCrmDbContext db,
+        ILogger<PaymentsController>? logger = null,
+        IEmailSender? email = null)
+    {
+        _db = db;
+        _logger = logger;
+        _email = email;
+    }
 
     private Guid TenantId => User.GetTenantId() ?? Guid.Empty;
 
@@ -75,16 +87,50 @@ public class PaymentsController : ControllerBase
             });
         }
 
-        // Selection: Primary or Backup account toggle
+        // Calculate today's collections per account to enforce DailyLimit
+        var todayStart = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+        var accountIds = eligibleAccounts.Select(a => a.Id).ToList();
+
+        var todayCollections = await _db.Payments
+            .Where(p => p.TenantId == tenantId
+                     && p.PayeeAccountId.HasValue
+                     && accountIds.Contains(p.PayeeAccountId.Value)
+                     && p.Status == PaymentStatus.Completed
+                     && p.ConfirmedAt >= todayStart)
+            .GroupBy(p => p.PayeeAccountId!.Value)
+            .Select(g => new { AccountId = g.Key, Total = g.Sum(p => p.Amount) })
+            .ToDictionaryAsync(x => x.AccountId, x => x.Total, ct);
+
+        // An account has headroom if DailyLimit <= 0 or (todayCollected + amountPayable) <= DailyLimit
+        bool HasLimitHeadroom(PayeeAccount acc)
+        {
+            if (acc.DailyLimit <= 0) return true;
+            var collected = todayCollections.TryGetValue(acc.Id, out var sum) ? sum : acc.DailyCollected;
+            return (collected + amountPayable) <= acc.DailyLimit;
+        }
+
+        var accountsWithLimit = eligibleAccounts.Where(HasLimitHeadroom).ToList();
+
+        if (accountsWithLimit.Count == 0)
+        {
+            return StatusCode(503, new
+            {
+                error = "payee_daily_limit_exceeded",
+                message = "All eligible clinic payee bank accounts or UPI VPAs have reached their daily collection limit."
+            });
+        }
+
+        // Selection: Primary or Backup account toggle with daily limit enforcement
         PayeeAccount selectedAccount;
         var useBackup = req?.UseBackupAccount == true;
         if (useBackup)
         {
-            selectedAccount = eligibleAccounts.FirstOrDefault(p => p.PriorityOrder > 1) ?? eligibleAccounts.First();
+            selectedAccount = accountsWithLimit.FirstOrDefault(p => p.PriorityOrder > 1) ?? accountsWithLimit.First();
         }
         else
         {
-            selectedAccount = eligibleAccounts.First();
+            // Primary account preferred if it has headroom; otherwise automatically roll over to backup
+            selectedAccount = accountsWithLimit.FirstOrDefault(p => p.PriorityOrder == 1) ?? accountsWithLimit.First();
         }
 
         var invoiceRef = invoice.FormatInvoiceNumber();
@@ -98,6 +144,8 @@ public class PaymentsController : ControllerBase
         // receptionist has to read out a VPA, so render it here rather than in the browser.
         using var qrData = QRCodeGenerator.GenerateQrCode(upiUri, QRCodeGenerator.ECCLevel.M);
         var qrSvg = new SvgQRCode(qrData).GetGraphic(10);
+
+        var todayCollectedSelected = todayCollections.TryGetValue(selectedAccount.Id, out var coll) ? coll : selectedAccount.DailyCollected;
 
         return Ok(new
         {
@@ -115,9 +163,12 @@ public class PaymentsController : ControllerBase
                 bankName = selectedAccount.BankName,
                 accountNumberMasked = selectedAccount.AccountNumberMasked,
                 priorityOrder = selectedAccount.PriorityOrder,
-                isBackup = selectedAccount.PriorityOrder > 1
+                isBackup = selectedAccount.PriorityOrder > 1,
+                dailyLimit = selectedAccount.DailyLimit,
+                dailyCollectedToday = todayCollectedSelected,
+                limitHeadroom = selectedAccount.DailyLimit > 0 ? Math.Max(0m, selectedAccount.DailyLimit - todayCollectedSelected) : (decimal?)null
             },
-            backupAvailable = eligibleAccounts.Any(p => p.PriorityOrder > 1)
+            backupAvailable = accountsWithLimit.Any(p => p.PriorityOrder > 1)
         });
     }
 
@@ -158,6 +209,26 @@ public class PaymentsController : ControllerBase
                 message = $"Reported amount must be between ₹0.01 and the balance due of ₹{invoice.BalanceDue:F2}."
             });
 
+        // Clinic cap on total pending unconfirmed reported payments
+        var profile = await _db.TenantTaxProfiles.FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+        var maxCount = profile?.MaxUnconfirmedReportedPaymentsCount ?? 50;
+        var maxAmount = profile?.MaxUnconfirmedReportedPaymentsAmount ?? 100000.0m;
+
+        var unconfirmedQuery = _db.Payments
+            .Where(p => p.TenantId == tenantId && p.Status == PaymentStatus.Pending && p.VerificationStatus == PaymentVerificationStatus.Reported);
+
+        var currentUnconfirmedCount = await unconfirmedQuery.CountAsync(ct);
+        var currentUnconfirmedAmount = await unconfirmedQuery.SumAsync(p => p.Amount, ct);
+
+        if (currentUnconfirmedCount >= maxCount || (currentUnconfirmedAmount + reportedAmount) > maxAmount)
+        {
+            return BadRequest(new
+            {
+                error = "reported_payments_cap_exceeded",
+                message = $"Clinic cap on pending unconfirmed reported payments exceeded ({currentUnconfirmedCount}/{maxCount} payments, ₹{currentUnconfirmedAmount:F2}/₹{maxAmount:F2} pending). Staff must verify pending payments before new reports can be accepted."
+            });
+        }
+
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
@@ -166,6 +237,7 @@ public class PaymentsController : ControllerBase
             Method = method.Value,
             Amount = reportedAmount,
             Utr = string.IsNullOrWhiteSpace(req.Utr) ? null : req.Utr.Trim(),
+            PayeeAccountId = req.PayeeAccountId,
             Status = PaymentStatus.Pending,
             VerificationStatus = PaymentVerificationStatus.Reported,
             ReportedAt = DateTimeOffset.UtcNow,
@@ -241,6 +313,63 @@ public class PaymentsController : ControllerBase
         var currentUserId = User.GetUserId();
         var now = DateTimeOffset.UtcNow;
 
+        // Anomaly / Spike Detection: check how many payments this user confirmed in the last hour
+        var spikeThreshold = profile?.StaffConfirmationSpikeThreshold ?? 20;
+        var oneHourAgo = now.AddHours(-1);
+        var recentUserConfirmations = await _db.Payments
+            .CountAsync(p => p.TenantId == tenantId
+                          && p.ConfirmedByUserId == currentUserId
+                          && p.ConfirmedAt >= oneHourAgo, ct);
+
+        bool isSpikeDetected = (recentUserConfirmations + 1) >= spikeThreshold;
+        if (isSpikeDetected)
+        {
+            _logger?.LogWarning(
+                "SECURITY ALERT: Staff confirmation spike detected for user {UserId} in tenant {TenantId}: {Count} confirmations in past hour (Threshold: {Threshold})",
+                currentUserId, tenantId, recentUserConfirmations + 1, spikeThreshold);
+
+            _db.AuthAuditLogs.Add(new AuthAuditLog
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                UserId = currentUserId,
+                EventType = "payment_confirmation_spike_detected",
+                Outcome = "warning",
+                Detail = $"Staff member confirmed {recentUserConfirmations + 1} payments within 1 hour (Threshold: {spikeThreshold}).",
+                CreatedAt = now
+            });
+
+            if (_email != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var adminEmails = await _db.Users
+                            .Where(u => u.TenantId == tenantId && u.Role == UserRole.ClinicAdmin)
+                            .Select(u => u.Email)
+                            .ToListAsync(CancellationToken.None);
+
+                        var staffUser = await _db.Users.FindAsync(currentUserId);
+                        var staffName = staffUser?.Name ?? currentUserId.ToString();
+
+                        foreach (var adminEmail in adminEmails)
+                        {
+                            await _email.SendAsync(
+                                adminEmail,
+                                "ALERT: Staff Payment Confirmation Spike Detected",
+                                $"Notice: Staff member '{staffName}' has confirmed {recentUserConfirmations + 1} payments in the last hour. Please audit recent invoice payments.",
+                                CancellationToken.None);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "Failed to send staff confirmation spike alert email.");
+                    }
+                });
+            }
+        }
+
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
         // Check if matching pending reported payment exists to confirm
@@ -261,6 +390,7 @@ public class PaymentsController : ControllerBase
                 Method = method.Value,
                 Amount = amount,
                 Utr = string.IsNullOrWhiteSpace(req.Utr) ? null : req.Utr.Trim(),
+                PayeeAccountId = req.PayeeAccountId,
                 Status = PaymentStatus.Completed,
                 VerificationStatus = PaymentVerificationStatus.Confirmed,
                 PaidAt = now,
@@ -276,6 +406,8 @@ public class PaymentsController : ControllerBase
             payment.Method = method.Value;
             payment.Amount = amount;
             payment.Utr = string.IsNullOrWhiteSpace(req.Utr) ? payment.Utr : req.Utr.Trim();
+            if (req.PayeeAccountId.HasValue)
+                payment.PayeeAccountId = req.PayeeAccountId;
             payment.Status = PaymentStatus.Completed;
             payment.VerificationStatus = PaymentVerificationStatus.Confirmed;
             payment.PaidAt = now;
@@ -330,7 +462,7 @@ public class PaymentsController : ControllerBase
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        return Ok(ConfirmResult(invoice, payment, alreadyConfirmed: false));
+        return Ok(ConfirmResult(invoice, payment, alreadyConfirmed: false, anomalySpikeAlert: isSpikeDetected));
     }
 
     private static PaymentMethod? ParseMethod(string? raw) => raw?.Trim().ToLowerInvariant() switch
@@ -342,7 +474,7 @@ public class PaymentsController : ControllerBase
         _ => null
     };
 
-    private static object ConfirmResult(Invoice invoice, Payment payment, bool alreadyConfirmed) => new
+    private static object ConfirmResult(Invoice invoice, Payment payment, bool alreadyConfirmed, bool anomalySpikeAlert = false) => new
     {
         paymentId = payment.Id,
         invoiceId = invoice.Id,
@@ -352,7 +484,8 @@ public class PaymentsController : ControllerBase
         balanceDue = invoice.BalanceDue,
         utr = payment.Utr,
         confirmedAt = payment.ConfirmedAt,
-        alreadyConfirmed
+        alreadyConfirmed,
+        anomalySpikeAlert
     };
 }
 
@@ -362,11 +495,13 @@ public record ReportPaymentRequest(
     [Required] string Method,
     decimal Amount = 0.0m,
     string? Utr = null,
-    string? IdempotencyKey = null);
+    string? IdempotencyKey = null,
+    Guid? PayeeAccountId = null);
 
 public record ConfirmPaymentRequest(
     [Required] string Method,
     decimal Amount = 0.0m,
     string? Utr = null,
     Guid? PaymentId = null,
-    string? IdempotencyKey = null);
+    string? IdempotencyKey = null,
+    Guid? PayeeAccountId = null);

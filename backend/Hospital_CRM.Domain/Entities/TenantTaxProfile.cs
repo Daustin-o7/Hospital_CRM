@@ -38,6 +38,13 @@ public class TenantTaxProfile : ITenantScoped
     [Column(TypeName = "decimal(18,2)")]
     public decimal ThresholdRefundApproval { get; set; } = 1000.0m;
 
+    public int MaxUnconfirmedReportedPaymentsCount { get; set; } = 50;
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal MaxUnconfirmedReportedPaymentsAmount { get; set; } = 100000.0m;
+
+    public int StaffConfirmationSpikeThreshold { get; set; } = 20;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

@@ -556,3 +556,10 @@ Remaining P2 items above were left as documented limits (no dual approver, no Ow
 - Added clinic-set threshold (`TenantTaxProfile.ThresholdRefundApproval`, default ₹1,000) requiring second approver (ClinicAdmin/Doctor) with self-approval prevention; posts append-only `RefundProcessed` reversal entries to financial ledger.
 - Verified with 5 tests in `Section5RefundTests.cs`; total suite **319 passed, 0 failed**; EF migration applied.
 
+## 2026-10-27 — P1 Hardening Item 3 (Reported-Payment Controls & Payee Limit)
+- Implemented clinic caps on unconfirmed reported payments (`MaxUnconfirmedReportedPaymentsCount` & `MaxUnconfirmedReportedPaymentsAmount`) in `ReportPayment`.
+- Added staff confirmation velocity spike detection in `ConfirmPayment` with security audit logging (`AuthAuditLogs`) and admin email alerts.
+- Enforced payee account `DailyLimit` in `GenerateDynamicQr` with automatic rollover to backup accounts when primary reaches limit; applied migration `Section5ReportedPaymentControls`.
+- Verified with 4 tests in `Section5ReportedPaymentControlsTests.cs`; total suite **323 passed, 0 failed**.
+
+

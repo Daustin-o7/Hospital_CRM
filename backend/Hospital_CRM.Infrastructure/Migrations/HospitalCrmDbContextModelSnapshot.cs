@@ -4100,6 +4100,15 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<bool>("IsGstRegistered")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal>("MaxUnconfirmedReportedPaymentsAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("MaxUnconfirmedReportedPaymentsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffConfirmationSpikeThreshold")
+                        .HasColumnType("integer");
+
                     b.Property<string>("StateCode")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
