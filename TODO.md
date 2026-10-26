@@ -44,7 +44,32 @@
 - [x] **5.7 Append-Only Ledger**: RBAC revokes for ledger/print/credit notes, EF guard, webhook posting, tender/aging/journal reports.
 - [x] **5.8 PWA**: `Billing.tsx` tabs, QR modal, print modal, credit-note modal.
 
-> Re-verified 2026-10-26: double-confirm/overpay, legacy collect ledger, discount-balanced finalize, credit-note caps, invoice-number unique index, webhook fail-loud, tax downgrade, draft print, payee MFA/alerts, ledger GST/reported/net. Known limits: no PDF, deposits, refunds, dual-approval threshold, Indian FY numbering, reported-payment caps/alerts, payee daily limit, statement import. See `docs/SESSION-LOG.md`.
+> Re-verified 2026-10-26: double-confirm/overpay, legacy collect ledger, discount-balanced finalize, credit-note caps, invoice-number unique index, webhook fail-loud, tax downgrade, draft print, payee MFA/alerts, ledger GST/reported/net. Known limits: no PDF, deposits, refunds, dual-approval threshold, reported-payment caps/alerts, payee daily limit, statement import. See `docs/SESSION-LOG.md`.
+
+---
+
+## 🔒 Hardening & Release Queue (`feat/security-hardening`)
+
+### P1 Money & Compliance
+- [x] **1. Invoice and credit-note numbering**: Indian FY (Apr-Mar, e.g. `2026-27`) series reset on April 1, gapless sequential numbering, unique per tenant+series+FY index in DB.
+- [ ] **2. Refunds**: Reversal entries, dual approval above a clinic-set threshold, refund reference recorded.
+- [ ] **3. Reported-payment controls**: Cap on total reported-unconfirmed per clinic; alert when one staff member's confirmations spike; enforce payee daily limit in primary/backup selection.
+- [ ] **4. Deposits/advances**: Recorded against patient, applied at invoicing, shown on ledger.
+- [ ] **5. Link pharmacy dispense to billing**: PHARM invoice appears as a linked document (own series, not merged), payable through the same confirm flow.
+- [ ] **6. Data licences**: Read CDCI License.txt; check TrueMD provenance/licence. Drop TrueMD if unclear. Log result in OPEN-QUESTIONS.md.
+
+### P2 Gaps
+- [ ] **7. Server-side PDF**: For invoices, credit notes and prescriptions from finalized versions only; real QR image on Rx.
+- [ ] **8. Minimal pharmacy UI**: Dispense, stock-in, H1 export, recall.
+
+### P3 Release Gating
+- [ ] **9. Task 1.4**: docker compose up end to end; fix what breaks.
+- [ ] **10. Task 3.1**: GitHub Actions (format, lint, build, tests, Playwright, secret scan, vulnerable-package check).
+- [ ] **11. Task 3.2**: Serilog correlation IDs, /health/live and /health/ready (DB + storage), backup script and a tested restore.
+- [ ] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
+
+### P4 Prep Only
+- [ ] **13. Security Pentest Scope**: Write `docs/security/PENTEST-SCOPE.md` from TODO 3.3 plus surfaces touched.
 
 ---
 

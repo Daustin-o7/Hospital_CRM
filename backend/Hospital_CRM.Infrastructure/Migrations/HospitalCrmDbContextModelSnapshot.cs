@@ -815,6 +815,11 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("FinancialYear")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uuid");
 
@@ -825,6 +830,14 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Series")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -837,6 +850,10 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "CreditNoteNumber")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "FinancialYear", "Series", "SequenceNumber")
+                        .IsUnique()
+                        .HasFilter("\"SequenceNumber\" > 0");
 
                     b.ToTable("CreditNotes");
                 });

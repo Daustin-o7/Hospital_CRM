@@ -29,7 +29,7 @@ public class Invoice : ITenantScoped
     public string? IdempotencyKey { get; set; }
 
     [MaxLength(20)]
-    public string FinancialYear { get; set; } = DateTime.UtcNow.Year.ToString();
+    public string FinancialYear { get; set; } = Utils.IndianFinancialYearUtils.GetFinancialYear(DateTime.UtcNow);
 
     [MaxLength(20)]
     public string Series { get; set; } = "INV";

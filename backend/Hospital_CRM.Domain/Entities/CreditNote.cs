@@ -15,7 +15,15 @@ public class CreditNote : ITenantScoped
     public Guid InvoiceId { get; set; }
 
     [MaxLength(50)]
-    public string CreditNoteNumber { get; set; } = string.Empty; // e.g. CN-2026-000001
+    public string CreditNoteNumber { get; set; } = string.Empty; // e.g. CN-2026-27-000001
+
+    [MaxLength(20)]
+    public string FinancialYear { get; set; } = string.Empty;
+
+    [MaxLength(20)]
+    public string Series { get; set; } = "CN";
+
+    public int SequenceNumber { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Amount { get; set; }

@@ -5,6 +5,7 @@ using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -85,7 +86,7 @@ public class PaymentsController : ControllerBase
             selectedAccount = eligibleAccounts.First();
         }
 
-        var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+        var invoiceRef = invoice.FormatInvoiceNumber();
         var encodedClinic = Uri.EscapeDataString(clinicName);
         var encodedNote = Uri.EscapeDataString($"Bill {invoiceRef}");
 
@@ -285,9 +286,7 @@ public class PaymentsController : ControllerBase
 
         // Append-only financial ledger entry (Credit AccountsReceivable, Debit Cash/Bank)
         var debitAccount = method == PaymentMethod.Cash ? "Cash" : "Bank";
-        var invoiceRef = invoice.InvoiceNumber > 0
-            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
-            : "DRAFT";
+        var invoiceRef = invoice.FormatInvoiceNumber();
 
         _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
         {
@@ -340,9 +339,7 @@ public class PaymentsController : ControllerBase
     {
         paymentId = payment.Id,
         invoiceId = invoice.Id,
-        invoiceNumber = invoice.InvoiceNumber > 0
-            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
-            : "DRAFT",
+        invoiceNumber = invoice.FormatInvoiceNumber(),
         status = invoice.Status.ToString().ToLower(),
         paidAmount = invoice.PaidAmount,
         balanceDue = invoice.BalanceDue,

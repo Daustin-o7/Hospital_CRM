@@ -929,6 +929,9 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TenantId, x.CreditNoteNumber }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.FinancialYear, x.Series, x.SequenceNumber })
+                .IsUnique()
+                .HasFilter("\"SequenceNumber\" > 0");
             e.HasOne(x => x.Invoice).WithMany(i => i.CreditNotes).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ApprovedByUser).WithMany().HasForeignKey(x => x.ApprovedByUserId).OnDelete(DeleteBehavior.Restrict);
         });

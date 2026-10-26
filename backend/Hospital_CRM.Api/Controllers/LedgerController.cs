@@ -4,6 +4,7 @@ using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -130,7 +131,7 @@ public class LedgerController : ControllerBase
         var list = unpaidInvoices.Select(i => new
         {
             invoiceId = i.Id,
-            invoiceNumber = i.InvoiceNumber > 0 ? $"INV-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
+            invoiceNumber = i.FormatInvoiceNumber(),
             patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Walk-in Patient",
             patientPhone = i.Appointment?.Patient?.Phone ?? i.WalkInCustomerPhone,
             total = i.Total,

@@ -504,7 +504,13 @@ Gaps found:
 - `dotnet ef database update`: applied **both** `20261026135242_Section5BillingTaxAndManualLedger` and `20261026145940_Section5BillingGuards`. The base Section 5 migration was **not** in `__EFMigrationsHistory` before this run, so the earlier "migration applied" claim was not true on this database.
 - `has-pending-model-changes`: none.
 - DB checks: `IX_Invoices_TenantId_FinancialYear_Series_InvoiceNumber` exists; `app_user` has only `INSERT`/`SELECT` on `CreditNotes`.
-- Not done (P2, documented): PDF, deposits, refunds, dual approval, Indian FY numbering, reported-payment caps/alerts, payee daily limit, statement import, print-count race.
+- Not done (P2, documented): PDF, deposits, refunds, dual approval, reported-payment caps/alerts, payee daily limit, statement import, print-count race.
+
+## 2026-10-26 — Task 1: Indian FY Numbering & Credit Note Series Reset
+- Implemented `IndianFinancialYearUtils` (Apr-Mar FY, e.g. `2026-27`) with automatic sequence reset to 1 on April 1.
+- Added `FinancialYear`, `Series`, `SequenceNumber` with unique index `(TenantId, FinancialYear, Series, SequenceNumber)` to `CreditNotes` and applied migration `20261026174641_Section5IndianFyAndCreditNoteNumbering`.
+- Verified gapless sequence allocation and series formatting across Invoices (`INV`/`PHARM`) and Credit Notes (`CN`); 314 tests passed (added 4 new tests in `Section5IndianFyNumberingTests.cs`).
+
 
 
 

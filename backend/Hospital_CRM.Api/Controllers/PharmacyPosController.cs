@@ -5,6 +5,7 @@ using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -177,9 +178,9 @@ public class PharmacyPosController : ControllerBase
                 }
             }
 
-            var year = DateTime.UtcNow.Year;
+            var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
             var maxInvoiceNumber = await _db.Invoices
-                .Where(i => i.InvoiceType == InvoiceType.Pharmacy && i.CreatedAt.Year == year)
+                .Where(i => i.TenantId == tenantId && i.FinancialYear == currentFy && i.Series == "PHARM")
                 .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
 
             var invoiceTotal = subtotal + totalGst;
@@ -191,6 +192,8 @@ public class PharmacyPosController : ControllerBase
                 AppointmentId = null,
                 PatientId = req.PatientId,
                 InvoiceType = InvoiceType.Pharmacy,
+                Series = "PHARM",
+                FinancialYear = currentFy,
                 WalkInCustomerName = req.WalkInCustomerName ?? req.PatientName,
                 WalkInCustomerPhone = req.WalkInCustomerPhone,
                 InvoiceNumber = maxInvoiceNumber + 1,
@@ -219,7 +222,7 @@ public class PharmacyPosController : ControllerBase
                     Direction = MovementDirection.Out,
                     ReferenceType = "Dispense",
                     ReferenceId = invoice.Id,
-                    Note = $"POS Checkout Inv #PHARM-{year}-{(invoice.InvoiceNumber):D6}",
+                    Note = $"POS Checkout Inv #{invoice.FormatInvoiceNumber()}",
                     RecordedBy = currentUserId,
                     RecordedAt = DateTimeOffset.UtcNow
                 });
@@ -294,7 +297,7 @@ public class PharmacyPosController : ControllerBase
             return StatusCode(201, new
             {
                 invoiceId = invoice.Id,
-                invoiceNumber = $"PHARM-{year}-{invoice.InvoiceNumber:D6}",
+                invoiceNumber = invoice.FormatInvoiceNumber(),
                 subtotal = invoice.Subtotal,
                 gstAmount = invoice.GstAmount,
                 total = invoice.Total,

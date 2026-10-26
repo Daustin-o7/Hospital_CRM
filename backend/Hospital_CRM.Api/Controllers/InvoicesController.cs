@@ -8,6 +8,7 @@ using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -126,7 +127,7 @@ public class InvoicesController : ControllerBase
                 return Ok(new
                 {
                     invoiceId = existing.Id,
-                    invoiceNumber = $"INV-{existing.FinancialYear}-{existing.InvoiceNumber:D6}",
+                    invoiceNumber = existing.FormatInvoiceNumber(),
                     subtotal = existing.Subtotal,
                     gstAmount = existing.GstAmount,
                     total = existing.Total,
@@ -235,7 +236,7 @@ public class InvoicesController : ControllerBase
         if (calculatedGst > 0)
             docType = InvoiceDocumentType.TaxInvoice;
 
-        var currentYear = DateTime.UtcNow.Year.ToString();
+        var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
 
         var executionStrategy = _db.Database.CreateExecutionStrategy();
         return await executionStrategy.ExecuteAsync<IActionResult>(async () =>
@@ -248,7 +249,7 @@ public class InvoicesController : ControllerBase
                 TenantId = appointment.TenantId,
                 AppointmentId = request.AppointmentId,
                 PatientId = appointment.PatientId,
-                FinancialYear = currentYear,
+                FinancialYear = currentFy,
                 Series = "INV",
                 DocumentType = docType,
                 LinkedPharmacyInvoiceId = request.LinkedPharmacyInvoiceId,
@@ -269,14 +270,14 @@ public class InvoicesController : ControllerBase
             if (request.AutoFinalize)
             {
                 var maxNumber = await _db.Invoices
-                    .Where(i => i.TenantId == tenantId && i.FinancialYear == currentYear && i.Series == "INV")
+                    .Where(i => i.TenantId == tenantId && i.FinancialYear == currentFy && i.Series == invoice.Series)
                     .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
                 invoice.InvoiceNumber = maxNumber + 1;
                 invoice.FinalizedAt = DateTimeOffset.UtcNow;
                 invoice.FinalizedByUserId = User.GetUserId();
 
                 // Post append-only ledger entries
-                var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+                var invoiceRef = invoice.FormatInvoiceNumber();
                 PostFinalizeLedger(invoice, invoiceRef);
             }
 
@@ -291,8 +292,8 @@ public class InvoicesController : ControllerBase
             await transaction.CommitAsync(ct);
 
             var invoiceNumStr = invoice.InvoiceNumber > 0
-                ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
-                : $"DRAFT-{invoice.Id:N}[..8]";
+                ? invoice.FormatInvoiceNumber()
+                : $"DRAFT-{invoice.Id:N}"[..14];
 
             return StatusCode(201, new
             {
@@ -328,7 +329,7 @@ public class InvoicesController : ControllerBase
             or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
             return BadRequest(new { error = "invoice_already_finalized" });
 
-        var currentYear = DateTime.UtcNow.Year.ToString();
+        var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
         var strategy = _db.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync<IActionResult>(async () =>
@@ -336,18 +337,18 @@ public class InvoicesController : ControllerBase
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
             var maxNumber = await _db.Invoices
-                .Where(i => i.TenantId == tenantId && i.FinancialYear == currentYear && i.Series == invoice.Series)
+                .Where(i => i.TenantId == tenantId && i.FinancialYear == currentFy && i.Series == invoice.Series)
                 .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
 
             invoice.InvoiceNumber = maxNumber + 1;
-            invoice.FinancialYear = currentYear;
+            invoice.FinancialYear = currentFy;
             invoice.Status = InvoiceStatus.Finalized;
             invoice.FinalizedAt = DateTimeOffset.UtcNow;
             invoice.FinalizedByUserId = User.GetUserId();
             invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
             invoice.UpdatedAt = DateTimeOffset.UtcNow;
 
-            var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+            var invoiceRef = invoice.FormatInvoiceNumber();
 
             // Append-only financial ledger entries
             PostFinalizeLedger(invoice, invoiceRef);
@@ -410,9 +411,7 @@ public class InvoicesController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
-        var invoiceRef = invoice.InvoiceNumber > 0
-            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
-            : "DRAFT";
+        var invoiceRef = invoice.FormatInvoiceNumber();
 
         return Ok(new
         {
@@ -477,7 +476,8 @@ public class InvoicesController : ControllerBase
         if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
             return BadRequest(new { error = "invoice_not_finalized", message = "Credit notes can only be issued against a finalized invoice." });
 
-        var currentYear = DateTime.UtcNow.Year.ToString();
+        var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
+        var series = "CN";
         var strategy = _db.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync<IActionResult>(async () =>
@@ -496,18 +496,26 @@ public class InvoicesController : ControllerBase
                     message = $"Credit note amount must be between ₹0.01 and ₹{creditable:F2} (already credited: ₹{alreadyCredited:F2})."
                 });
 
-            // Fixed-width numbers sort lexicographically; MAX+1 survives any gap a count would collide on.
-            var prefix = $"CN-{currentYear}-";
-            var lastNumber = await _db.CreditNotes
-                .Where(c => c.TenantId == tenantId && c.CreditNoteNumber.StartsWith(prefix))
-                .OrderByDescending(c => c.CreditNoteNumber)
-                .Select(c => c.CreditNoteNumber)
-                .FirstOrDefaultAsync(ct);
-            var nextSequence = lastNumber is not null && int.TryParse(lastNumber[prefix.Length..], out var lastSeq)
-                ? lastSeq + 1
-                : 1;
+            var maxSeq = await _db.CreditNotes
+                .Where(c => c.TenantId == tenantId && c.FinancialYear == currentFy && c.Series == series)
+                .MaxAsync(c => (int?)c.SequenceNumber, ct) ?? 0;
 
-            var creditNoteNum = $"{prefix}{nextSequence:D6}";
+            if (maxSeq == 0)
+            {
+                var prefix = $"{series}-{currentFy}-";
+                var lastNumber = await _db.CreditNotes
+                    .Where(c => c.TenantId == tenantId && c.CreditNoteNumber.StartsWith(prefix))
+                    .OrderByDescending(c => c.CreditNoteNumber)
+                    .Select(c => c.CreditNoteNumber)
+                    .FirstOrDefaultAsync(ct);
+                if (lastNumber is not null && int.TryParse(lastNumber[prefix.Length..], out var lastParsedSeq))
+                {
+                    maxSeq = lastParsedSeq;
+                }
+            }
+
+            var nextSequence = maxSeq + 1;
+            var creditNoteNum = $"{series}-{currentFy}-{nextSequence:D6}";
             var currentUserId = User.GetUserId() ?? Guid.Empty;
             var now = DateTimeOffset.UtcNow;
 
@@ -517,6 +525,9 @@ public class InvoicesController : ControllerBase
                 TenantId = tenantId,
                 InvoiceId = id,
                 CreditNoteNumber = creditNoteNum,
+                FinancialYear = currentFy,
+                Series = series,
+                SequenceNumber = nextSequence,
                 Amount = req.Amount,
                 Reason = req.Reason.Trim(),
                 ApprovedByUserId = currentUserId,
@@ -527,7 +538,7 @@ public class InvoicesController : ControllerBase
             _db.CreditNotes.Add(creditNote);
 
             // Reversal entry in append-only financial ledger
-            var invoiceRef = $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}";
+            var invoiceRef = invoice.FormatInvoiceNumber();
             _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
             {
                 Id = Guid.NewGuid(),
@@ -596,9 +607,7 @@ public class InvoicesController : ControllerBase
         if (invoice == null)
             return NotFound(new { error = "invoice_not_found" });
 
-        var invoiceRef = invoice.InvoiceNumber > 0
-            ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
-            : "DRAFT";
+        var invoiceRef = invoice.FormatInvoiceNumber();
 
         return Ok(new
         {
@@ -779,7 +788,7 @@ public class InvoicesController : ControllerBase
         invoice.UpdatedAt = DateTimeOffset.UtcNow;
 
         // Every confirmed payment posts to the append-only ledger, whichever endpoint took it.
-        var invoiceRef = invoice.InvoiceNumber > 0 ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}" : "DRAFT";
+        var invoiceRef = invoice.FormatInvoiceNumber();
         var cashOrBank = manualMethod == PaymentMethod.Cash ? "Cash" : "Bank";
         _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
         {
@@ -899,7 +908,7 @@ public class InvoicesController : ControllerBase
                                 invoice.UpdatedAt = DateTimeOffset.UtcNow;
 
                                 var invoiceRef = invoice.InvoiceNumber > 0
-                                    ? $"INV-{invoice.FinancialYear}-{invoice.InvoiceNumber:D6}"
+                                    ? invoice.FormatInvoiceNumber()
                                     : $"RAZORPAY-{razorpayPaymentId ?? razorpayOrderId}";
                                 _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
                                 {
@@ -985,7 +994,7 @@ public class InvoicesController : ControllerBase
             .Select(i => new
             {
                 invoiceId = i.Id,
-                invoiceNumber = i.InvoiceNumber > 0 ? $"INV-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
+                invoiceNumber = i.InvoiceNumber > 0 ? $"{(i.Series != null && i.Series != "" ? i.Series : "INV")}-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
                 patientName = i.Appointment != null ? i.Appointment.Patient.Name : (i.WalkInCustomerName ?? "Walk-in Customer"),
                 subtotal = i.Subtotal,
                 gstAmount = i.GstAmount,
