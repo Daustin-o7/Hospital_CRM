@@ -567,10 +567,8 @@ using (var tsScope = app.Services.CreateScope())
     }
 }
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+// Reverse-proxy trust is an explicit list (ForwardedHeaders:KnownProxies); empty trusts loopback only.
+app.UseForwardedHeaders(ForwardedProxies.Build(builder.Configuration));
 
 app.UseCorrelationId();
 
