@@ -201,8 +201,7 @@ builder.Services.AddOpenIddict()
 
         options.AllowAuthorizationCodeFlow()
                .RequireProofKeyForCodeExchange()
-               .AllowRefreshTokenFlow()
-               .AllowPasswordFlow();
+               .AllowRefreshTokenFlow();
 
         options.RegisterScopes(
             OpenIddictConstants.Scopes.OpenId,
@@ -1445,7 +1444,6 @@ static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)
                 OpenIddictConstants.Permissions.Endpoints.EndSession,
                 OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
                 OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-                OpenIddictConstants.Permissions.GrantTypes.Password,
                 OpenIddictConstants.Permissions.ResponseTypes.Code,
                 OpenIddictConstants.Permissions.Scopes.Email,
                 OpenIddictConstants.Permissions.Scopes.Profile,

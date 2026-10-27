@@ -66,7 +66,7 @@
 - [x] **9. Task 1.4**: docker compose up end to end; fix what breaks.
 - [x] **10. Task 3.1**: GitHub Actions (format, lint, build, tests, Playwright, secret scan, vulnerable-package check).
 - [x] **11. Task 3.2**: Serilog correlation IDs, /health/live and /health/ready (DB + storage), backup script and a tested restore.
-- [ ] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
+- [x] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
 
 ### P4 Prep Only
 - [ ] **13. Security Pentest Scope**: Write `docs/security/PENTEST-SCOPE.md` from TODO 3.3 plus surfaces touched.
@@ -151,7 +151,7 @@ Target: Close out remaining Phase 1 & 2 acceptance criteria and finalize workspa
   - Connected `Dashboard.tsx` role perspective switcher to URL search parameters (`previewRole` & `domain`).
   - `DashboardLayout.tsx` seamlessly synchronizes: sidebar items, settings link, header preview badge, and mobile bottom navigation dynamically adapt to the simulated perspective while preserving real permissions.
 
-- [ ] **2.3 Comprehensive FRD Acceptance Criteria Walkthrough**
+- [x] **2.3 Comprehensive FRD Acceptance Criteria Walkthrough**
   - Audit all 22 Phase 1 functional requirements (`docs/product/FRD_FINAL.md`) and 9 Phase 2 modules (`FRD-Phase-2-FINAL.md`).
   - Verify every edge case and statutory requirement (Schedule H1 compliance, FEFO batch allocation, DPDP consent tracking).
 
@@ -190,3 +190,41 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
     - IPD & Inpatient Care &rarr; Track 4.
     - UAE & international billing adapters &rarr; Out of scope.
     - Dedicated single-tenant database instances &rarr; Out of scope.
+
+---
+
+## External Audit Remediation (20 findings, 2026-10-27)
+
+> Source: whole-repo audit (read-verified only). One commit per finding; failing test first. Unresolved items -> `docs/product/OPEN-QUESTIONS.md`.
+
+### Phase 0 - Production blockers
+- [x] **A1 (#1) OpenIddict password grant**: delete `.AllowPasswordFlow()` + seeded `GrantTypes.Password` (MFA bypass).
+- [ ] **A2 (#2) Receptionist clinical reads**: remove Receptionist from consultation list/detail/prescriptions.
+- [ ] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
+- [ ] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
+- [ ] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.
+- [ ] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
+- [ ] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
+
+### Phase 1 - Money correctness
+- [ ] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.
+- [ ] **A9 (#8) Credited/BalanceDue**: `Credited` tracked on invoice; one BalanceDue formula.
+- [ ] **A10 (#11) Draft PATCH**: recompute `Total` from lines.
+- [ ] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
+
+### Phase 2 - Auth hardening
+- [ ] **A12 (#3) Audit REVOKE**: migration-level least privilege; fix `ALTER DEFAULT PRIVILEGES`.
+- [ ] **A13 (#13) Invite/reset tokens**: digest lookup, rate limits, stop logging invite tokens.
+- [ ] **A14 (#14) Forwarded headers**: explicit trusted proxies.
+- [ ] **A15 (#17) Refresh rotation**: atomic.
+- [ ] **A16 (#16) Password reset**: revoke sessions.
+- [ ] **A17 (#15) Client refresh**: one shared in-flight refresh.
+
+### Phase 3 - Missing UI (backend shipped, unusable)
+- [ ] **A18 (#12) Create-Invoice patient picker** (first), then refunds + deposits, lab order/result, expenses + monthly summary, pre-check inline, tracking-link copy, treatment history, template CRUD. (Skip the 4 DEV-gated demo modules.)
+
+### Phase 4 - Release gates
+- [ ] **A19 (#20) GSTR-1 correctness** before any real filing; then remaining money items, PDF/QR checks, docker/CI/backup gates, FRD evidence table.
+
+### Phase 5 - Audit gaps (self-review)
+- [ ] **A20** Money paths in pharmacy/batch/compliance controllers, `PdfService`, `SubscriptionWebhooksController`, migration SQL, MobileApp.

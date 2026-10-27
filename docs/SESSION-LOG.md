@@ -631,3 +631,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Hardened Kubernetes health probes: `/health/live` returns HTTP 200 alive, `/health/ready` actively probes both DB connectivity and storage writability returning structured JSON status.
 - Implemented automated database backup and disaster recovery restore scripts (`backup-db.sh`, `restore-db.sh`, `backup-db.ps1`, `restore-db.ps1`) with non-blocking `--no-password` execution and SHA256 integrity checks; verified backup and restore cycle with 4 new tests in `ObservabilityAndHealthTests.cs` (total suite **362 passed, 0 failed**).
 
+
+## 2026-10-27 - Audit A1 (#1): OpenIddict Resource-Owner Password Grant Removed
+- Deleted `.AllowPasswordFlow()` from the OpenIddict server pipeline and dropped `GrantTypes.Password` from the seeded `hospital-crm-pwa` client, closing an MFA-bypass path (password grant issues tokens without any second factor).
+- Grep confirms no caller depended on it: the PWA authenticates through `POST /auth/login` + authorization-code/PKCE, and `/connect/token` is only used for refresh. Server-level denial also neutralises the grant on databases where the client was already seeded.
+- New source guard `PasswordFlowRemovedTests.OpenIddict_DoesNotExpose_ResourceOwnerPasswordGrant`; suite **363 passed, 0 failed**.
