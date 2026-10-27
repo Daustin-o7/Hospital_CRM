@@ -441,30 +441,8 @@ export default function PharmacyPOS() {
       setCompletedInvoice(res.data)
       clearCart()
     } catch (err: any) {
-      if (!err.response || err.response.status >= 400) {
-        setCompletedInvoice({
-          invoiceId: `inv-${Date.now()}`,
-          invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          subtotal,
-          gstAmount: totalGst,
-          total: grandTotal,
-          tenderedAmount: typeof tenderedAmount === 'number' ? tenderedAmount : grandTotal,
-          changeDue: typeof tenderedAmount === 'number' && tenderedAmount > grandTotal ? tenderedAmount - grandTotal : 0,
-          paymentMethod,
-          createdAt: new Date().toISOString(),
-          items: cart.map(c => ({
-            description: `${c.drugName} (${c.batchNumber})`,
-            quantity: c.quantity,
-            unitPrice: c.unitPrice,
-            amount: c.unitPrice * c.quantity,
-            gstRate: c.gstRate,
-            hsnCode: c.hsnCode
-          }))
-        })
-        clearCart()
-      } else {
-        setError(err.response?.data?.message || err.response?.data?.error || 'Checkout transaction failed.')
-      }
+      // No receipt without a persisted invoice: a failed checkout must never print a document.
+      setError(err.response?.data?.message || err.response?.data?.error || 'Checkout transaction failed.')
     } finally {
       setSubmitting(false)
     }

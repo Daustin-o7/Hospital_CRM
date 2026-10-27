@@ -646,3 +646,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `GET /consultations`, `GET /consultations/{id}` and `GET /consultations/{id}/prescriptions` now admit only ClinicAdmin/Doctor (Owner inherits via the attribute); the dead Receptionist clinic-scope branch is gone.
 - grep found no frontend or mobile caller of the three endpoints, so nothing loses a working screen; the front desk keeps its appointment/queue endpoints.
 - New reflection theory `ClinicalReadActions_DoNotAdmitReceptionist`; suite **366 passed, 0 failed**.
+
+## 2026-10-28 - Audit A3 (#5): No Receipt Without a Persisted Pharmacy Invoice
+- `PharmacyPOS.tsx` no longer fabricates `inv-<timestamp>` / `INV-<year>-<random>` receipts in the checkout `catch`; a failed sale now only shows the server error and keeps the cart.
+- The old guard (`!err.response || err.response.status >= 400`) was always true, so the "real error" branch was unreachable and every failure printed a receipt.
+- No JS unit runner in `frontend`; verified with `npm run build` (exit 0) and `npm run lint` (exit 0).

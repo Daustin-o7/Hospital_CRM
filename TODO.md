@@ -69,7 +69,7 @@
 - [x] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
 
 ### P4 Prep Only
-- [ ] **13. Security Pentest Scope**: Write `docs/security/PENTEST-SCOPE.md` from TODO 3.3 plus surfaces touched.
+- [x] **13. Security Pentest Scope**: Write `docs/security/PENTEST-SCOPE.md` from TODO 3.3 plus surfaces touched.
 
 ---
 
@@ -200,7 +200,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 ### Phase 0 - Production blockers
 - [x] **A1 (#1) OpenIddict password grant**: delete `.AllowPasswordFlow()` + seeded `GrantTypes.Password` (MFA bypass).
 - [x] **A2 (#2) Receptionist clinical reads**: remove Receptionist from consultation list/detail/prescriptions.
-- [ ] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
+- [x] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
 - [ ] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
 - [ ] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.
 - [ ] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
