@@ -686,3 +686,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `Invoice` gains `CreditedAmount` and `RecalculateBalance()` (`max(0, Total - PaidAmount - CreditedAmount)`); the migration `AddInvoiceCreditedAmount` adds the column and backfills it from approved credit notes.
 - Credit-note issue/approval now increment `CreditedAmount` instead of decrementing `BalanceDue` in place, and the seven `Total - PaidAmount` recomputes (finalize, collect, refund, approve, deposit, confirm, webhook) call the one helper. Before, the next payment after a credit note re-billed the credited amount (`Total - Paid` ignored the credit), leaving the patient owing money they had already been credited.
 - New `PaymentAfterCreditNote_UsesTheCredit_AndDoesNotRebillIt`; the credit-note fixture stopped seeding `PaidAmount == Total` (which hid the bug); suite **373 passed, 0 failed**.
+
+## 2026-10-28 - Audit A10 (#11): Draft PATCH Recomputes Totals and Actually Saves the New Lines
+- `UpdateInvoiceDraft` now always recomputes `Total = Subtotal + GstAmount - Discount` (and `RecalculateBalance()`), rejecting a discount larger than the new gross; before, `Total` only moved when the body re-sent `DiscountAmount`, so editing lines left a stale total that finalization would have to rescue.
+- While testing it, the replaced line items turned out never to be written: the new rows arrive with pre-assigned ids, so EF marked them `Modified` and issued an UPDATE against rows that do not exist (Postgres silently changed 0 rows). They are now `AddRange`d explicitly.
+- New `UpdateDraft_RecomputesTotalFromTheNewLines` (asserts total, balance and the persisted line); suite **374 passed, 0 failed**.

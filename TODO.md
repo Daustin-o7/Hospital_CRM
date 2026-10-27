@@ -209,7 +209,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 ### Phase 1 - Money correctness
 - [x] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.
 - [x] **A9 (#8) Credited/BalanceDue**: `Credited` tracked on invoice; one BalanceDue formula.
-- [ ] **A10 (#11) Draft PATCH**: recompute `Total` from lines.
+- [x] **A10 (#11) Draft PATCH**: recompute `Total` from lines.
 - [ ] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
 
 ### Phase 2 - Auth hardening
