@@ -593,3 +593,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `PharmacyComplianceController.DispensePrescription` generates a finalized `PHARM` series tax invoice with MRP-inclusive reverse GST calculations and posts double-entry finance ledger entries (`AccountsReceivable` debit, `PharmacySales` & `GSTPayable` credits).
 - Auto-links `LinkedPharmacyInvoiceId` to appointment consultation invoices on dispense and creation; exposed `POST /api/v1/invoices/{id}/link-pharmacy` and `GET /api/v1/invoices/{id}/linked-documents`; returned `linkedPharmacyInvoice` summary in `GetInvoice`.
 - Allowed `Pharmacist` role to record payments and confirm `PHARM` invoices directly via `POST /api/v1/invoices/{id}/payments/confirm`; verified with 5 tests in `Section5PharmacyBillingLinkTests.cs`; total suite **337 passed, 0 failed**.
+
+## 2026-10-27 — P1 Hardening Item 6 (Data Licences: CDCI & TrueMD)
+- Audited `Medicine/CommonDrugCodesForIndia_FlatFilePackage/License.txt`: confirmed official C-DAC / NRCeS CC-BY 4.0 license grant with SNOMED CT affiliate terms for use and redistribution in India.
+- Investigated TrueMD provenance: project/endpoints are deprecated without open-source grant; purged TrueMD from `Drug.DataSource` annotations and documentation.
+- Created `docs/product/OPEN-QUESTIONS.md` logging CDCI compliance and TrueMD deprecation; verified suite (`dotnet test` **337 passed, 0 failed**).

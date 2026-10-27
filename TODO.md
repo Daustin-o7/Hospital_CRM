@@ -56,7 +56,7 @@
 - [x] **3. Reported-payment controls**: Cap on total reported-unconfirmed per clinic; alert when one staff member's confirmations spike; enforce payee daily limit in primary/backup selection.
 - [x] **4. Deposits/advances**: Recorded against patient, applied at invoicing, shown on ledger.
 - [x] **5. Link pharmacy dispense to billing**: PHARM invoice appears as a linked document (own series, not merged), payable through the same confirm flow.
-- [ ] **6. Data licences**: Read CDCI License.txt; check TrueMD provenance/licence. Drop TrueMD if unclear. Log result in OPEN-QUESTIONS.md.
+- [x] **6. Data licences**: Read CDCI License.txt; check TrueMD provenance/licence. Drop TrueMD if unclear. Log result in OPEN-QUESTIONS.md.
 
 ### P2 Gaps
 - [ ] **7. Server-side PDF**: For invoices, credit notes and prescriptions from finalized versions only; real QR image on Rx.
