@@ -3,11 +3,13 @@
 > **Status:** SHIPPED / COMPLETE  
 > **Module Type:** Core Module (Non-Gated, essential for clinic operations)  
 > **Design Stance:** Manual-first billing engine. Invoices carry per-line tax based on tenant tax profile; staff-confirmed payments transition invoices to paid; all financial events post to an immutable append-only ledger. Automation (statement matching, payment links, PSP routing) plugs behind the exact same states later.  
-> **Verification:** 310 backend automated tests passing (301 baseline incl. `Section5BillingLedgerTests.cs` + 9 audit regressions in `Section5BillingAuditFixesTests.cs`), frontend PWA production build passing (`Billing.tsx`), append-only DB security enforced.
+> **Verification:** 332 backend automated tests passing at close-out (incl. `Section5BillingLedgerTests.cs`, the 9 audit regressions in `Section5BillingAuditFixesTests.cs`, and 5 dual-control credit-note regressions in `Section5CreditNoteDualControlTests.cs`), frontend PWA production build passing (`Billing.tsx`), append-only DB security enforced. Later tests added by the parallel pharmacy-invoice work are tracked separately.
+>
+> **Re-verified 2026-10-27:** credit notes are dual-control above a tenant threshold (`PendingApproval` → second `ClinicAdmin`/`Owner` approval posts the reversal), `Owner` exists as an approval role, draft invoices can be updated server-side (`PATCH /invoices/{id}`), numbering follows the Indian FY (`INV-2026-27-000001`), and the append-only guard is named `PreventAppendOnlyModifications`. Latest migration: `20261027153035_Section5CreditNoteStatusBackfill` (data-only, applied).
 >
 > **Re-verified 2026-10-26:** double-confirm/overpay now rejected, legacy `CollectPayment` posts the ledger, finalize postings balance with a discount, credit notes are finalized-only and capped, invoice numbers have a DB unique index, webhook posts and fails loudly, tax downgrade and draft print are blocked, payee changes require password + MFA step-up and email the admins, ledger GST/reported/net figures fixed. Migrations: `20261026135242_Section5BillingTaxAndManualLedger` + `20261026145940_Section5BillingGuards` (both applied).
 >
-> **Known limits (not built):** no PDF renderer (print returns JSON); no patient deposits/advances; no refund endpoint (`RefundProcessed` unused); no dual-approval threshold for discounts or credit notes; invoice numbering uses the calendar year, not the Indian FY; no daily cap/spike alerts on reported payments; payee daily limit stored but not enforced; no bank statement import. See `docs/SESSION-LOG.md`.
+> **Known limits (not built):** no PDF renderer (print returns JSON); no bank statement import; no daily cap/spike alerts on unconfirmed reported payments; payee daily limit stored but not enforced; invoice draft edits are server-side only (`PATCH /invoices/{id}`) — the billing screen has no debounced autosave yet. See `docs/SESSION-LOG.md`.
 
 ---
 
@@ -44,7 +46,7 @@
   - `TaxAmount`: Calculated per line item (`Math.Round(Quantity * UnitPrice * (GstRate / 100), 2)`).
   - `TotalAmount`: `Quantity * UnitPrice + TaxAmount`.
 - **Lifecycle States:**
-  - `Draft`: Editable by front-desk while patient completes tests/procedures.
+  - `Draft`: Editable by front-desk while patient completes tests/procedures, via `PATCH /api/v1/invoices/{id}` (line items, discount, walk-in details; re-validated and re-totalled server-side). The billing screen does not yet auto-save on a timer.
   - `Finalized`: Immutable record, generates sequential gapless invoice number.
 
 ---
@@ -67,12 +69,12 @@
   - Requires a mandatory reason text; the server rejects a discount above the gross and posts `DiscountAllowed` so the ledger balances.
   - Clinic-configurable threshold and admin approval are **not built**.
 - **Patient Advances / Deposits:**
-  - **Not built** (`PatientDeposit` does not exist).
+  - `PatientDeposit` (append-only allocations) with `POST /patients/{id}/deposits`, `GET /patients/{id}/deposits`, and `POST /invoices/{id}/apply-advance`; deposits post `DepositCollected`/`DepositApplied` ledger entries.
 
 ---
 
 ### 5.4 Invoice Finalization & Gapless Sequencing
-- Sequential, gapless numbering rendered as `INV-{YYYY}-{Sequence}` (e.g. `INV-2026-000124`), `MAX+1` per tenant/series/year in a serializable transaction with a unique DB index. The column set is `TenantId`/`FinancialYear`/`Series`/`InvoiceNumber`; the label is the calendar year, not the Indian FY.
+- Sequential, gapless numbering rendered as `INV-{FY}-{Sequence}` (e.g. `INV-2026-27-000124`), `MAX+1` per tenant/series/FY in a serializable transaction with a unique DB index. `FinancialYear` stores the Indian financial year (Apr–Mar, e.g. `2026-27`) via `IndianFinancialYearUtils`; the sequence resets on 1 April.
 - Server-side printable payload:
   - `GET /api/v1/invoices/{id}/print`: finalized invoices only; returns a JSON layout for the UI (no PDF renderer).
   - Reprints logged to `InvoicePrintLogs` and watermarked with `"DUPLICATE COPY"`.
@@ -114,7 +116,7 @@
   - `DailyCollectionLimit`: Protects against frozen merchant accounts or UPI throttling.
 - Accounts are clinic-scoped: a dynamic QR only offers the invoice clinic's own account, and a multi-clinic tenant cannot cross-route money.
 - **Security Guardrails:**
-  - Modification restricted to `ClinicAdmin` (there is no `Owner` role).
+  - Modification restricted to `ClinicAdmin` or `Owner`.
   - Password re-entry plus the enrolled MFA code (authenticator/email) on every add/update.
   - 24-hour cooling-off before a new or re-activated bank/VPA can receive dynamic QR traffic.
   - Email alert dispatched to every clinic admin on add/update.
@@ -127,9 +129,10 @@
   - Only against a finalized/paid/partially paid invoice; draft/cancelled refused.
   - Carries its own sequential series (`CN-YYYY-XXXXXX`), MAX+1 numbering.
   - Requires a reason; cumulative notes are capped at the invoice total.
-  - Dual approval above a threshold is **not built** (issuer must be `ClinicAdmin`).
-- **Refunds:**
-  - **Not built.** No endpoint, no `RefundProcessed` posting; manual refund UTR capture is deferred.
+  - Dual control: at or above `TenantTaxProfile.ThresholdCreditNoteApproval` (default ₹5,000) the note is created `PendingApproval` and does not touch the ledger or invoice balance until a *different* `ClinicAdmin`/`Owner` calls `POST /credit-notes/{id}/approve`. The issuer cannot approve or reject their own note. Below the threshold the single-approver path is kept.
+- **Refunds (`POST /api/v1/invoices/{id}/refund`):**
+  - Initiator records amount, reason and a mandatory refund reference (UTR / gateway refund ID / voucher).
+  - At or above `TenantTaxProfile.ThresholdRefundApproval` (default ₹1,000) the refund stays `PendingApproval` until a different admin calls `POST /invoices/{id}/refunds/{refundId}/approve`; the ledger pair (`RefundProcessed`) posts only then.
 
 ---
 

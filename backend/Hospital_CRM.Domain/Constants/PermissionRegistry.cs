@@ -24,7 +24,7 @@ public static class Permissions
         [VitalsWrite] = [UserRole.Nurse, UserRole.Doctor, UserRole.ClinicAdmin, UserRole.Receptionist],
         [ConsultationWrite] = [UserRole.Doctor],
         [InvoiceWrite] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor],
-        [PaymentRecord] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor],
+        [PaymentRecord] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor, UserRole.Pharmacist],
         [PharmacyDispense] = [UserRole.ClinicAdmin, UserRole.Pharmacist, UserRole.Doctor],
         [LedgerWrite] = [UserRole.ClinicAdmin]
     };

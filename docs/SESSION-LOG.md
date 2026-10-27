@@ -570,3 +570,26 @@ Remaining P2 items above were left as documented limits (no dual approver, no Ow
 
 
 
+
+## 2026-10-27 - Section 5 P2 Close-Out (Dual-Control Credit Notes, Owner Role, Draft PATCH)
+
+Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-P2-TODO.md`).
+
+- **Dual-control credit notes.** `TenantTaxProfile.ThresholdCreditNoteApproval` (default Rs 5,000). At or above the threshold `CreateCreditNote` returns `PendingApproval` and posts nothing; `POST /api/v1/credit-notes/{id}/approve` (different `ClinicAdmin`/`Owner`) posts the `CreditNoteIssued` reversal pair and reduces `BalanceDue`. `POST /api/v1/credit-notes/{id}/reject` closes it without ledger impact. Self-approval and self-rejection return `cannot_self_approve` / `cannot_self_reject`, and approval re-checks the cumulative cap so two pending notes cannot overshoot the invoice total.
+- **Append-only guard.** `CreditNote` stays append-only except for exactly one transition (`PendingApproval` -> `Approved`/`Rejected`, touching only `Status`, `SecondApprovedByUserId`, `IssuedAt`), mirroring the existing `ImpersonationLog.EndedAt` exception. Guard renamed to `PreventAppendOnlyModifications`.
+- **Owner role.** Added to `UserRole`, requires MFA enrolment, and accepted by payee-account endpoints, credit-note create/approve/reject, and the refund second-approver check. Deliberately not added to `PermissionRegistry` - it is an approval role, not a clinical/invoice write role.
+- **Draft invoices.** `PATCH /api/v1/invoices/{id}` updates line items, discount and walk-in details while `Status == Draft`, re-running the same tax/discount validation as invoice generation. The billing screen still saves manually; no debounce timer.
+- **Docs.** Corrected the stale claims in `SECTION-5-TODO.md` (no Owner role / no refund endpoint / no dual approval / calendar-year numbering / draft print) and `WORKFLOW.md` sections 5.6-5.8.
+- **Data migration** `20261027153035_Section5CreditNoteStatusBackfill`: historical credit notes were all posted under the old single-approver flow but the new `Status` column defaults to `PendingApproval`; the migration marks rows `Approved` only when a matching `CreditNoteIssued` ledger entry exists, so a genuinely pending note stays pending.
+
+### Verification
+
+- `dotnet build`: 0 errors.
+- `dotnet test`: **332 passed, 0 failed, 0 skipped** at close-out (5 new in `Section5CreditNoteDualControlTests.cs`). The parallel agent then added `Section5PharmacyBillingLinkTests.cs` (337 total, 2 of theirs red against their in-progress controller code) - unrelated to this work.
+- `dotnet ef migrations has-pending-model-changes`: clean; `20261027153035_Section5CreditNoteStatusBackfill` applied.
+- `npm run build`: exit 0; `npm run lint`: exit 0.
+
+## 2026-10-27 — P1 Hardening Item 5 (Link Pharmacy Dispense to Billing)
+- `PharmacyComplianceController.DispensePrescription` generates a finalized `PHARM` series tax invoice with MRP-inclusive reverse GST calculations and posts double-entry finance ledger entries (`AccountsReceivable` debit, `PharmacySales` & `GSTPayable` credits).
+- Auto-links `LinkedPharmacyInvoiceId` to appointment consultation invoices on dispense and creation; exposed `POST /api/v1/invoices/{id}/link-pharmacy` and `GET /api/v1/invoices/{id}/linked-documents`; returned `linkedPharmacyInvoice` summary in `GetInvoice`.
+- Allowed `Pharmacist` role to record payments and confirm `PHARM` invoices directly via `POST /api/v1/invoices/{id}/payments/confirm`; verified with 5 tests in `Section5PharmacyBillingLinkTests.cs`; total suite **337 passed, 0 failed**.

@@ -243,6 +243,19 @@ public class InvoicesController : ControllerBase
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
+            var linkedPharmacyId = request.LinkedPharmacyInvoiceId;
+            if (!linkedPharmacyId.HasValue && request.AppointmentId != Guid.Empty)
+            {
+                linkedPharmacyId = await _db.Invoices
+                    .Where(i => i.TenantId == appointment.TenantId
+                             && i.AppointmentId == request.AppointmentId
+                             && i.Series == "PHARM"
+                             && i.Status != InvoiceStatus.Cancelled)
+                    .OrderByDescending(i => i.CreatedAt)
+                    .Select(i => (Guid?)i.Id)
+                    .FirstOrDefaultAsync(ct);
+            }
+
             var invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
@@ -252,7 +265,7 @@ public class InvoicesController : ControllerBase
                 FinancialYear = currentFy,
                 Series = "INV",
                 DocumentType = docType,
-                LinkedPharmacyInvoiceId = request.LinkedPharmacyInvoiceId,
+                LinkedPharmacyInvoiceId = linkedPharmacyId,
                 Subtotal = calculatedSubtotal,
                 GstAmount = calculatedGst,
                 DiscountAmount = request.DiscountAmount,
@@ -488,7 +501,7 @@ public class InvoicesController : ControllerBase
             await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
             var alreadyCredited = await _db.CreditNotes
-                .Where(c => c.InvoiceId == id)
+                .Where(c => c.InvoiceId == id && c.Status == CreditNoteStatus.Approved)
                 .SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
             var creditable = invoice.Total - alreadyCredited;
 
@@ -627,6 +640,17 @@ public class InvoicesController : ControllerBase
         var now = DateTimeOffset.UtcNow;
 
         await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+        // Re-check the credit cap at approval time: an earlier note may have been approved in between.
+        var alreadyCredited = await _db.CreditNotes
+            .Where(c => c.InvoiceId == creditNote.InvoiceId && c.Id != creditNote.Id && c.Status == CreditNoteStatus.Approved)
+            .SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
+        if (alreadyCredited + creditNote.Amount > creditNote.Invoice.Total)
+            return BadRequest(new
+            {
+                error = "invalid_credit_note_amount",
+                message = $"Approving this note would exceed the invoice total (already credited: ₹{alreadyCredited:F2})."
+            });
 
         creditNote.Status = CreditNoteStatus.Approved;
         creditNote.SecondApprovedByUserId = currentUserId;
@@ -807,12 +831,12 @@ public class InvoicesController : ControllerBase
 
                 var secondApprover = await _db.Users
                     .FirstOrDefaultAsync(u => u.Id == req.SecondApprovedByUserId.Value && u.TenantId == tenantId, ct);
-                if (secondApprover == null || secondApprover.Role is not (UserRole.ClinicAdmin or UserRole.Doctor))
+                if (secondApprover == null || secondApprover.Role is not (UserRole.ClinicAdmin or UserRole.Owner or UserRole.Doctor))
                 {
                     return BadRequest(new
                     {
                         error = "invalid_second_approver",
-                        message = "Second approver must be a valid ClinicAdmin or Doctor within the clinic."
+                        message = "Second approver must be a valid ClinicAdmin, Owner or Doctor within the clinic."
                     });
                 }
 
@@ -1072,6 +1096,13 @@ public class InvoicesController : ControllerBase
 
         var invoiceRef = invoice.FormatInvoiceNumber();
 
+        Invoice? linkedPharmacy = null;
+        if (invoice.LinkedPharmacyInvoiceId.HasValue)
+        {
+            linkedPharmacy = await _db.Invoices
+                .FirstOrDefaultAsync(i => i.Id == invoice.LinkedPharmacyInvoiceId.Value && i.TenantId == tenantId, ct);
+        }
+
         return Ok(new
         {
             invoiceId = invoice.Id,
@@ -1122,6 +1153,20 @@ public class InvoicesController : ControllerBase
                 issuedAt = cn.IssuedAt
             }),
             linkedPharmacyInvoiceId = invoice.LinkedPharmacyInvoiceId,
+            linkedPharmacyInvoice = linkedPharmacy == null ? null : new
+            {
+                id = linkedPharmacy.Id,
+                invoiceNumber = linkedPharmacy.FormatInvoiceNumber(),
+                series = linkedPharmacy.Series,
+                financialYear = linkedPharmacy.FinancialYear,
+                subtotal = linkedPharmacy.Subtotal,
+                gstAmount = linkedPharmacy.GstAmount,
+                total = linkedPharmacy.Total,
+                paidAmount = linkedPharmacy.PaidAmount,
+                balanceDue = linkedPharmacy.BalanceDue,
+                status = linkedPharmacy.Status.ToString().ToLower(),
+                createdAt = linkedPharmacy.CreatedAt
+            },
             subtotal = invoice.Subtotal,
             gstAmount = invoice.GstAmount,
             discountAmount = invoice.DiscountAmount,
@@ -1132,6 +1177,91 @@ public class InvoicesController : ControllerBase
             status = invoice.Status.ToString().ToLower(),
             createdAt = invoice.CreatedAt,
             finalizedAt = invoice.FinalizedAt
+        });
+    }
+
+    [HttpPost("invoices/{id:guid}/link-pharmacy")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    public async Task<IActionResult> LinkPharmacyInvoice(Guid id, [FromBody] LinkPharmacyInvoiceRequest req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        var pharmInvoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == req.PharmacyInvoiceId && i.TenantId == tenantId, ct);
+        if (pharmInvoice == null)
+            return NotFound(new { error = "pharmacy_invoice_not_found" });
+
+        if (pharmInvoice.Series != "PHARM" && pharmInvoice.InvoiceType != InvoiceType.Pharmacy)
+            return BadRequest(new { error = "not_a_pharmacy_invoice", message = "Linked invoice must be a pharmacy invoice (PHARM series)." });
+
+        invoice.LinkedPharmacyInvoiceId = pharmInvoice.Id;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            invoiceId = invoice.Id,
+            linkedPharmacyInvoiceId = pharmInvoice.Id,
+            linkedPharmacyInvoiceNumber = pharmInvoice.FormatInvoiceNumber(),
+            message = "pharmacy_invoice_linked"
+        });
+    }
+
+    [HttpGet("invoices/{id:guid}/linked-documents")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Pharmacist")]
+    public async Task<IActionResult> GetLinkedDocuments(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        Invoice? linkedPharmacy = null;
+        if (invoice.LinkedPharmacyInvoiceId.HasValue)
+        {
+            linkedPharmacy = await _db.Invoices
+                .FirstOrDefaultAsync(i => i.Id == invoice.LinkedPharmacyInvoiceId.Value && i.TenantId == tenantId, ct);
+        }
+
+        var linkedConsultationInvoices = await _db.Invoices
+            .Where(i => i.TenantId == tenantId && i.LinkedPharmacyInvoiceId == invoice.Id)
+            .Select(i => new
+            {
+                id = i.Id,
+                invoiceNumber = i.FormatInvoiceNumber(),
+                series = i.Series,
+                financialYear = i.FinancialYear,
+                subtotal = i.Subtotal,
+                gstAmount = i.GstAmount,
+                total = i.Total,
+                paidAmount = i.PaidAmount,
+                balanceDue = i.BalanceDue,
+                status = i.Status.ToString().ToLower(),
+                createdAt = i.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            invoiceId = invoice.Id,
+            invoiceNumber = invoice.FormatInvoiceNumber(),
+            series = invoice.Series,
+            linkedPharmacyInvoice = linkedPharmacy == null ? null : new
+            {
+                id = linkedPharmacy.Id,
+                invoiceNumber = linkedPharmacy.FormatInvoiceNumber(),
+                series = linkedPharmacy.Series,
+                financialYear = linkedPharmacy.FinancialYear,
+                subtotal = linkedPharmacy.Subtotal,
+                gstAmount = linkedPharmacy.GstAmount,
+                total = linkedPharmacy.Total,
+                paidAmount = linkedPharmacy.PaidAmount,
+                balanceDue = linkedPharmacy.BalanceDue,
+                status = linkedPharmacy.Status.ToString().ToLower(),
+                createdAt = linkedPharmacy.CreatedAt
+            },
+            linkedConsultationInvoices
         });
     }
 
@@ -1720,6 +1850,9 @@ public record ApproveCreditNoteRequest(
 public record RejectCreditNoteRequest(
     [MaxLength(500)]
     string? Reason = null);
+
+public record LinkPharmacyInvoiceRequest(
+    Guid PharmacyInvoiceId);
 
 
 

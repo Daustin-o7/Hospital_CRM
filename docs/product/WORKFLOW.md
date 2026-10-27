@@ -640,8 +640,8 @@ build guard, not forgotten.
   • Receipt: printed, or WhatsApp with patient opt-in
 
 5.7 PAYEE ACCOUNT CONTROLS
-  • Add/change: ClinicAdmin only, password + MFA code step-up, 24-hour
-    cooling-off, email alert to every clinic admin (no Owner role exists)
+  • Add/change: ClinicAdmin or Owner, password + MFA code step-up, 24-hour
+    cooling-off, email alert to every clinic admin
   • Accounts are clinic-scoped: the QR only offers the invoice clinic's own
     account, never a sibling clinic's
   • Priority order stored per clinic; daily limit stored but not yet enforced
@@ -729,8 +729,8 @@ build guard, not forgotten.
   - Receipt delivered via printout or WhatsApp (only with DPDP opt-in).
 
 ### 5.6 — Payee Account Controls & Security
-- **Owner-Only Management:**
-  - Modifying or adding payee bank VPAs/accounts requires the `ClinicAdmin` role (there is no `Owner` role in the system) plus a password re-entry and, when the user has MFA enrolled, a current authenticator/email code.
+- **Owner / ClinicAdmin Management:**
+  - Modifying or adding payee bank VPAs/accounts requires the `ClinicAdmin` or `Owner` role plus a password re-entry and, when the user has MFA enrolled, a current authenticator/email code.
   - **24-Hour Cooling-Off Period:** Newly added or re-activated payee accounts are placed in cooling-off status before receiving live transactions.
   - Security alert email is sent to every clinic admin on add/update.
   - Daily transaction limit is stored per payee account but **not enforced**; payments do not yet record which payee account received them, so a truthful daily total cannot be computed.
@@ -738,15 +738,16 @@ build guard, not forgotten.
 ### 5.7 — Dual-Control Refunds & Credit Notes
 - **Credit Notes:**
   - Issued only against a finalized (or paid/partially paid) invoice for billing errors, cancelled procedures, or rate adjustments.
-  - Carries its own sequential credit note series (`CN-YYYY-XXXXXX`) and a mandatory reason; cumulative notes on one invoice cannot exceed the invoice total.
-  - Dual approval above a threshold is **not built** — the issuing user must be `ClinicAdmin`, but no second approver is recorded.
-- **Refunds:**
-  - **Not built.** There is no refund endpoint and `RefundProcessed` is unused; refunds cannot yet be logged as a ledger reversal. Dual control (reception initiates → admin/owner approves) and refund UTR capture are deferred.
+  - Carries its own sequential credit note series (`CN-{FY}-{Sequence}`, Indian FY) and a mandatory reason; cumulative *approved* notes on one invoice cannot exceed the invoice total.
+  - **Dual control:** at or above `TenantTaxProfile.ThresholdCreditNoteApproval` (default ₹5,000) the note is created `PendingApproval`. The ledger reversal and the balance reduction happen only when a *different* `ClinicAdmin`/`Owner` approves it; the issuer cannot approve or reject their own note. Below the threshold the single-approver path is kept.
+- **Refunds (`POST /invoices/{id}/refund`):**
+  - Initiator records the amount, reason and a mandatory refund reference (UTR, gateway refund ID, or voucher).
+  - At or above `TenantTaxProfile.ThresholdRefundApproval` (default ₹1,000) the refund is `PendingApproval` until a different admin approves it; the `RefundProcessed` ledger pair posts only on approval.
 
 ### 5.8 — Append-Only Ledger & Reconciliation
 - **Database Role Enforcement:**
   - Enforced at PostgreSQL role level: `REVOKE UPDATE, DELETE ON TABLE "FinanceLedgerEntries" FROM app_user` (also `InvoicePrintLogs` and `CreditNotes`), plus an EF change-tracker guard.
-  - Financial ledger entries are posted automatically on **Invoice Finalize**, **Payment Confirmed** (manual confirm, legacy collect, and Razorpay webhook), and **Credit Note Created**. `RefundProcessed` is reserved but unused because refunds are not built.
+  - Financial ledger entries are posted automatically on **Invoice Finalize**, **Payment Confirmed** (manual confirm, legacy collect, and Razorpay webhook), **Credit Note Approved**, and **Refund Approved**.
   - Corrections must be recorded as explicit offsetting reversal entries.
 - **Reconciliation & Reporting:**
   - End-of-day summary comparing confirmed payments vs reported hints vs bank credits; reported hints are counted by `ReportedAt`.

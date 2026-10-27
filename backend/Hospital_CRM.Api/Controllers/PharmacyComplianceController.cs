@@ -5,6 +5,7 @@ using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -107,7 +108,17 @@ public class PharmacyComplianceController : ControllerBase
             var existing = await _db.DispenseRecords
                 .FirstOrDefaultAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct);
             if (existing != null)
-                return Ok(new { dispenseId = existing.Id, message = "idempotent_duplicate" });
+            {
+                var existingInvoice = await _db.Invoices
+                    .FirstOrDefaultAsync(i => i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
+                return Ok(new
+                {
+                    dispenseId = existing.Id,
+                    invoiceId = existingInvoice?.Id,
+                    invoiceNumber = existingInvoice?.FormatInvoiceNumber(),
+                    message = "idempotent_duplicate"
+                });
+            }
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -123,7 +134,14 @@ public class PharmacyComplianceController : ControllerBase
             if (!string.IsNullOrWhiteSpace(req.IdempotencyKey) &&
                 await _db.DispenseRecords.AnyAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct))
             {
-                return Ok(new { message = "idempotent_duplicate" });
+                var existingInvoice = await _db.Invoices
+                    .FirstOrDefaultAsync(i => i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
+                return Ok(new
+                {
+                    invoiceId = existingInvoice?.Id,
+                    invoiceNumber = existingInvoice?.FormatInvoiceNumber(),
+                    message = "idempotent_duplicate"
+                });
             }
 
             var patientName = req.PatientName ?? prescription.Consultation?.Appointment?.Patient?.Name ?? "Walk-in Patient";
@@ -210,6 +228,9 @@ public class PharmacyComplianceController : ControllerBase
             _db.DispenseRecords.Add(dispenseRecord);
 
             decimal totalAmount = 0m;
+            decimal pharmSubtotal = 0m;
+            decimal pharmTotalGst = 0m;
+            var invoiceLineItems = new List<InvoiceLineItem>();
             var scheduleH1Items = new List<(DrugBatch Batch, int Qty, Drug Drug)>();
 
             foreach (var (rxItem, targetDrug) in rxTargets)
@@ -312,7 +333,29 @@ public class PharmacyComplianceController : ControllerBase
                     UnitPrice = availableBatch.Mrp
                 });
 
-                totalAmount += availableBatch.Mrp * dispenseQty;
+                // Indian Pharma MRP-Inclusive Reverse GST Calculation
+                var lineGross = availableBatch.Mrp * dispenseQty;
+                var lineTaxable = Math.Round(lineGross / (1m + (targetDrug.GstRate / 100m)), 2);
+                var lineGst = lineGross - lineTaxable;
+
+                pharmSubtotal += lineTaxable;
+                pharmTotalGst += lineGst;
+                totalAmount += lineGross;
+
+                invoiceLineItems.Add(new InvoiceLineItem
+                {
+                    Id = Guid.NewGuid(),
+                    Description = $"{targetDrug.Name} (Batch: {availableBatch.BatchNumber})",
+                    Quantity = dispenseQty,
+                    UnitPrice = availableBatch.Mrp,
+                    Amount = lineTaxable,
+                    TaxAmount = lineGst,
+                    GstRate = targetDrug.GstRate,
+                    HsnSacCode = targetDrug.HsnCode,
+                    HsnCode = targetDrug.HsnCode,
+                    DrugBatchId = availableBatch.Id,
+                    TaxCategory = TaxCategory.Taxable
+                });
 
                 if (targetDrug.ScheduleClass is ScheduleClass.ScheduleH1 or ScheduleClass.ScheduleX)
                 {
@@ -340,15 +383,122 @@ public class PharmacyComplianceController : ControllerBase
                 }
             }
 
+            var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
+            var maxInvoiceNumber = await _db.Invoices
+                .Where(i => i.TenantId == tenantId && i.FinancialYear == currentFy && i.Series == "PHARM")
+                .MaxAsync(i => (int?)i.InvoiceNumber, ct) ?? 0;
+
+            var pharmInvoice = new Invoice
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                AppointmentId = prescription.Consultation?.AppointmentId,
+                PatientId = prescription.Consultation?.Appointment?.PatientId,
+                InvoiceType = InvoiceType.Pharmacy,
+                Series = "PHARM",
+                FinancialYear = currentFy,
+                DocumentType = InvoiceDocumentType.TaxInvoice,
+                WalkInCustomerName = req.PatientName ?? prescription.Consultation?.Appointment?.Patient?.Name,
+                WalkInCustomerPhone = prescription.Consultation?.Appointment?.Patient?.Phone,
+                InvoiceNumber = maxInvoiceNumber + 1,
+                Subtotal = pharmSubtotal,
+                GstAmount = pharmTotalGst,
+                Total = totalAmount,
+                PaidAmount = 0.0m,
+                BalanceDue = totalAmount,
+                Status = InvoiceStatus.Finalized,
+                FinalizedAt = DateTimeOffset.UtcNow,
+                FinalizedByUserId = currentUserId,
+                IdempotencyKey = !string.IsNullOrWhiteSpace(req.IdempotencyKey) ? $"pharm_inv_{req.IdempotencyKey}" : null,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            foreach (var li in invoiceLineItems)
+            {
+                li.InvoiceId = pharmInvoice.Id;
+                pharmInvoice.LineItems.Add(li);
+            }
+            _db.Invoices.Add(pharmInvoice);
+
+            var pharmInvoiceRef = pharmInvoice.FormatInvoiceNumber();
+
+            // Double-entry finance ledger postings
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.InvoiceFinalized,
+                ReferenceType = "Invoice",
+                ReferenceId = pharmInvoice.Id,
+                ReferenceNumber = pharmInvoiceRef,
+                AccountCategory = "AccountsReceivable",
+                DebitAmount = totalAmount,
+                CreditAmount = 0.0m,
+                Narration = $"Pharmacy sales invoice {pharmInvoiceRef} issued for prescription #{prescription.Id:N}",
+                PostedByUserId = currentUserId,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                EntryType = FinanceEntryType.InvoiceFinalized,
+                ReferenceType = "Invoice",
+                ReferenceId = pharmInvoice.Id,
+                ReferenceNumber = pharmInvoiceRef,
+                AccountCategory = "PharmacySales",
+                DebitAmount = 0.0m,
+                CreditAmount = pharmSubtotal,
+                Narration = $"Pharmacy sales revenue for {pharmInvoiceRef}",
+                PostedByUserId = currentUserId,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            if (pharmTotalGst > 0)
+            {
+                _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    EntryType = FinanceEntryType.InvoiceFinalized,
+                    ReferenceType = "Invoice",
+                    ReferenceId = pharmInvoice.Id,
+                    ReferenceNumber = pharmInvoiceRef,
+                    AccountCategory = "GSTPayable",
+                    DebitAmount = 0.0m,
+                    CreditAmount = pharmTotalGst,
+                    Narration = $"GST payable on pharmacy sales {pharmInvoiceRef}",
+                    PostedByUserId = currentUserId,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+            }
+
+            // Link to consultation invoice if appointment has one
+            if (prescription.Consultation?.AppointmentId is { } apptId)
+            {
+                var consultationInvoice = await _db.Invoices
+                    .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.AppointmentId == apptId && i.Series == "INV", ct);
+                if (consultationInvoice != null)
+                {
+                    consultationInvoice.LinkedPharmacyInvoiceId = pharmInvoice.Id;
+                }
+            }
+
             await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
             return StatusCode(201, new
             {
                 dispenseId = dispenseRecord.Id,
+                invoiceId = pharmInvoice.Id,
+                invoiceNumber = pharmInvoiceRef,
                 prescriptionId = prescription.Id,
                 patientName,
-                totalAmount,
+                subtotal = pharmSubtotal,
+                gstAmount = pharmTotalGst,
+                totalAmount = totalAmount,
+                balanceDue = pharmInvoice.BalanceDue,
                 status = "dispensed",
                 createdAt = dispenseRecord.DispensedAt,
                 itemCount = dispenseRecord.Items.Count

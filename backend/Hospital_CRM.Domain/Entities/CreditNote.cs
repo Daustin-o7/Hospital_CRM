@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
@@ -43,11 +44,4 @@ public class CreditNote : ITenantScoped
     public virtual Invoice Invoice { get; set; } = null!;
     public virtual User ApprovedByUser { get; set; } = null!;
     public virtual User? SecondApprovedByUser { get; set; }
-}
-
-public enum CreditNoteStatus
-{
-    PendingApproval = 0,
-    Approved = 1,
-    Rejected = 2
 }

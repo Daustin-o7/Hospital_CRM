@@ -36,7 +36,7 @@ public class PaymentsController : ControllerBase
     private Guid TenantId => User.GetTenantId() ?? Guid.Empty;
 
     [HttpPost("invoices/{id:guid}/payments/dynamic-qr")]
-    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Pharmacist")]
     public async Task<IActionResult> GenerateDynamicQr(Guid id, [FromBody] DynamicQrRequest? req, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -173,7 +173,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost("invoices/{id:guid}/payments/report")]
-    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Pharmacist")]
     public async Task<IActionResult> ReportPayment(Guid id, [FromBody] ReportPaymentRequest req, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -257,7 +257,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost("invoices/{id:guid}/payments/confirm")]
-    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Pharmacist")]
     [RequirePermission(Permissions.PaymentRecord)]
     public async Task<IActionResult> ConfirmPayment(Guid id, [FromBody] ConfirmPaymentRequest req, CancellationToken ct)
     {

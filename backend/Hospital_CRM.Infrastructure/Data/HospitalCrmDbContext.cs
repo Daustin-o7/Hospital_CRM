@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Hospital_CRM.Domain.Entities;
+using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Domain.Services;
 
 namespace Hospital_CRM.Infrastructure.Data;
@@ -1022,7 +1023,7 @@ public class HospitalCrmDbContext : DbContext
                          e.Entity is PrescriptionPrintLog ||
                          e.Entity is MedicineSearchMissLog ||
                          e.Entity is FinanceLedgerEntry ||
-                         e.Entity is CreditNote ||
+                         (e.Entity is CreditNote && !IsPermittedCreditNoteDecision(e)) ||
                          e.Entity is PatientDepositAllocation ||
                          e.Entity is InvoicePrintLog))
             .ToList();
@@ -1047,5 +1048,29 @@ public class HospitalCrmDbContext : DbContext
         var onlyEndedAtModified = entry.Properties.All(p => p.Metadata.Name == nameof(ImpersonationLog.EndedAt) || !p.IsModified);
 
         return isEnding && onlyEndedAtModified;
+    }
+
+    /// <summary>
+    /// A pending credit note may be moved to Approved or Rejected exactly once by the second approver.
+    /// Nothing else on an issued credit note is mutable (FR-08/FR-14 spirit: correct, never overwrite).
+    /// </summary>
+    private static bool IsPermittedCreditNoteDecision(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        if (entry.State != EntityState.Modified) return false;
+
+        var originalStatus = (CreditNoteStatus)entry.Property(nameof(CreditNote.Status)).OriginalValue!;
+        var currentStatus = (CreditNoteStatus)entry.Property(nameof(CreditNote.Status)).CurrentValue!;
+        var isDecision = originalStatus == CreditNoteStatus.PendingApproval
+                         && currentStatus is CreditNoteStatus.Approved or CreditNoteStatus.Rejected;
+
+        var allowed = new[]
+        {
+            nameof(CreditNote.Status),
+            nameof(CreditNote.SecondApprovedByUserId),
+            nameof(CreditNote.IssuedAt)
+        };
+        var onlyDecisionFieldsModified = entry.Properties.All(p => allowed.Contains(p.Metadata.Name) || !p.IsModified);
+
+        return isDecision && onlyDecisionFieldsModified;
     }
 }
