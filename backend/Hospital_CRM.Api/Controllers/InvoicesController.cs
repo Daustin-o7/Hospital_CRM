@@ -813,67 +813,39 @@ public class InvoicesController : ControllerBase
             .FirstOrDefaultAsync(tp => tp.TenantId == tenantId, ct);
         var threshold = taxProfile?.ThresholdRefundApproval ?? 1000.0m;
 
+        // The approver is the authenticated caller of /refunds/{refundId}/approve; the requester cannot nominate one.
         bool requiresDualApproval = req.Amount > threshold;
-        Guid? secondApproverId = null;
 
         if (requiresDualApproval)
         {
-            if (req.SecondApprovedByUserId.HasValue)
+            var pendingRefund = new Payment
             {
-                if (req.SecondApprovedByUserId.Value == currentUserId)
-                {
-                    return BadRequest(new
-                    {
-                        error = "dual_approval_self_approval_blocked",
-                        message = "The initiating user cannot serve as their own second approver for refunds exceeding the threshold."
-                    });
-                }
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                InvoiceId = id,
+                Method = req.Method,
+                Amount = -req.Amount,
+                Status = PaymentStatus.Pending,
+                VerificationStatus = PaymentVerificationStatus.Pending,
+                ConfirmedByUserId = currentUserId,
+                RefundReference = req.RefundReference.Trim(),
+                RefundReason = req.Reason.Trim(),
+                IdempotencyKey = req.IdempotencyKey,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
 
-                var secondApprover = await _db.Users
-                    .FirstOrDefaultAsync(u => u.Id == req.SecondApprovedByUserId.Value && u.TenantId == tenantId, ct);
-                if (secondApprover == null || secondApprover.Role is not (UserRole.ClinicAdmin or UserRole.Owner or UserRole.Doctor))
-                {
-                    return BadRequest(new
-                    {
-                        error = "invalid_second_approver",
-                        message = "Second approver must be a valid ClinicAdmin, Owner or Doctor within the clinic."
-                    });
-                }
+            _db.Payments.Add(pendingRefund);
+            await _db.SaveChangesAsync(ct);
 
-                secondApproverId = req.SecondApprovedByUserId.Value;
-            }
-            else
+            return StatusCode(202, new
             {
-                // Create pending refund requiring second approval
-                var pendingRefund = new Payment
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = tenantId,
-                    InvoiceId = id,
-                    Method = req.Method,
-                    Amount = -req.Amount,
-                    Status = PaymentStatus.Pending,
-                    VerificationStatus = PaymentVerificationStatus.Pending,
-                    ConfirmedByUserId = currentUserId,
-                    RefundReference = req.RefundReference.Trim(),
-                    RefundReason = req.Reason.Trim(),
-                    IdempotencyKey = req.IdempotencyKey,
-                    CreatedAt = DateTimeOffset.UtcNow
-                };
-
-                _db.Payments.Add(pendingRefund);
-                await _db.SaveChangesAsync(ct);
-
-                return StatusCode(202, new
-                {
-                    refundId = pendingRefund.Id,
-                    amount = req.Amount,
-                    status = "pending_approval",
-                    verificationStatus = "pending",
-                    threshold,
-                    message = $"Refund amount ₹{req.Amount:F2} exceeds the clinic threshold of ₹{threshold:F2}. Dual approval required before funds are disbursed."
-                });
-            }
+                refundId = pendingRefund.Id,
+                amount = req.Amount,
+                status = "pending_approval",
+                verificationStatus = "pending",
+                threshold,
+                message = $"Refund amount ₹{req.Amount:F2} exceeds the clinic threshold of ₹{threshold:F2}. Dual approval required before funds are disbursed."
+            });
         }
 
         // If approved, execute within serializable transaction with reversal ledger entries
@@ -893,7 +865,6 @@ public class InvoicesController : ControllerBase
                 Status = PaymentStatus.Refunded,
                 VerificationStatus = PaymentVerificationStatus.Confirmed,
                 ConfirmedByUserId = currentUserId,
-                SecondApprovedByUserId = secondApproverId,
                 RefundReference = req.RefundReference.Trim(),
                 RefundReason = req.Reason.Trim(),
                 IdempotencyKey = req.IdempotencyKey,
@@ -964,8 +935,6 @@ public class InvoicesController : ControllerBase
                 verificationStatus = "confirmed",
                 paidAmount = invoice.PaidAmount,
                 balanceDue = invoice.BalanceDue,
-                dualApproved = requiresDualApproval,
-                secondApprovedByUserId = secondApproverId,
                 refundedAt = now
             });
         });
@@ -973,6 +942,7 @@ public class InvoicesController : ControllerBase
 
     [HttpPost("invoices/{id:guid}/refunds/{refundId:guid}/approve")]
     [AuthorizeRoles("ClinicAdmin")]
+    [RequirePermission(Permissions.PaymentRecord)]
     public async Task<IActionResult> ApproveRefund(Guid id, Guid refundId, [FromBody] ApproveRefundRequest? req, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -1901,8 +1871,6 @@ public record CreateRefundRequest(
 
     [Required(ErrorMessage = "Reason is required"), MinLength(3), MaxLength(500)]
     string Reason,
-
-    Guid? SecondApprovedByUserId = null,
 
     [RegularExpression(@"^IDEMP-REF-[a-zA-Z0-9\-]+$", ErrorMessage = "IdempotencyKey must follow format IDEMP-REF-{UUID}")]
     string? IdempotencyKey = null);

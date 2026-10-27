@@ -661,3 +661,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `ConfirmPayment` accepted any `PaymentId` that was not already `Completed`, so a refunded, failed or gateway-pending row could be flipped to `Completed` and re-credited to the invoice. It now requires `Status=Pending && VerificationStatus=Reported` (`payment_not_confirmable` otherwise); `payment_already_confirmed` is unchanged.
 - The staff-confirmed path (no `PaymentId`, `Billing.tsx` sends none) still creates its own completed row, so no working flow loses anything.
 - New theory `ConfirmPayment_RejectsRowsThatWereNeverReported` (Pending/Confirmed, Refunded/Confirmed, Failed/Reported) asserts no credit and no completed row; suite **369 passed, 0 failed**.
+
+## 2026-10-28 - Audit A5 (#7): Refund Approver Is the Authenticated Caller, Never a Body Field
+- `CreateRefundRequest` lost `SecondApprovedByUserId`, and `ProcessRefund` lost the branch that accepted it. Above the clinic threshold a refund now always opens as a 202 `pending_approval` row with `ConfirmedByUserId` = requester and no approver; `POST /refunds/{refundId}/approve` already rejects self-approval and now also carries `[RequirePermission(PaymentRecord)]` (ClinicAdmin/Owner hold it).
+- Before: one request could name a friendly colleague and move the money immediately, collapsing dual control into a single call. Nobody read `dualApproved` / `secondApprovedByUserId` from the 201 response, so those fields were dropped too.
+- New `CreateRefundRequest_CannotNameASecondApprover` (reflection, red before the change) and `ProcessRefund_AboveThreshold_AlwaysPending_EvenWhenBodyNamesASecondApprover`; suite **370 passed, 0 failed**.

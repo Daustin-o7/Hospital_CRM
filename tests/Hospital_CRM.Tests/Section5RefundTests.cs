@@ -189,26 +189,45 @@ public class Section5RefundTests
     }
 
     [Fact]
-    public async Task ProcessRefund_SelfApproval_Blocked()
+    public void CreateRefundRequest_CannotNameASecondApprover()
+    {
+        // The approver is the authenticated caller of /approve; letting the requester name one in the body
+        // collapses dual control into a single request.
+        Assert.Null(typeof(CreateRefundRequest).GetProperty("SecondApprovedByUserId"));
+    }
+
+    [Fact]
+    public async Task ProcessRefund_AboveThreshold_AlwaysPending_EvenWhenBodyNamesASecondApprover()
     {
         var db = CreateInMemoryDb();
         var tenantId = Guid.NewGuid();
-        var (invoice, admin1, _) = await SeedPaidInvoiceAsync(db, tenantId, 3000m);
+        var (invoice, admin1, admin2) = await SeedPaidInvoiceAsync(db, tenantId, 3000m);
 
         var controller = CreateController(db, tenantId, admin1.Id);
 
-        // Attempting to supply self as second approver
+        // The caller names a colleague in the body; the approver is whoever later calls /approve, never the body.
         var req = new CreateRefundRequest(
             Amount: 2000m,
             Method: PaymentMethod.Cash,
             RefundReference: "CASH-REF-01",
-            Reason: "Refund attempt",
-            SecondApprovedByUserId: admin1.Id
+            Reason: "Refund attempt"
         );
 
         var res = await controller.ProcessRefund(invoice.Id, req, CancellationToken.None);
-        var badRequest = Assert.IsType<BadRequestObjectResult>(res);
-        Assert.Contains("dual_approval_self_approval_blocked", badRequest.Value?.ToString() ?? "");
+        var accepted = Assert.IsType<ObjectResult>(res);
+        Assert.Equal(202, accepted.StatusCode);
+
+        var pending = await db.Payments.FirstAsync(p => p.InvoiceId == invoice.Id && p.Status == PaymentStatus.Pending);
+        Assert.Null(pending.SecondApprovedByUserId);
+        Assert.Equal(admin1.Id, pending.ConfirmedByUserId);
+        Assert.NotEqual(admin2.Id, pending.SecondApprovedByUserId);
+
+        // Only the distinct authenticated approver completes it.
+        var approverController = CreateController(db, tenantId, admin2.Id);
+        var approveRes = await approverController.ApproveRefund(
+            invoice.Id, pending.Id, new ApproveRefundRequest("Verified"), CancellationToken.None);
+        Assert.IsType<OkObjectResult>(approveRes);
+        Assert.Equal(admin2.Id, pending.SecondApprovedByUserId);
     }
 
     [Fact]
