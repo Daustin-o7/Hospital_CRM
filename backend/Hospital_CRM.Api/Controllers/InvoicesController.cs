@@ -1347,6 +1347,8 @@ public class InvoicesController : ControllerBase
             // Replace line items
             _db.InvoiceLineItems.RemoveRange(invoice.LineItems);
             invoice.LineItems = newLineItems;
+            // Their ids are pre-assigned, so EF would treat them as existing rows and UPDATE nothing.
+            _db.InvoiceLineItems.AddRange(newLineItems);
             invoice.Subtotal = calculatedSubtotal;
             invoice.GstAmount = calculatedGst;
 

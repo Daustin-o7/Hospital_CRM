@@ -159,6 +159,11 @@ public class Section5BillingAuditFixesTests
         Assert.NotNull(updated);
         Assert.Equal(1500m, updated.Total);
         Assert.Equal(1500m, updated.BalanceDue);
+
+        var lines = await db.InvoiceLineItems.Where(l => l.InvoiceId == invoice.Id).ToListAsync();
+        var line = Assert.Single(lines);
+        Assert.Equal("Consultation", line.Description);
+        Assert.Equal(1500m, line.Amount);
     }
 
     [Fact]
