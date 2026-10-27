@@ -721,3 +721,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `ConfirmReset` changed the password but left every live refresh token untouched, so a stolen session kept working after the victim reset the compromised password (the `ChangePassword` flow already revokes). It now revokes all live tokens for the user, burns any other outstanding reset links, and writes a `PasswordChanged` audit entry with the revoked count.
 - Password/revocation rows are saved before the audit write, so a swallowed audit failure can never make a failed reset look successful.
 - New `ConfirmReset_RevokesEveryLiveSession` (two live sessions, zero after the reset); suite **383 passed, 0 failed**.
+
+## 2026-10-28 - Audit A17 (#15): One Shared In-Flight Refresh in the Client
+- The axios 401 interceptor, the 15-minute proactive timer and the boot restore each called `/auth/refresh` independently, so a burst of 401s fired N rotations for one cookie: N-1 were rejected and the interceptor cleared the session and redirected to `/login`.
+- `refreshSession()` in `services/api.ts` now memoises the single in-flight call (and clears it when settled); the interceptor, the proactive timer and the boot restore all await that one promise, so every caller receives the same new token.
+- Frontend has no unit runner: verified with `npm run build` (ok) and `npm run lint` (exit 0, pre-existing warnings only).

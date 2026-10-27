@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api, { setAccessToken, getAccessToken, clearTokens, refreshClient } from '../services/api'
+import api, { setAccessToken, getAccessToken, clearTokens, refreshSession } from '../services/api'
 import { clearOutbox } from '../services/offlineOutbox'
 import { userManager, isEntraConfigured } from '../services/oidc'
 
@@ -177,13 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Never refresh the admin's session while impersonating: it would replace the
         // read-only impersonation token with the admin's and silently escape the limits.
         if (sessionStorage.getItem('samstack_impersonation')) return
-        const res = await refreshClient.post('/auth/refresh', {})
-        if (res.status === 204 || !res.data?.accessToken) return
-        const { accessToken, expiresIn, tenantId, clinicId, memberships: nextMemberships, mfaRequiredForRole: roleNeedsMfa } = res.data
-        setAccessToken(accessToken)
+        const session = await refreshSession()
+        if (!session?.accessToken) return
+        const { expiresIn, tenantId, clinicId, mfaRequiredForRole: roleNeedsMfa } = session
+        const nextMemberships = session.memberships
         if (tenantId) setCurrentTenantId(tenantId)
         if (clinicId) setCurrentClinicId(clinicId)
-        if (Array.isArray(nextMemberships)) setMemberships(nextMemberships)
+        if (Array.isArray(nextMemberships)) setMemberships(nextMemberships as TenantMembership[])
         if (typeof roleNeedsMfa === 'boolean') setMfaRequiredForRole(roleNeedsMfa)
         scheduleProactiveRefresh(expiresIn || 900)
       } catch {
@@ -375,20 +375,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 2. Refresh from the HttpOnly cookie (no token is ever kept in JS storage)
       try {
-        const res = await refreshClient.post('/auth/refresh', {})
-        if (res.status === 204 || !res.data?.accessToken) {
+        const session = await refreshSession()
+        if (!session?.accessToken) {
           // No session on this device (204) - stay signed out without an error.
           setLoading(false)
           return
         }
-        const { accessToken, expiresIn, user: userData, memberships: savedMemberships, tenantId, clinicId, mfaRequiredForRole: roleNeedsMfa } = res.data
-        setAccessToken(accessToken)
-        setUser(userData)
+        const { accessToken, expiresIn, user: userData, tenantId, clinicId, mfaRequiredForRole: roleNeedsMfa } = session
+        const savedMemberships = session.memberships
+        setUser(userData ?? null)
         if (tenantId) setCurrentTenantId(tenantId)
         if (clinicId) setCurrentClinicId(clinicId)
-        if (Array.isArray(savedMemberships)) setMemberships(savedMemberships)
+        if (Array.isArray(savedMemberships)) setMemberships(savedMemberships as TenantMembership[])
         if (typeof roleNeedsMfa === 'boolean') setMfaRequiredForRole(roleNeedsMfa)
-        setAccountFlags(accountFlagsFrom(accessToken))
+        setAccountFlags(accountFlagsFrom(accessToken ?? null))
         scheduleProactiveRefresh(expiresIn || 900)
       } catch {
         clearTokens()

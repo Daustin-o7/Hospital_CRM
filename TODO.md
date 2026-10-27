@@ -218,7 +218,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A14 (#14) Forwarded headers**: explicit trusted proxies.
 - [x] **A15 (#17) Refresh rotation**: atomic.
 - [x] **A16 (#16) Password reset**: revoke sessions.
-- [ ] **A17 (#15) Client refresh**: one shared in-flight refresh.
+- [x] **A17 (#15) Client refresh**: one shared in-flight refresh.
 
 ### Phase 3 - Missing UI (backend shipped, unusable)
 - [ ] **A18 (#12) Create-Invoice patient picker** (first), then refunds + deposits, lab order/result, expenses + monthly summary, pre-check inline, tracking-link copy, treatment history, template CRUD. (Skip the 4 DEV-gated demo modules.)

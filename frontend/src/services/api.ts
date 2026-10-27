@@ -71,6 +71,36 @@ export const refreshClient = axios.create({
   },
 })
 
+export interface RefreshPayload {
+  accessToken?: string
+  expiresIn?: number
+  tenantId?: string | null
+  clinicId?: string | null
+  mfaRequiredForRole?: boolean
+  user?: { id: string; name: string; email: string; role: string }
+  memberships?: unknown
+}
+
+// One shared refresh: the proactive timer, the session restore and a burst of 401s must not
+// race the rotation, or the losers are rejected and the user is logged out for no reason.
+let refreshInFlight: Promise<RefreshPayload | null> | null = null
+
+export function refreshSession(): Promise<RefreshPayload | null> {
+  refreshInFlight ??= refreshClient
+    .post('/auth/refresh', {})
+    .then((res) => {
+      // 204 = no session on this device.
+      if (res.status === 204 || !res.data?.accessToken) return null
+      setAccessToken(res.data.accessToken)
+      return res.data as RefreshPayload
+    })
+    .finally(() => {
+      refreshInFlight = null
+    })
+
+  return refreshInFlight
+}
+
 api.interceptors.request.use(
   (config) => {
     if (inMemoryAccessToken) {
@@ -98,12 +128,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true
       try {
-        // Cookie-only: the API rotates the HttpOnly refresh cookie on every call.
-        const res = await refreshClient.post('/auth/refresh', {})
-        const { accessToken: newAccessToken } = res.data
+        const session = await refreshSession()
+        if (!session?.accessToken) throw new Error('refresh_failed')
 
-        setAccessToken(newAccessToken)
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+        originalRequest.headers.Authorization = `Bearer ${session.accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
         clearTokens()
