@@ -65,7 +65,7 @@
 ### P3 Release Gating
 - [x] **9. Task 1.4**: docker compose up end to end; fix what breaks.
 - [x] **10. Task 3.1**: GitHub Actions (format, lint, build, tests, Playwright, secret scan, vulnerable-package check).
-- [ ] **11. Task 3.2**: Serilog correlation IDs, /health/live and /health/ready (DB + storage), backup script and a tested restore.
+- [x] **11. Task 3.2**: Serilog correlation IDs, /health/live and /health/ready (DB + storage), backup script and a tested restore.
 - [ ] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
 
 ### P4 Prep Only
@@ -173,7 +173,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
     - Secret scanning gate (TruffleHog / GitGuardian)
     - Vulnerability check (`dotnet list package --vulnerable`)
 
-- [ ] **3.2 Observability & Reliability Infrastructure**
+- [x] **3.2 Observability & Reliability Infrastructure**
   - Structured application logging with correlation IDs (Serilog).
   - Health check endpoints (`/health/live`, `/health/ready`) with database and storage probes.
   - Automated database backup scripts and disaster recovery / restore drill.

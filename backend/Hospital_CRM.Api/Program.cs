@@ -35,7 +35,8 @@ StartupConfigurationGuard.Validate(builder.Configuration, builder.Environment);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
+    .Enrich.WithProperty("Application", "Hospital_CRM")
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -572,6 +573,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
+app.UseCorrelationId();
+
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
@@ -650,12 +653,43 @@ app.MapGet("/health", async (HospitalCrmDbContext db, CancellationToken ct) =>
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "alive", timestamp = DateTimeOffset.UtcNow }));
 
-app.MapGet("/health/ready", async (HospitalCrmDbContext db, CancellationToken ct) =>
+app.MapGet("/health/ready", async (HospitalCrmDbContext db, IConfiguration config, IWebHostEnvironment env, CancellationToken ct) =>
 {
-    var canConnect = await db.Database.CanConnectAsync(ct);
-    return canConnect
-        ? Results.Ok(new { status = "ready", database = "connected", timestamp = DateTimeOffset.UtcNow })
-        : Results.Json(new { status = "unready", database = "disconnected" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    var dbConnected = await db.Database.CanConnectAsync(ct);
+
+    var storageProbePath = Path.Combine(env.ContentRootPath, config["Lab:UploadDir"] ?? "lab-uploads");
+    var storageHealthy = false;
+    try
+    {
+        if (!Directory.Exists(storageProbePath))
+        {
+            Directory.CreateDirectory(storageProbePath);
+        }
+        var probeFile = Path.Combine(storageProbePath, $".health-probe-{Guid.NewGuid():N}");
+        await File.WriteAllTextAsync(probeFile, "ready", ct);
+        File.Delete(probeFile);
+        storageHealthy = true;
+    }
+    catch
+    {
+        storageHealthy = false;
+    }
+
+    var isReady = dbConnected && storageHealthy;
+    var payload = new
+    {
+        status = isReady ? "ready" : "unready",
+        probes = new
+        {
+            database = dbConnected ? "connected" : "disconnected",
+            storage = storageHealthy ? "writable" : "unreachable"
+        },
+        timestamp = DateTimeOffset.UtcNow
+    };
+
+    return isReady
+        ? Results.Ok(payload)
+        : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
 });
 
 if (app.Environment.IsDevelopment())

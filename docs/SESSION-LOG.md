@@ -626,3 +626,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Formatted backend source code with `dotnet format` to eliminate all whitespace and indentation lint discrepancies.
 - Verified local pipeline steps end to end: `dotnet format --verify-no-changes` (0 errors), `dotnet list package --vulnerable` (0 vulnerable packages), `npm run lint` (0 errors), `dotnet test` (**358 passed, 0 failed**).
 
+## 2026-10-27 — P3 Hardening Item 11 (Task 3.2: Observability, Health Probes & Backup/Restore)
+- Implemented `CorrelationIdMiddleware` propagating `X-Correlation-ID` and enriched Serilog logger with `CorrelationId` and `Application` context across the request lifecycle.
+- Hardened Kubernetes health probes: `/health/live` returns HTTP 200 alive, `/health/ready` actively probes both DB connectivity and storage writability returning structured JSON status.
+- Implemented automated database backup and disaster recovery restore scripts (`backup-db.sh`, `restore-db.sh`, `backup-db.ps1`, `restore-db.ps1`) with non-blocking `--no-password` execution and SHA256 integrity checks; verified backup and restore cycle with 4 new tests in `ObservabilityAndHealthTests.cs` (total suite **362 passed, 0 failed**).
+
