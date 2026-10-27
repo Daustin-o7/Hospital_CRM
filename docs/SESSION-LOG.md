@@ -656,3 +656,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Authored comprehensive third-party penetration testing scope in `docs/security/PENTEST-SCOPE.md` covering all 5 touched attack surfaces (JWT RS256/OIDC session lifecycle, tenant isolation & BOLA/IDOR, financial ledger dual-approvals & webhook forgery, pharmacy CDSCO/NDPS compliance, vector PDF & QR verification).
 - Formalized test personas, threat scenarios, and strict out-of-scope boundaries (Voice Agent MOD-27, IPD Track 4, third-party PSP core infrastructure).
 - Verified full suite consistency: `dotnet test` (**366 passed, 0 failed**), `npm run build` (0 errors), `npm run lint` (0 errors).
+
+## 2026-10-28 - Audit A4 (#4): Payments/Confirm Only Verifies Reported Rows
+- `ConfirmPayment` accepted any `PaymentId` that was not already `Completed`, so a refunded, failed or gateway-pending row could be flipped to `Completed` and re-credited to the invoice. It now requires `Status=Pending && VerificationStatus=Reported` (`payment_not_confirmable` otherwise); `payment_already_confirmed` is unchanged.
+- The staff-confirmed path (no `PaymentId`, `Billing.tsx` sends none) still creates its own completed row, so no working flow loses anything.
+- New theory `ConfirmPayment_RejectsRowsThatWereNeverReported` (Pending/Confirmed, Refunded/Confirmed, Failed/Reported) asserts no credit and no completed row; suite **369 passed, 0 failed**.

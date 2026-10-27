@@ -201,7 +201,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A1 (#1) OpenIddict password grant**: delete `.AllowPasswordFlow()` + seeded `GrantTypes.Password` (MFA bypass).
 - [x] **A2 (#2) Receptionist clinical reads**: remove Receptionist from consultation list/detail/prescriptions.
 - [x] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
-- [ ] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
+- [x] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
 - [ ] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.
 - [ ] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
 - [ ] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
