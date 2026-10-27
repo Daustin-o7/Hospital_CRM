@@ -1369,8 +1369,15 @@ public class InvoicesController : ControllerBase
 
             invoice.DiscountAmount = request.DiscountAmount.Value;
             invoice.DiscountReason = request.DiscountReason;
-            invoice.Total = gross - invoice.DiscountAmount;
         }
+
+        // Totals always follow the lines: a PATCH may replace items without re-sending the discount.
+        var grossTotal = invoice.Subtotal + invoice.GstAmount;
+        if (invoice.DiscountAmount > grossTotal)
+            return BadRequest(new { error = "invalid_discount_amount", message = $"Discount must be between ₹0 and ₹{grossTotal:F2}." });
+
+        invoice.Total = grossTotal - invoice.DiscountAmount;
+        invoice.RecalculateBalance();
 
         // Update walk-in customer info if provided
         if (request.WalkInCustomerName is not null)

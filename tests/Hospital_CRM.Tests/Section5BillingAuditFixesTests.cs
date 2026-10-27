@@ -133,6 +133,34 @@ public class Section5BillingAuditFixesTests
         };
 
     [Fact]
+    public async Task UpdateDraft_RecomputesTotalFromTheNewLines()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var invoice = MakeInvoice(tenantId, Guid.NewGuid(), 1000m, InvoiceStatus.Draft);
+        invoice.LineItems.Add(new InvoiceLineItem
+        {
+            Id = Guid.NewGuid(),
+            Description = "Original line",
+            Quantity = 1,
+            UnitPrice = 1000m,
+            Amount = 1000m
+        });
+        db.Invoices.Add(invoice);
+        await db.SaveChangesAsync();
+
+        var controller = CreateInvoicesController(db, Guid.NewGuid(), tenantId, "ClinicAdmin");
+        var res = await controller.UpdateInvoiceDraft(invoice.Id, new UpdateInvoiceDraftRequest(
+            LineItems: [new UpdateInvoiceLineItemRequest("Consultation", 1, 1500m)]), CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(res);
+        var updated = await db.Invoices.FindAsync(invoice.Id);
+        Assert.NotNull(updated);
+        Assert.Equal(1500m, updated.Total);
+        Assert.Equal(1500m, updated.BalanceDue);
+    }
+
+    [Fact]
     public async Task ConfirmPayment_DoesNotCreditTheSamePaymentTwice()
     {
         var db = CreateInMemoryDb();
