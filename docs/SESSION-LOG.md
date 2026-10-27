@@ -621,3 +621,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Corrected container storage endpoints (`AzureStorage__ConnectionString` with internal Azurite network endpoint), added `azurite` dependency check to `api`, and mounted `./Medicine:/app/Medicine:ro` for runtime CDCI catalogue accessibility.
 - Verified Docker build publish target (`dotnet publish` 0 errors) and full test verification (`dotnet test` **358 passed, 0 failed**, `npm run build` 0 errors).
 
+## 2026-10-27 — P3 Hardening Item 10 (Task 3.1: GitHub Actions CI Pipeline Integration)
+- Implemented `.github/workflows/ci.yml` defining multi-stage pipeline: TruffleHog secret scanning gate, backend .NET 10 (package vulnerability check, `dotnet format` verification, build, and automated test suite), frontend Node 22 / React 19 (Oxlint, Vite production build), and Playwright headless E2E smoke tests with report artifact upload.
+- Formatted backend source code with `dotnet format` to eliminate all whitespace and indentation lint discrepancies.
+- Verified local pipeline steps end to end: `dotnet format --verify-no-changes` (0 errors), `dotnet list package --vulnerable` (0 vulnerable packages), `npm run lint` (0 errors), `dotnet test` (**358 passed, 0 failed**).
+

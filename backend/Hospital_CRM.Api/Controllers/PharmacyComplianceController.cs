@@ -573,7 +573,7 @@ public class PharmacyComplianceController : ControllerBase
             .Include(p => p.Consultation)
                 .ThenInclude(c => c!.Appointment)
                     .ThenInclude(a => a!.Patient)
-            .Where(p => p.Consultation != null && 
+            .Where(p => p.Consultation != null &&
                         p.Consultation.Status != ConsultationStatus.Draft &&
                         p.Items.Any(i => !i.IsDispensed))
             .OrderByDescending(p => p.CreatedAt)

@@ -18,7 +18,7 @@ public static class ClaimsPrincipalExtensions
     public static string? GetUserRole(this ClaimsPrincipal? user)
     {
         if (user is null) return null;
-        return user.FindFirst(ClaimTypes.Role)?.Value 
+        return user.FindFirst(ClaimTypes.Role)?.Value
             ?? user.FindFirst("role")?.Value
             ?? user.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
     }

@@ -25,7 +25,7 @@ public class TypesenseClientFactory : ITypesenseClientFactory
             new List<Node> { new Node(host, port, cfg.Protocol) },
             cfg.ApiKey,
             string.Empty);
-        
+
         // TypesenseClient requires IOptions<Config>, wrap our config
         var optionsWrapper = Options.Create(setup);
         _client = new TypesenseClient(optionsWrapper, httpClientFactory.CreateClient("typesense"));

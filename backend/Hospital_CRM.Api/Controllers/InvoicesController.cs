@@ -1573,7 +1573,7 @@ public class InvoicesController : ControllerBase
             else
                 return StatusCode(503, new { error = "webhook_not_configured" });
         }
-        
+
         using var reader = new StreamReader(Request.Body);
         var bodyText = await reader.ReadToEndAsync(ct);
 

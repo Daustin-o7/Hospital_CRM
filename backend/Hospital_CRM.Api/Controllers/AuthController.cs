@@ -239,18 +239,18 @@ public class AuthController : ControllerBase
     private static RefreshToken NewRefreshToken(
         Guid userId, string rawToken, Guid? tenantId, Guid? clinicId,
         UserRole role, Guid familyId, int refreshExpiryDays) => new()
-    {
-        Id = Guid.NewGuid(),
-        UserId = userId,
-        FamilyId = familyId,
-        TenantId = tenantId,
-        ClinicId = clinicId,
-        Role = role,
-        TokenHash = rawToken.HashRefreshToken(),
-        IssuedAt = DateTimeOffset.UtcNow,
-        ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
-        LastUsedAt = DateTimeOffset.UtcNow
-    };
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            FamilyId = familyId,
+            TenantId = tenantId,
+            ClinicId = clinicId,
+            Role = role,
+            TokenHash = rawToken.HashRefreshToken(),
+            IssuedAt = DateTimeOffset.UtcNow,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
+            LastUsedAt = DateTimeOffset.UtcNow
+        };
 
     private void AppendRefreshCookie(string token, int days) =>
         Response.Cookies.Append("refreshToken", token, new CookieOptions
@@ -293,25 +293,25 @@ public class AuthController : ControllerBase
     private async Task<object> BuildSessionResponseAsync(
         User user, string accessToken, int tokenExpiry,
         Guid? tenantId, Guid? clinicId, UserRole role, CancellationToken ct) => new
-    {
-        accessToken,
-        expiresIn = tokenExpiry * 60,
-        tenantId,
-        clinicId,
-        mustChangePassword = user.MustChangePassword,
-        mfaEnabled = user.MfaEnabled,
-        mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
-        mfaEnrolmentRequired = MfaGateOn && !user.MfaEnabled && MfaPolicy.RequiresEnrolment(role),
-        mfaRequiredForRole = MfaGateOn && MfaPolicy.RequiresEnrolment(role),
-        user = new
         {
-            id = user.Id,
-            name = user.Name,
-            email = user.Email,
-            role = role.ToString().ToLowerInvariant()
-        },
-        memberships = await ActiveMembershipsAsync(user.Id, ct)
-    };
+            accessToken,
+            expiresIn = tokenExpiry * 60,
+            tenantId,
+            clinicId,
+            mustChangePassword = user.MustChangePassword,
+            mfaEnabled = user.MfaEnabled,
+            mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
+            mfaEnrolmentRequired = MfaGateOn && !user.MfaEnabled && MfaPolicy.RequiresEnrolment(role),
+            mfaRequiredForRole = MfaGateOn && MfaPolicy.RequiresEnrolment(role),
+            user = new
+            {
+                id = user.Id,
+                name = user.Name,
+                email = user.Email,
+                role = role.ToString().ToLowerInvariant()
+            },
+            memberships = await ActiveMembershipsAsync(user.Id, ct)
+        };
 
 
     /// <summary>

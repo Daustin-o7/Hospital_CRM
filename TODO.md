@@ -64,7 +64,7 @@
 
 ### P3 Release Gating
 - [x] **9. Task 1.4**: docker compose up end to end; fix what breaks.
-- [ ] **10. Task 3.1**: GitHub Actions (format, lint, build, tests, Playwright, secret scan, vulnerable-package check).
+- [x] **10. Task 3.1**: GitHub Actions (format, lint, build, tests, Playwright, secret scan, vulnerable-package check).
 - [ ] **11. Task 3.2**: Serilog correlation IDs, /health/live and /health/ready (DB + storage), backup script and a tested restore.
 - [ ] **12. Task 2.3**: FRD walkthrough as one table (requirement | evidence/test | status). Fix only Must-level gaps.
 
@@ -164,7 +164,7 @@ Target: Close out remaining Phase 1 & 2 acceptance criteria and finalize workspa
 
 Target: Operational hardening, monitoring, third-party audits, and CI/CD automation.
 
-- [ ] **3.1 Automated CI Pipeline Integration**
+- [x] **3.1 Automated CI Pipeline Integration**
   - Configure GitHub Actions pipeline:
     - Code formatting & linting check (`dotnet format`, `npm run lint`)
     - Build validation (`dotnet build`, `npm run build`)

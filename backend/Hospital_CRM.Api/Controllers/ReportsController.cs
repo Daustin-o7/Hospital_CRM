@@ -232,28 +232,28 @@ public class ReportsController : ControllerBase
         switch (request.Format)
         {
             case "ITR-4 CSV":
-            {
-                var payments = await QueryPayments(startDt, endDt, clinicId).ToListAsync(ct);
-                var gross = payments.Sum(p => p.Amount);
-                var deemedProfit = Math.Round(gross * 0.5m, 2);
-                var sb = new StringBuilder();
-                sb.AppendLine("Section 44ADA Computation,Value (INR)");
-                sb.AppendLine($"Gross Professional Receipts,{gross:0.00}");
-                sb.AppendLine($"Deemed Profit (50%),{deemedProfit:0.00}");
-                sb.AppendLine($"Taxable Income,{deemedProfit:0.00}");
-                sb.AppendLine();
-                sb.AppendLine("Paid At,Invoice,Method,Amount");
-                foreach (var p in payments.OrderBy(p => p.PaidAt))
-                    sb.AppendLine($"{p.PaidAt:yyyy-MM-dd HH:mm},{p.Invoice?.InvoiceNumber ?? 0},{p.Method},{p.Amount:0.00}");
-                return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"ITR4-{month}.csv");
-            }
+                {
+                    var payments = await QueryPayments(startDt, endDt, clinicId).ToListAsync(ct);
+                    var gross = payments.Sum(p => p.Amount);
+                    var deemedProfit = Math.Round(gross * 0.5m, 2);
+                    var sb = new StringBuilder();
+                    sb.AppendLine("Section 44ADA Computation,Value (INR)");
+                    sb.AppendLine($"Gross Professional Receipts,{gross:0.00}");
+                    sb.AppendLine($"Deemed Profit (50%),{deemedProfit:0.00}");
+                    sb.AppendLine($"Taxable Income,{deemedProfit:0.00}");
+                    sb.AppendLine();
+                    sb.AppendLine("Paid At,Invoice,Method,Amount");
+                    foreach (var p in payments.OrderBy(p => p.PaidAt))
+                        sb.AppendLine($"{p.PaidAt:yyyy-MM-dd HH:mm},{p.Invoice?.InvoiceNumber ?? 0},{p.Method},{p.Amount:0.00}");
+                    return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"ITR4-{month}.csv");
+                }
             case "GSTR-1 JSON":
-            {
-                var invoices = await QueryInvoices(startDt, endDt, clinicId).ToListAsync(ct);
-                var payload = BuildGstr1Payload(month, invoices);
-                var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-                return File(Encoding.UTF8.GetBytes(json), "application/json", $"GSTR1-{month}.json");
-            }
+                {
+                    var invoices = await QueryInvoices(startDt, endDt, clinicId).ToListAsync(ct);
+                    var payload = BuildGstr1Payload(month, invoices);
+                    var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+                    return File(Encoding.UTF8.GetBytes(json), "application/json", $"GSTR1-{month}.json");
+                }
             default:
                 return BadRequest(new { error = "unsupported_format" });
         }
