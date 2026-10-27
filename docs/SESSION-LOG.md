@@ -671,3 +671,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - New `selectAppointment()` in `Consultations.tsx` is the only way a patient is selected: prev/next queue navigation, the command ribbon, and the initial/query-driven load now all reset chief complaint, observations, diagnosis, advised investigations, follow-up, prescriptions, odontogram, consultation id/version and draft timestamp.
 - Before, the three switch sites only reset the id/version/status, so the next patient inherited the previous patient's notes and Rx - a cross-patient clinical data leak on a shared device.
 - No frontend unit runner; verified with `npm run build` (exit 0) and `npm run lint` (exit 0, warnings unchanged).
+
+## 2026-10-28 - Audit A7 (#18): hasRole Compares Case-Insensitively
+- `AuthContext.hasRole` now lowercases both sides (`roles.some(r => r.toLowerCase() === user.role.toLowerCase())`). The old code only lowercased the user's role, so PascalCase call sites (`hasRole(['"'"'ClinicAdmin'"'"', '"'"'Receptionist'"'"'])` in `Inventory.tsx`) failed whenever the role arrived lowercase.
+- Session restore (`AuthContext.tsx:365`) stores `role` lowercased while `/auth/login` returns `ClinicAdmin`, so after a refresh an admin lost `canEdit` and the Inventory restock action disappeared. Both spellings now resolve.
+- No frontend unit runner; verified with `npm run build` (exit 0) and `npm run lint` (exit 0).

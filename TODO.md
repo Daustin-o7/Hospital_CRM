@@ -204,7 +204,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
 - [x] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.
 - [x] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
-- [ ] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
+- [x] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
 
 ### Phase 1 - Money correctness
 - [ ] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.

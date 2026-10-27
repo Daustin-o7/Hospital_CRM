@@ -132,7 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasRole = useCallback((roles: string[]) => {
     if (!user) return false
-    return roles.includes(user.role.toLowerCase()) || roles.includes(user.role)
+    // Callers pass either casing and the session-restore path lowercases `role`, so compare case-insensitively.
+    return roles.some(r => r.toLowerCase() === user.role.toLowerCase())
   }, [user])
 
   const logout = useCallback(async () => {
