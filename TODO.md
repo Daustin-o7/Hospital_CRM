@@ -178,13 +178,13 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
   - Health check endpoints (`/health/live`, `/health/ready`) with database and storage probes.
   - Automated database backup scripts and disaster recovery / restore drill.
 
-- [ ] **3.3 Third-Party Penetration Testing**
+- [x] **3.3 Third-Party Penetration Testing**
   - Conduct offensive security audit and pen testing focused on:
     - Authentication and session handling (JWT validation, token revocation).
     - Payment integrity (Razorpay webhook forgery, invoice tampering).
     - Pharmacy compliance (Schedule H1 prescription bypass, batch quantity manipulation).
 
-- [ ] **3.4 Explicit Out-of-Scope Boundary Affirmation**
+- [x] **3.4 Explicit Out-of-Scope Boundary Affirmation**
   - Strict scope boundaries preserved per FRD §5.2:
     - Voice Agent (MOD-27) &rarr; Phase 3.
     - IPD & Inpatient Care &rarr; Track 4.

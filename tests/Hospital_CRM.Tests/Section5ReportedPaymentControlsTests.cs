@@ -286,4 +286,42 @@ public class Section5ReportedPaymentControlsTests
         Assert.Equal(503, obj.StatusCode);
         Assert.Contains("payee_daily_limit_exceeded", obj.Value?.ToString() ?? "");
     }
+
+    [Theory]
+    [InlineData(PaymentStatus.Pending, PaymentVerificationStatus.Confirmed)]
+    [InlineData(PaymentStatus.Refunded, PaymentVerificationStatus.Confirmed)]
+    [InlineData(PaymentStatus.Failed, PaymentVerificationStatus.Reported)]
+    public async Task ConfirmPayment_RejectsRowsThatWereNeverReported(PaymentStatus status, PaymentVerificationStatus verification)
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var receptionistId = Guid.NewGuid();
+
+        var invoice = CreateInvoice(tenantId, 1000m);
+        db.Invoices.Add(invoice);
+        var row = new Payment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            Method = PaymentMethod.Cash,
+            Amount = 1000m,
+            Status = status,
+            VerificationStatus = verification,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.Payments.Add(row);
+        await db.SaveChangesAsync();
+
+        var controller = CreateController(db, tenantId, receptionistId);
+        var req = new ConfirmPaymentRequest("cash", 1000m, PaymentId: row.Id);
+        var res = await controller.ConfirmPayment(invoice.Id, req, CancellationToken.None);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(res);
+        Assert.Contains("payment_not_confirmable", bad.Value?.ToString() ?? "");
+
+        var reloaded = await db.Invoices.Include(i => i.Payments).FirstAsync(i => i.Id == invoice.Id);
+        Assert.Equal(0m, reloaded.PaidAmount);
+        Assert.DoesNotContain(reloaded.Payments, p => p.Status == PaymentStatus.Completed);
+    }
 }

@@ -380,6 +380,11 @@ public class PaymentsController : ControllerBase
         if (payment is { Status: PaymentStatus.Completed })
             return BadRequest(new { error = "payment_already_confirmed" });
 
+        // Only a patient-reported row may be verified; a refunded, failed or gateway row must never be re-opened here.
+        if (payment is not null &&
+            (payment.Status != PaymentStatus.Pending || payment.VerificationStatus != PaymentVerificationStatus.Reported))
+            return BadRequest(new { error = "payment_not_confirmable", message = "Only a reported, unconfirmed payment can be confirmed." });
+
         if (payment == null)
         {
             payment = new Payment

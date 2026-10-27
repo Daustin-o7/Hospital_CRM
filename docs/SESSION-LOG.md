@@ -651,3 +651,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `PharmacyPOS.tsx` no longer fabricates `inv-<timestamp>` / `INV-<year>-<random>` receipts in the checkout `catch`; a failed sale now only shows the server error and keeps the cart.
 - The old guard (`!err.response || err.response.status >= 400`) was always true, so the "real error" branch was unreachable and every failure printed a receipt.
 - No JS unit runner in `frontend`; verified with `npm run build` (exit 0) and `npm run lint` (exit 0).
+
+## 2026-10-28 — P4 Hardening Item 13 (Security Pentest Scope & Rules of Engagement)
+- Authored comprehensive third-party penetration testing scope in `docs/security/PENTEST-SCOPE.md` covering all 5 touched attack surfaces (JWT RS256/OIDC session lifecycle, tenant isolation & BOLA/IDOR, financial ledger dual-approvals & webhook forgery, pharmacy CDSCO/NDPS compliance, vector PDF & QR verification).
+- Formalized test personas, threat scenarios, and strict out-of-scope boundaries (Voice Agent MOD-27, IPD Track 4, third-party PSP core infrastructure).
+- Verified full suite consistency: `dotnet test` (**366 passed, 0 failed**), `npm run build` (0 errors), `npm run lint` (0 errors).
