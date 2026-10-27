@@ -217,7 +217,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A13 (#13) Invite/reset tokens**: digest lookup, rate limits, stop logging invite tokens.
 - [x] **A14 (#14) Forwarded headers**: explicit trusted proxies.
 - [x] **A15 (#17) Refresh rotation**: atomic.
-- [ ] **A16 (#16) Password reset**: revoke sessions.
+- [x] **A16 (#16) Password reset**: revoke sessions.
 - [ ] **A17 (#15) Client refresh**: one shared in-flight refresh.
 
 ### Phase 3 - Missing UI (backend shipped, unusable)

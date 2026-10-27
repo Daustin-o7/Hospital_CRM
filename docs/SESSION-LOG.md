@@ -716,3 +716,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `AuthController.Refresh` revoked the presented token with a plain property assignment, so two parallel requests that both read it as live each minted a child token: two valid refresh tokens in one family, and the loser's child bypassed reuse detection. The token is now claimed with a conditional update (`WHERE Id = ... AND RevokedAt IS NULL`); a request that loses the race gets `invalid_refresh_token` and mints nothing.
 - No family burn on the losing request: it proves nothing about theft (the winner just rotated legitimately), and the existing reuse path still burns the family when an already-revoked token is presented later.
 - New `Second_Rotation_Of_The_Same_Token_Is_Rejected_Even_When_It_Read_The_Token_First` (stale tracked read, 401, zero live tokens afterwards); suite **382 passed, 0 failed**.
+
+## 2026-10-28 - Audit A16 (#16): A Password Reset Ends Every Session
+- `ConfirmReset` changed the password but left every live refresh token untouched, so a stolen session kept working after the victim reset the compromised password (the `ChangePassword` flow already revokes). It now revokes all live tokens for the user, burns any other outstanding reset links, and writes a `PasswordChanged` audit entry with the revoked count.
+- Password/revocation rows are saved before the audit write, so a swallowed audit failure can never make a failed reset look successful.
+- New `ConfirmReset_RevokesEveryLiveSession` (two live sessions, zero after the reset); suite **383 passed, 0 failed**.

@@ -1,4 +1,5 @@
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -78,11 +79,29 @@ public class PasswordResetController : ControllerBase
         if (user is null)
             return BadRequest(new { error = "user_not_found" });
 
+        var now = DateTimeOffset.UtcNow;
         user.PasswordHash = request.NewPassword.HashPassword();
-        user.UpdatedAt = DateTimeOffset.UtcNow;
-        tokenRecord.UsedAt = DateTimeOffset.UtcNow;
+        user.UpdatedAt = now;
+        tokenRecord.UsedAt = now;
+
+        // A reset proves the old password (and any session holding it) is compromised:
+        // every live refresh token dies, and older reset links stop working.
+        var liveTokens = await _db.RefreshTokens
+            .Where(t => t.UserId == user.Id && t.RevokedAt == null)
+            .ToListAsync(ct);
+        foreach (var live in liveTokens)
+            live.RevokedAt = now;
+
+        var otherTokens = await _db.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && t.UsedAt == null)
+            .ToListAsync(ct);
+        foreach (var other in otherTokens)
+            other.UsedAt = now;
 
         await _db.SaveChangesAsync(ct);
+
+        await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.PasswordChanged, "success",
+            user.Id, user.TenantId, user.Email, detail: $"via reset token; sessions revoked={liveTokens.Count}", ct: ct);
 
         return Ok(new { message = "password_reset_successful" });
     }

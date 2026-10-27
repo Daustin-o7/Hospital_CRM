@@ -137,6 +137,52 @@ public class Section2AuthTokenTests
     }
 
     [Fact]
+    public async Task ConfirmReset_RevokesEveryLiveSession()
+    {
+        var db = CreateInMemoryDb();
+        var rawToken = Guid.NewGuid().ToString("N");
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.NewGuid(),
+            Name = "Reset Victim",
+            Email = "victim@clinic.test",
+            Role = UserRole.Doctor,
+            PasswordHash = "old-password".HashPassword()
+        };
+        db.Users.Add(user);
+        db.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = rawToken.HashToken(),
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+        });
+        for (var i = 0; i < 2; i++)
+        {
+            db.RefreshTokens.Add(new RefreshToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                TenantId = user.TenantId,
+                Role = UserRole.Doctor,
+                FamilyId = Guid.NewGuid(),
+                TokenHash = $"session-{i}".HashToken(),
+                IssuedAt = DateTimeOffset.UtcNow,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var controller = new PasswordResetController(db,
+            new Microsoft.Extensions.Logging.Abstractions.NullLogger<PasswordResetController>());
+
+        await controller.ConfirmReset(new ConfirmResetRequest(rawToken, "N3wPassw0rd!"), CancellationToken.None);
+
+        Assert.Empty(await db.RefreshTokens.Where(t => t.RevokedAt == null).ToListAsync());
+    }
+
+    [Fact]
     public async Task ConfirmReset_FindsTheTokenByDigest_AndBurnsIt()
     {
         var db = CreateInMemoryDb();
