@@ -53,9 +53,9 @@ public class SectionZeroTests
         return new HospitalCrmDbContext(options);
     }
 
-    private static AuthController CreateController(HospitalCrmDbContext db)
+    private static AuthController CreateController(HospitalCrmDbContext db, IConfiguration? config = null)
     {
-        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        config ??= new ConfigurationBuilder().AddInMemoryCollection().Build();
         var controller = new AuthController(
             db, config, new FakeKeyService(), new FakeHostEnv(),
             new TestSecretProtector(), new FakeEmailSender());
@@ -289,5 +289,42 @@ public class SectionZeroTests
         using var body = JsonDocument.Parse(JsonSerializer.Serialize(ok.Value));
         Assert.True(body.RootElement.GetProperty("mfaEnrolmentRequired").GetBoolean());
         Assert.True(body.RootElement.GetProperty("mfaRequiredForRole").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Login_Skips_The_Mfa_Enrolment_Gate_When_Development_Turns_It_Off()
+    {
+        using var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        db.Tenants.Add(ActiveTenant(tenantId));
+        db.Users.Add(new User
+        {
+            Id = userId,
+            TenantId = tenantId,
+            Email = "doctor@clinic.com",
+            Name = "Dr. Dev",
+            Role = UserRole.Doctor,
+            PasswordHash = "Password123!".HashPassword()
+        });
+        db.TenantMemberships.Add(new TenantMembership
+        {
+            Id = Guid.NewGuid(), UserId = userId, TenantId = tenantId,
+            Role = UserRole.Doctor, Status = "active", IsDefault = true
+        });
+        await db.SaveChangesAsync();
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Mfa:RequireEnrolment"] = "false" })
+            .Build();
+
+        var result = await CreateController(db, config).Login(
+            new LoginRequest("doctor@clinic.com", "Password123!"), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        using var body = JsonDocument.Parse(JsonSerializer.Serialize(ok.Value));
+        Assert.False(body.RootElement.GetProperty("mfaEnrolmentRequired").GetBoolean());
+        Assert.False(body.RootElement.GetProperty("mfaRequiredForRole").GetBoolean());
     }
 }

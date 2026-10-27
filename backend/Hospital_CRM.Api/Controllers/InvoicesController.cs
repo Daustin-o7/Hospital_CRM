@@ -1742,6 +1742,103 @@ public class InvoicesController : ControllerBase
 
         return Ok(invoices);
     }
+
+    #region Server-Side PDF & Print Verification
+
+    /// <summary>
+    /// Generates server-side PDF 1.4 for a finalized invoice (Tax Invoice or Bill of Supply).
+    /// Enforces that Draft and Cancelled invoices cannot be printed as statutory invoices.
+    /// Every print event is logged to the append-only InvoicePrintLogs table.
+    /// </summary>
+    [HttpGet("invoices/{id:guid}/pdf")]
+    [Authorize]
+    public async Task<IActionResult> GetInvoicePdf(Guid id, [FromServices] IPdfService pdfService, CancellationToken ct)
+    {
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+            .Include(i => i.Payments)
+            .Include(i => i.Appointment)
+                .ThenInclude(a => a!.Patient)
+            .FirstOrDefaultAsync(i => i.Id == id, ct);
+
+        if (invoice is null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
+        {
+            return BadRequest(new
+            {
+                error = "cannot_print_draft_or_cancelled_invoice",
+                message = "Draft or cancelled invoices cannot be printed as statutory tax invoices."
+            });
+        }
+
+        var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == invoice.TenantId, ct);
+
+        var priorPrints = await _db.InvoicePrintLogs
+            .CountAsync(l => l.InvoiceId == id, ct);
+
+        bool isDuplicate = priorPrints > 0;
+
+        var printLog = new InvoicePrintLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = invoice.TenantId,
+            InvoiceId = invoice.Id,
+            PrintedByUserId = User.GetUserId() ?? Guid.Empty,
+            PrintedAt = DateTimeOffset.UtcNow,
+            CopyNumber = priorPrints + 1,
+            Watermark = isDuplicate ? "DUPLICATE COPY" : "ORIGINAL",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString()
+        };
+        _db.InvoicePrintLogs.Add(printLog);
+        await _db.SaveChangesAsync(ct);
+
+        var pdfBytes = pdfService.GenerateInvoicePdf(invoice, clinic, isDuplicate);
+        var invoiceRef = invoice.FormatInvoiceNumber();
+        var filename = $"{invoiceRef}_{(isDuplicate ? "DUPLICATE" : "ORIGINAL")}.pdf";
+
+        return File(pdfBytes, "application/pdf", filename);
+    }
+
+    /// <summary>
+    /// Generates server-side PDF 1.4 for an Approved credit note.
+    /// Pending approval or Rejected credit notes cannot be printed.
+    /// </summary>
+    [HttpGet("credit-notes/{id:guid}/pdf")]
+    [Authorize]
+    public async Task<IActionResult> GetCreditNotePdf(Guid id, [FromServices] IPdfService pdfService, CancellationToken ct)
+    {
+        var creditNote = await _db.CreditNotes
+            .Include(cn => cn.Invoice)
+                .ThenInclude(i => i.LineItems)
+            .Include(cn => cn.Invoice)
+                .ThenInclude(i => i.Appointment)
+                    .ThenInclude(a => a!.Patient)
+            .FirstOrDefaultAsync(cn => cn.Id == id, ct);
+
+        if (creditNote is null)
+            return NotFound(new { error = "credit_note_not_found" });
+
+        if (creditNote.Status != CreditNoteStatus.Approved)
+        {
+            return BadRequest(new
+            {
+                error = "cannot_print_unapproved_credit_note",
+                message = "Credit notes must be approved before generating statutory PDF."
+            });
+        }
+
+        var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == creditNote.TenantId, ct);
+
+        var pdfBytes = pdfService.GenerateCreditNotePdf(creditNote, creditNote.Invoice, clinic);
+        var cnRef = creditNote.FormatCreditNoteNumber();
+        var filename = $"{cnRef}.pdf";
+
+        return File(pdfBytes, "application/pdf", filename);
+    }
+
+    #endregion
 }
 
 public record GenerateInvoiceRequest(

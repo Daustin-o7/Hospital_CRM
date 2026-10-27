@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
+using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -1519,6 +1520,87 @@ public class ConsultationsController : ControllerBase
         if (string.IsNullOrWhiteSpace(sched)) return ScheduleClass.General;
         if (Enum.TryParse<ScheduleClass>(sched, true, out var result)) return result;
         return ScheduleClass.General;
+    }
+
+    #endregion
+
+    #region Server-Side PDF & Print Verification
+
+    /// <summary>
+    /// Generates server-side PDF 1.4 for a finalized prescription with vector QR verification code.
+    /// First print is marked original; subsequent prints are marked with DUPLICATE COPY watermark.
+    /// Every print event is logged to the append-only PrescriptionPrintLogs table.
+    /// </summary>
+    [HttpGet("prescriptions/{id:guid}/pdf")]
+    [Authorize]
+    public async Task<IActionResult> GetPrescriptionPdf(Guid id, [FromServices] IPdfService pdfService, CancellationToken ct)
+    {
+        var prescription = await _db.Prescriptions
+            .Include(p => p.Items)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Doctor)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Appointment)
+                    .ThenInclude(a => a!.Patient)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+
+        if (prescription is null)
+            return NotFound(new { error = "prescription_not_found" });
+
+        if (prescription.Consultation != null && prescription.Consultation.Status == ConsultationStatus.Draft)
+        {
+            return BadRequest(new
+            {
+                error = "cannot_print_draft_prescription",
+                message = "Prescription must be finalized before printing or generating PDF."
+            });
+        }
+
+        var tenantId = prescription.Consultation?.Appointment?.TenantId ?? User.GetTenantId() ?? Guid.Empty;
+        var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == tenantId, ct);
+
+        var priorPrints = await _db.PrescriptionPrintLogs
+            .CountAsync(l => l.PrescriptionId == id, ct);
+
+        bool isDuplicate = priorPrints > 0;
+
+        var printLog = new PrescriptionPrintLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ConsultationId = prescription.ConsultationId,
+            PrescriptionId = prescription.Id,
+            PrintCount = priorPrints + 1,
+            IsDuplicateCopy = isDuplicate,
+            PrintedByUserId = User.GetUserId() ?? Guid.Empty,
+            PrintedAt = DateTimeOffset.UtcNow
+        };
+        _db.PrescriptionPrintLogs.Add(printLog);
+        await _db.SaveChangesAsync(ct);
+
+        var pdfBytes = pdfService.GeneratePrescriptionPdf(prescription, prescription.Consultation!, clinic, isDuplicate);
+        var filename = $"Prescription_{prescription.Id:N}_{(isDuplicate ? "DUPLICATE" : "ORIGINAL")}.pdf";
+
+        return File(pdfBytes, "application/pdf", filename);
+    }
+
+    /// <summary>
+    /// Alternate route: lookup prescription by consultation ID and return PDF.
+    /// </summary>
+    [HttpGet("consultations/{consultationId:guid}/prescription/pdf")]
+    [Authorize]
+    public async Task<IActionResult> GetConsultationPrescriptionPdf(Guid consultationId, [FromServices] IPdfService pdfService, CancellationToken ct)
+    {
+        var prescription = await _db.Prescriptions
+            .Where(p => p.ConsultationId == consultationId)
+            .OrderByDescending(p => p.Id)
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (prescription == Guid.Empty)
+            return NotFound(new { error = "prescription_not_found_for_consultation" });
+
+        return await GetPrescriptionPdf(prescription, pdfService, ct);
     }
 
     #endregion

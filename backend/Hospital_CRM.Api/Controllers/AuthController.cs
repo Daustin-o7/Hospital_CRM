@@ -301,8 +301,8 @@ public class AuthController : ControllerBase
         mustChangePassword = user.MustChangePassword,
         mfaEnabled = user.MfaEnabled,
         mfaMethod = user.MfaEnabled ? NormalizeMethod(user.MfaMethod) : null,
-        mfaEnrolmentRequired = !user.MfaEnabled && MfaPolicy.RequiresEnrolment(role),
-        mfaRequiredForRole = MfaPolicy.RequiresEnrolment(role),
+        mfaEnrolmentRequired = MfaGateOn && !user.MfaEnabled && MfaPolicy.RequiresEnrolment(role),
+        mfaRequiredForRole = MfaGateOn && MfaPolicy.RequiresEnrolment(role),
         user = new
         {
             id = user.Id,
@@ -314,7 +314,14 @@ public class AuthController : ControllerBase
     };
 
 
-    private static Dictionary<string, object?> SessionClaims(User user, UserRole role)
+    /// <summary>
+    /// Production enforces second-factor enrolment for privileged roles. Development turns it off
+    /// (<c>Mfa:RequireEnrolment=false</c> in appsettings.Development.json) so seeded accounts can log
+    /// in without a phone; the go-live checklist requires the flag to stay unset in production.
+    /// </summary>
+    private bool MfaGateOn => _config.GetValue("Mfa:RequireEnrolment", true);
+
+    private Dictionary<string, object?> SessionClaims(User user, UserRole role)
     {
         var claims = new Dictionary<string, object?>();
         if (user.MustChangePassword)
@@ -323,7 +330,7 @@ public class AuthController : ControllerBase
             claims["mfa_enabled"] = "true";
         // The scoped role decides: an admin membership needs MFA even if the account's
         // primary role is a nurse, and vice versa.
-        else if (MfaPolicy.RequiresEnrolment(role))
+        else if (MfaGateOn && MfaPolicy.RequiresEnrolment(role))
             claims["mfa_enrolment_required"] = "true";
         return claims;
     }
@@ -810,7 +817,7 @@ public class AuthController : ControllerBase
         // Mandatory for money/clinical/platform roles; self-service disable would defeat it.
         // Check the scoped role as well as the account's primary role: a multi-clinic user
         // must not be able to strip MFA from a nurse-scoped session.
-        if (MfaPolicy.RequiresEnrolment(user.Role) || MfaPolicy.RequiresEnrolment(CurrentTokenRole() ?? user.Role))
+        if (MfaGateOn && (MfaPolicy.RequiresEnrolment(user.Role) || MfaPolicy.RequiresEnrolment(CurrentTokenRole() ?? user.Role)))
             return BadRequest(new
             {
                 error = "mfa_required_for_role",

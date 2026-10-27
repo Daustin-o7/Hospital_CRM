@@ -59,7 +59,7 @@
 - [x] **6. Data licences**: Read CDCI License.txt; check TrueMD provenance/licence. Drop TrueMD if unclear. Log result in OPEN-QUESTIONS.md.
 
 ### P2 Gaps
-- [ ] **7. Server-side PDF**: For invoices, credit notes and prescriptions from finalized versions only; real QR image on Rx.
+- [x] **7. Server-side PDF**: For invoices, credit notes and prescriptions from finalized versions only; real QR image on Rx.
 - [ ] **8. Minimal pharmacy UI**: Dispense, stock-in, H1 export, recall.
 
 ### P3 Release Gating

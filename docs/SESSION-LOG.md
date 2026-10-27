@@ -598,3 +598,16 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Audited `Medicine/CommonDrugCodesForIndia_FlatFilePackage/License.txt`: confirmed official C-DAC / NRCeS CC-BY 4.0 license grant with SNOMED CT affiliate terms for use and redistribution in India.
 - Investigated TrueMD provenance: project/endpoints are deprecated without open-source grant; purged TrueMD from `Drug.DataSource` annotations and documentation.
 - Created `docs/product/OPEN-QUESTIONS.md` logging CDCI compliance and TrueMD deprecation; verified suite (`dotnet test` **337 passed, 0 failed**).
+
+## 2026-10-27 - Development MFA Gate Off (deferred to go-live)
+
+- Mandatory second-factor enrolment is now configurable: `Mfa:RequireEnrolment` (default `true`). `appsettings.Development.json` sets it to `false`, so seeded accounts (`doctor@samstack.ai` / `DoctorPass123!` etc.) sign in straight to the dashboard instead of being pushed to `/setup-mfa`.
+- Gate covers the session payload (`mfaEnrolmentRequired`, `mfaRequiredForRole`), the `mfa_enrolment_required` JWT claim, and `POST /auth/mfa/disable`. `MfaPolicy.RequiresEnrolment` itself is unchanged; production never sets the key, so enforcement is the default.
+- New pre-launch item in `docs/technical/GO-LIVE-CHECKLIST.md` (referenced from `AGENTS.md`): verify the flag is absent / `true` in production before launch.
+- Verified: `dotnet build` 0 errors; `dotnet test` **338 passed, 0 failed** (new regression `Login_Skips_The_Mfa_Enrolment_Gate_When_Development_Turns_It_Off`).
+
+## 2026-10-27 — P2 Hardening Item 7 (Server-Side PDF & Real QR Image)
+- Implemented pure C# vector PDF 1.4 generation in `PdfService.cs` (`IPdfService`) for Prescriptions (with vector QR code matrix for public verification `/rx-verify/{code}`), Invoices (Tax Invoice / Bill of Supply), and Credit Notes.
+- Exposed endpoints `GET /api/v1/prescriptions/{id}/pdf`, `GET /api/v1/consultations/{id}/prescription/pdf`, `GET /api/v1/invoices/{id}/pdf`, and `GET /api/v1/credit-notes/{id}/pdf`; gated against Draft/Cancelled documents and logged to append-only `PrescriptionPrintLogs` / `InvoicePrintLogs` with `DUPLICATE COPY` watermarking.
+- Verified with 6 tests in `Section5ServerPdfTests.cs`; total suite **344 passed, 0 failed**.
+

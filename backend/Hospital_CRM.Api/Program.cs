@@ -315,6 +315,9 @@ builder.Services.AddSingleton<ITimezoneService, TimezoneService>();
 // CDCI (Common Drug Codes for India) Medicine Catalog Service
 builder.Services.AddSingleton<Hospital_CRM.Api.Services.ICdciMedicineCatalogService, Hospital_CRM.Api.Services.CdciMedicineCatalogService>();
 
+// Server-side PDF & QR generator service (PDF 1.4 vector generator)
+builder.Services.AddSingleton<IPdfService, PdfService>();
+
 // FR-20/21: Notification services
 builder.Services.AddSingleton<INotificationService, StubNotificationService>();
 builder.Services.AddHostedService<ReminderSchedulerService>();
