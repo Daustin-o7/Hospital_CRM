@@ -711,3 +711,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `UseForwardedHeaders` ran with the framework defaults, so behind the container ingress every request appeared to come from the proxy (one shared rate-limit bucket, one IP for the platform-admin allowlist) while a spoofed `X-Forwarded-For` from any direct client was the obvious "fix" waiting to happen. Trust is now `ForwardedHeaders:KnownProxies` from configuration (`ForwardedProxies.Build`), defaulting to loopback only — never "trust all".
 - `.env.example` documents `ForwardedHeaders__KnownProxies` for the ingress address; entries are parsed and de-duplicated, invalid values are ignored rather than trusted.
 - New `ForwardedHeadersTests` (parses a configured proxy, stays loopback-only when unset); suite **381 passed, 0 failed**.
+
+## 2026-10-28 - Audit A15 (#17): Refresh Rotation Is Claimed Atomically
+- `AuthController.Refresh` revoked the presented token with a plain property assignment, so two parallel requests that both read it as live each minted a child token: two valid refresh tokens in one family, and the loser's child bypassed reuse detection. The token is now claimed with a conditional update (`WHERE Id = ... AND RevokedAt IS NULL`); a request that loses the race gets `invalid_refresh_token` and mints nothing.
+- No family burn on the losing request: it proves nothing about theft (the winner just rotated legitimately), and the existing reuse path still burns the family when an already-revoked token is presented later.
+- New `Second_Rotation_Of_The_Same_Token_Is_Rejected_Even_When_It_Read_The_Token_First` (stale tracked read, 401, zero live tokens afterwards); suite **382 passed, 0 failed**.

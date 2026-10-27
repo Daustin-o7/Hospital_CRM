@@ -414,7 +414,33 @@ public class AuthController : ControllerBase
             });
         }
 
-        storedToken.RevokedAt = DateTimeOffset.UtcNow;
+        // Claim the token before issuing anything: two parallel refreshes must not both mint a
+        // new token, or the loser's child silently defeats reuse detection.
+        var now = DateTimeOffset.UtcNow;
+        bool claimed;
+        if (_db.Database.IsRelational())
+        {
+            claimed = await _db.RefreshTokens
+                .Where(t => t.Id == storedToken.Id && t.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct) == 1;
+        }
+        else
+        {
+            // shortcut: the in-memory provider has no conditional update, so re-read instead.
+            var stillLive = await _db.RefreshTokens.AsNoTracking()
+                .Where(t => t.Id == storedToken.Id)
+                .Select(t => t.RevokedAt)
+                .FirstOrDefaultAsync(ct) is null;
+            claimed = stillLive;
+            if (claimed) storedToken.RevokedAt = now;
+        }
+
+        if (!claimed)
+        {
+            await AuthAudit.LogAsync(_db, HttpContext, AuthEvent.RefreshRejected, "failure",
+                user.Id, storedToken.TenantId, detail: "concurrent_rotation", ct: ct);
+            return Unauthorized(new { error = "invalid_refresh_token" });
+        }
 
         var (tokenExpiry, refreshExpiryDays) = TokenLifetimes();
         var extraClaims = SessionClaims(user, scope.Role);

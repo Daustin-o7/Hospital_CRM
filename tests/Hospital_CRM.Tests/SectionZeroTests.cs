@@ -45,10 +45,10 @@ public class SectionZeroTests
         public IFileProvider ContentRootFileProvider { get; set; } = null!;
     }
 
-    private static HospitalCrmDbContext CreateInMemoryDb()
+    private static HospitalCrmDbContext CreateInMemoryDb(string? name = null)
     {
         var options = new DbContextOptionsBuilder<HospitalCrmDbContext>()
-            .UseInMemoryDatabase($"SectionZero_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(name ?? $"SectionZero_{Guid.NewGuid()}")
             .Options;
         return new HospitalCrmDbContext(options);
     }
@@ -220,6 +220,52 @@ public class SectionZeroTests
         var remaining = await db.RefreshTokens.SingleAsync(t => t.TokenHash == live.HashToken());
         Assert.NotNull(remaining.RevokedAt);
         Assert.True(await db.AuthAuditLogs.AnyAsync(a => a.EventType == AuthEvent.RefreshReuseDetected));
+    }
+
+    [Fact]
+    public async Task Second_Rotation_Of_The_Same_Token_Is_Rejected_Even_When_It_Read_The_Token_First()
+    {
+        var dbName = $"SectionZero_{Guid.NewGuid()}";
+        using var db = CreateInMemoryDb(dbName);
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var raw = "racing-refresh-token";
+
+        db.Tenants.Add(ActiveTenant(tenantId));
+        db.Users.Add(new User
+        {
+            Id = userId,
+            TenantId = tenantId,
+            Email = "doctor@clinic.com",
+            Name = "Dr Race",
+            Role = UserRole.Doctor,
+            PasswordHash = "Password123!".HashPassword()
+        });
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(), UserId = userId, TenantId = tenantId,
+            Role = UserRole.Doctor, FamilyId = Guid.NewGuid(),
+            TokenHash = raw.HashToken(),
+            IssuedAt = DateTimeOffset.UtcNow,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+        });
+        await db.SaveChangesAsync();
+
+        // This request already holds the token, unrevoked, in its own change tracker.
+        Assert.NotNull(db.RefreshTokens.Single());
+
+        // A parallel request rotates it first.
+        using (var winner = CreateInMemoryDb(dbName))
+        {
+            winner.RefreshTokens.Single().RevokedAt = DateTimeOffset.UtcNow;
+            await winner.SaveChangesAsync();
+        }
+
+        var result = await CreateController(db).Refresh(new RefreshRequest(raw), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+        var liveTokens = await db.RefreshTokens.AsNoTracking().CountAsync(t => t.RevokedAt == null);
+        Assert.Equal(0, liveTokens);
     }
 
     [Theory]
