@@ -611,3 +611,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Exposed endpoints `GET /api/v1/prescriptions/{id}/pdf`, `GET /api/v1/consultations/{id}/prescription/pdf`, `GET /api/v1/invoices/{id}/pdf`, and `GET /api/v1/credit-notes/{id}/pdf`; gated against Draft/Cancelled documents and logged to append-only `PrescriptionPrintLogs` / `InvoicePrintLogs` with `DUPLICATE COPY` watermarking.
 - Verified with 6 tests in `Section5ServerPdfTests.cs`; total suite **344 passed, 0 failed**.
 
+## 2026-10-27 — P2 Hardening Item 8 (Minimal Pharmacy UI: Dispense, Stock-In, H1 Export, Recall)
+- Added prescription lookup & pending endpoints in `PharmacyComplianceController.cs` (`GET /api/v1/pharmacy/prescriptions/{id}` and `GET /api/v1/pharmacy/prescriptions/pending`).
+- Implemented Prescription Dispense modal in `PharmacyPOS.tsx` with pending prescription picker, medicine schedule badge checks, NDPS block alerts, and instant `PHARM` invoice generation; updated `PharmacyBatches.tsx` with statutory stock-in purchase entry (supplier, invoice #, drug licence, pack size) and CDSCO batch recall modal with immediate stock quarantine; verified Schedule H1 inspection register and CSV export in `PharmacyCompliance.tsx`.
+- Verified via `npm run build` (clean 0 errors in 2.81s), `npm run lint` (0 errors), and `dotnet test` (**345 passed, 0 failed**).
+

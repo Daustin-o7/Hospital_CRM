@@ -1,6 +1,44 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../services/api'
 import { Alert } from '../components/ui/Alert'
+import { Modal } from '../components/ui/Modal'
+
+interface PendingPrescription {
+  prescriptionId: string
+  patientName: string
+  patientPhone?: string
+  doctorName: string
+  itemCount: number
+  pendingItemCount: number
+  createdAt: string
+}
+
+interface PrescriptionItemDetail {
+  id: string
+  drugId?: string
+  genericName: string
+  brandName?: string
+  dosageForm: string
+  strength: string
+  route: string
+  frequency: string
+  duration: number
+  durationUnit: string
+  totalQuantity: number
+  scheduleClass: string
+  isDispensed: boolean
+}
+
+interface LoadedPrescription {
+  prescriptionId: string
+  consultationId: string
+  patientName: string
+  patientPhone?: string
+  doctorName: string
+  doctorRegNo: string
+  createdAt: string
+  items: PrescriptionItemDetail[]
+}
 
 interface BatchInfo {
   batchId: string
@@ -82,6 +120,69 @@ export default function PharmacyPOS() {
   const [activeSubstituteDrug, setActiveSubstituteDrug] = useState<DrugItem | null>(null)
   const [substitutesList, setSubstitutesList] = useState<any[]>([])
   const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
+
+  // Dispense Prescription state
+  const [dispenseModalOpen, setDispenseModalOpen] = useState(false)
+  const [pendingPrescriptions, setPendingPrescriptions] = useState<PendingPrescription[]>([])
+  const [loadingPendingRx, setLoadingPendingRx] = useState(false)
+  const [customRxId, setCustomRxId] = useState('')
+  const [loadedPrescription, setLoadedPrescription] = useState<LoadedPrescription | null>(null)
+  const [loadingRxDetail, setLoadingRxDetail] = useState(false)
+  const [dispensingRx, setDispensingRx] = useState(false)
+  const [dispenseResult, setDispenseResult] = useState<any | null>(null)
+  const [dispenseError, setDispenseError] = useState('')
+
+  const openDispenseModal = async () => {
+    setDispenseModalOpen(true)
+    setDispenseError('')
+    setDispenseResult(null)
+    setLoadedPrescription(null)
+    setCustomRxId('')
+    setLoadingPendingRx(true)
+    try {
+      const res = await api.get('/pharmacy/prescriptions/pending')
+      setPendingPrescriptions(Array.isArray(res.data) ? res.data : [])
+    } catch {
+      setPendingPrescriptions([])
+    } finally {
+      setLoadingPendingRx(false)
+    }
+  }
+
+  const loadPrescription = async (rxId: string) => {
+    if (!rxId.trim()) return
+    setLoadingRxDetail(true)
+    setDispenseError('')
+    try {
+      const res = await api.get(`/pharmacy/prescriptions/${rxId.trim()}`)
+      setLoadedPrescription(res.data)
+    } catch (err: any) {
+      setDispenseError(err.response?.data?.message || err.response?.data?.error || 'Failed to load prescription.')
+    } finally {
+      setLoadingRxDetail(false)
+    }
+  }
+
+  const handleDispenseSubmit = async () => {
+    if (!loadedPrescription) return
+    setDispensingRx(true)
+    setDispenseError('')
+    try {
+      const res = await api.post('/pharmacy/dispense', {
+        prescriptionId: loadedPrescription.prescriptionId,
+        patientName: loadedPrescription.patientName,
+        prescriberName: loadedPrescription.doctorName,
+        prescriberRegNo: loadedPrescription.doctorRegNo
+      })
+      setDispenseResult(res.data)
+      setLoadedPrescription(null)
+      api.get('/pharmacy/prescriptions/pending').then(r => setPendingPrescriptions(r.data || [])).catch(() => {})
+    } catch (err: any) {
+      setDispenseError(err.response?.data?.message || err.response?.data?.error || 'Prescription dispensing failed.')
+    } finally {
+      setDispensingRx(false)
+    }
+  }
 
   const [defaultCatalog, setDefaultCatalog] = useState<DrugItem[]>([])
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -394,6 +495,16 @@ export default function PharmacyPOS() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={openDispenseModal}
+            className="btn btn-primary btn-sm flex items-center gap-1.5 cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Dispense Prescription
+          </button>
           <button
             onClick={() => clearCart()}
             className="btn btn-secondary btn-sm"
@@ -943,6 +1054,206 @@ export default function PharmacyPOS() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Prescription Dispense Modal ── */}
+      {dispenseModalOpen && (
+        <Modal
+          open={dispenseModalOpen}
+          onClose={() => { setDispenseModalOpen(false); setDispenseResult(null); setLoadedPrescription(null); }}
+          title={dispenseResult ? "Prescription Dispensed Successfully" : loadedPrescription ? `Dispense Rx for ${loadedPrescription.patientName}` : "Clinical Prescription Dispense"}
+          description={dispenseResult ? "Finalized pharmacy sales invoice generated and linked to clinic ledger." : "Review doctor prescription, verify medicine schedules, and dispense with automatic billing."}
+          size="lg"
+        >
+          <div className="space-y-4 text-xs">
+            {dispenseError && <Alert variant="error" onDismiss={() => setDispenseError('')}>{dispenseError}</Alert>}
+
+            {dispenseResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm">Invoice Generated: {dispenseResult.invoiceNumber}</span>
+                    <span className="badge badge-success">DISPENSED</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div><span className="text-emerald-700 font-medium">Patient:</span> {dispenseResult.patientName}</div>
+                    <div><span className="text-emerald-700 font-medium">Total Amount:</span> ₹{Number(dispenseResult.totalAmount || 0).toFixed(2)}</div>
+                    <div><span className="text-emerald-700 font-medium">Items Dispensed:</span> {dispenseResult.itemCount || 0}</div>
+                    <div><span className="text-emerald-700 font-medium">Balance Due:</span> ₹{Number(dispenseResult.balanceDue || 0).toFixed(2)}</div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--color-border)] flex justify-end gap-2">
+                  {dispenseResult.prescriptionId && (
+                    <a
+                      href={`/api/v1/prescriptions/${dispenseResult.prescriptionId}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm flex items-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Print Prescription PDF
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setDispenseModalOpen(false); setDispenseResult(null); }}
+                    className="btn btn-primary btn-sm cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : loadedPrescription ? (
+              <div className="space-y-4">
+                <div className="card p-3 bg-slate-50 border-slate-200 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Patient Details</span>
+                    <span className="font-semibold text-slate-900">{loadedPrescription.patientName}</span>
+                    {loadedPrescription.patientPhone && <span className="text-slate-500 ml-2">({loadedPrescription.patientPhone})</span>}
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Prescribing Doctor</span>
+                    <span className="font-semibold text-slate-900">{loadedPrescription.doctorName}</span>
+                    {loadedPrescription.doctorRegNo && <span className="text-slate-500 font-mono text-[11px] block">Reg: {loadedPrescription.doctorRegNo}</span>}
+                  </div>
+                </div>
+
+                {loadedPrescription.items.some(i => i.scheduleClass === 'NDPS') && (
+                  <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-medium">
+                    ⛔ NDPS Drug Detected: Digital dispensing of Narcotic/Psychotropic substances is legally prohibited. Physical official register is required.
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-slate-900 text-xs">Prescribed Medicines ({loadedPrescription.items.length})</h4>
+                  <div className="card divide-y border-slate-200 overflow-hidden">
+                    {loadedPrescription.items.map((it) => (
+                      <div key={it.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-900">{it.brandName ? `${it.brandName} (${it.genericName})` : it.genericName}</span>
+                            <span className="text-slate-500">{it.dosageForm} {it.strength}</span>
+                            {it.scheduleClass && it.scheduleClass !== 'General' && (
+                              <span className={`badge ${it.scheduleClass === 'ScheduleH1' ? 'badge-warning' : it.scheduleClass === 'NDPS' ? 'badge-danger' : 'badge-info'}`}>
+                                {it.scheduleClass}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-slate-500 text-[11px] mt-0.5 font-mono">
+                            Dose: {it.frequency} for {it.duration} {it.durationUnit} • Total Units: {it.totalQuantity}
+                          </p>
+                        </div>
+                        <div>
+                          {it.isDispensed ? (
+                            <span className="badge badge-success">ALREADY DISPENSED</span>
+                          ) : (
+                            <span className="badge badge-neutral">PENDING</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-[var(--color-border)] flex justify-between items-center">
+                  <button
+                    type="button"
+                    onClick={() => setLoadedPrescription(null)}
+                    className="btn btn-secondary btn-sm cursor-pointer"
+                  >
+                    ← Back to List
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDispenseModalOpen(false)}
+                      className="btn btn-secondary btn-sm cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={dispensingRx || loadedPrescription.items.some(i => i.scheduleClass === 'NDPS')}
+                      onClick={handleDispenseSubmit}
+                      className="btn btn-primary btn-sm cursor-pointer"
+                    >
+                      {dispensingRx ? 'Dispensing & Billing…' : 'Confirm Dispense & Invoice'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="form-label">Lookup Prescription by ID</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Paste prescription UUID (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)..."
+                      value={customRxId}
+                      onChange={e => setCustomRxId(e.target.value)}
+                      className="form-input font-mono flex-1 text-xs"
+                    />
+                    <button
+                      type="button"
+                      disabled={loadingRxDetail || !customRxId.trim()}
+                      onClick={() => loadPrescription(customRxId)}
+                      className="btn btn-secondary btn-sm cursor-pointer"
+                    >
+                      {loadingRxDetail ? 'Loading…' : 'Load Rx'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 text-xs">Recent Finalized Prescriptions</span>
+                    {loadingPendingRx && <span className="text-[11px] text-slate-400">Refreshing…</span>}
+                  </div>
+
+                  {pendingPrescriptions.length === 0 ? (
+                    <div className="p-6 text-center text-slate-400 border border-dashed rounded-lg border-slate-200">
+                      No pending prescriptions found. You can look up by ID above.
+                    </div>
+                  ) : (
+                    <div className="card divide-y border-slate-200 max-h-64 overflow-y-auto">
+                      {pendingPrescriptions.map(rx => (
+                        <div key={rx.prescriptionId} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                          <div>
+                            <span className="font-semibold text-slate-900 block">{rx.patientName}</span>
+                            <span className="text-[11px] text-slate-500">
+                              Dr. {rx.doctorName} • {rx.pendingItemCount} items to dispense
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => loadPrescription(rx.prescriptionId)}
+                            className="btn btn-secondary btn-xs cursor-pointer"
+                          >
+                            Select & Dispense
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-[var(--color-border)] flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDispenseModalOpen(false)}
+                    className="btn btn-secondary btn-sm cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   )

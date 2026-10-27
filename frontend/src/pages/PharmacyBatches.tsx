@@ -15,6 +15,8 @@ interface BatchDetail {
   supplierName?: string
   isExpired: boolean
   isNearExpiry: boolean
+  isRecalled?: boolean
+  recallReason?: string
 }
 
 interface DrugMaster {
@@ -63,8 +65,9 @@ export default function PharmacyBatches() {
   const [selectedSchedule, setSelectedSchedule] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [error, setError] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
 
-  // Inward batch modal
+  // Inward batch modal (Stock-In)
   const [inwardDrug, setInwardDrug] = useState<DrugMaster | null>(null)
   const [inwardBatchNo, setInwardBatchNo] = useState('')
   const [inwardExpiry, setInwardExpiry] = useState('')
@@ -72,7 +75,17 @@ export default function PharmacyBatches() {
   const [inwardQty, setInwardQty] = useState<number | ''>('')
   const [inwardMrp, setInwardMrp] = useState<number | ''>('')
   const [inwardPurchaseRate, setInwardPurchaseRate] = useState<number | ''>('')
+  const [inwardInvoiceNo, setInwardInvoiceNo] = useState('')
+  const [inwardPackSize, setInwardPackSize] = useState('')
+  const [inwardSupplierLicence, setInwardSupplierLicence] = useState('')
+  const [inwardSupplierId, setInwardSupplierId] = useState('')
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string; gstin?: string }>>([])
   const [inwarding, setInwarding] = useState(false)
+
+  // Batch recall dialog
+  const [recallingBatch, setRecallingBatch] = useState<BatchDetail | null>(null)
+  const [recallReason, setRecallReason] = useState('')
+  const [recalling, setRecalling] = useState(false)
 
   // Drug detail modal
   const [viewDrugDetail, setViewDrugDetail] = useState<any | null>(null)
@@ -141,6 +154,25 @@ export default function PharmacyBatches() {
     }
   }
 
+  useEffect(() => {
+    api.get('/pharmacy/suppliers').then(res => {
+      setSuppliers(Array.isArray(res.data) ? res.data : [])
+    }).catch(() => {})
+  }, [])
+
+  const resetInwardForm = () => {
+    setInwardBatchNo('')
+    setInwardExpiry('')
+    setInwardMfg('')
+    setInwardQty('')
+    setInwardMrp('')
+    setInwardPurchaseRate('')
+    setInwardInvoiceNo('')
+    setInwardPackSize('')
+    setInwardSupplierLicence('')
+    setInwardSupplierId('')
+  }
+
   const handleInwardSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!inwardDrug || !inwardBatchNo.trim() || !inwardExpiry || !inwardQty || !inwardMrp) {
@@ -150,40 +182,82 @@ export default function PharmacyBatches() {
 
     setInwarding(true)
     setError('')
+    setActionSuccess('')
     try {
-      await api.post(`/pharmacy/drugs/${inwardDrug.id}/batches`, {
+      await api.post('/pharmacy/stock-in', {
+        drugId: inwardDrug.id,
         batchNumber: inwardBatchNo.trim().toUpperCase(),
         expiryDate: inwardExpiry,
         mfgDate: inwardMfg || undefined,
         quantityReceived: Number(inwardQty),
         mrp: Number(inwardMrp),
-        purchaseRate: Number(inwardPurchaseRate || Number(inwardMrp) * 0.7)
+        purchaseRate: Number(inwardPurchaseRate || Number(inwardMrp) * 0.7),
+        packSize: inwardPackSize.trim() || inwardDrug.standardPackSize || '10 Tablets / Strip',
+        supplierInvoiceNumber: inwardInvoiceNo.trim() || undefined,
+        supplierLicenceNumber: inwardSupplierLicence.trim() || undefined,
+        supplierId: inwardSupplierId || undefined
       })
 
+      setActionSuccess(`Batch ${inwardBatchNo.toUpperCase()} stocked in successfully for ${inwardDrug.name}.`)
       setInwardDrug(null)
-      setInwardBatchNo('')
-      setInwardExpiry('')
-      setInwardMfg('')
-      setInwardQty('')
-      setInwardMrp('')
-      setInwardPurchaseRate('')
+      resetInwardForm()
       fetchDrugs()
-    } catch {
-      if (inwardDrug) {
-        setDrugs(prev => prev.map(d => d.id === inwardDrug.id ? {
-          ...d,
-          totalStock: (d.totalStock || 0) + Number(inwardQty)
-        } : d))
+    } catch (err: any) {
+      // Fallback to legacy batch inwarding if supplier details are optional
+      try {
+        await api.post(`/pharmacy/drugs/${inwardDrug.id}/batches`, {
+          batchNumber: inwardBatchNo.trim().toUpperCase(),
+          expiryDate: inwardExpiry,
+          mfgDate: inwardMfg || undefined,
+          quantityReceived: Number(inwardQty),
+          mrp: Number(inwardMrp),
+          purchaseRate: Number(inwardPurchaseRate || Number(inwardMrp) * 0.7)
+        })
+        setActionSuccess(`Batch ${inwardBatchNo.toUpperCase()} inwarded successfully.`)
+        setInwardDrug(null)
+        resetInwardForm()
+        fetchDrugs()
+      } catch (fallbackErr: any) {
+        setError(fallbackErr.response?.data?.message || err.response?.data?.message || 'Failed to record stock-in entry.')
       }
-      setInwardDrug(null)
-      setInwardBatchNo('')
-      setInwardExpiry('')
-      setInwardMfg('')
-      setInwardQty('')
-      setInwardMrp('')
-      setInwardPurchaseRate('')
     } finally {
       setInwarding(false)
+    }
+  }
+
+  const handleRecallSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!recallingBatch || !recallReason.trim()) {
+      setError('Recall reason is required.')
+      return
+    }
+
+    setRecalling(true)
+    setError('')
+    setActionSuccess('')
+    try {
+      await api.post(`/pharmacy/batches/${recallingBatch.id}/recall`, {
+        reason: recallReason.trim()
+      })
+
+      setActionSuccess(`Batch ${recallingBatch.batchNumber} has been successfully recalled. Stock set to 0.`)
+      if (viewDrugDetail) {
+        setViewDrugDetail((prev: any) => ({
+          ...prev,
+          batches: prev.batches?.map((b: BatchDetail) =>
+            b.id === recallingBatch.id
+              ? { ...b, isRecalled: true, recallReason: recallReason.trim(), quantityRemaining: 0 }
+              : b
+          )
+        }))
+      }
+      setRecallingBatch(null)
+      setRecallReason('')
+      fetchDrugs()
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to recall batch.')
+    } finally {
+      setRecalling(false)
     }
   }
 
@@ -218,6 +292,7 @@ export default function PharmacyBatches() {
       </div>
 
       {error && <Alert variant="error" onDismiss={() => setError('')}>{error}</Alert>}
+      {actionSuccess && <Alert variant="success" onDismiss={() => setActionSuccess('')}>{actionSuccess}</Alert>}
 
       {/* ── Metrics Cards ── */}
       {stats && (
@@ -423,21 +498,33 @@ export default function PharmacyBatches() {
         <Modal
           open={!!inwardDrug}
           onClose={() => setInwardDrug(null)}
-          title="Inward Medicine Stock (GRN)"
-          description={`${inwardDrug.name} (${inwardDrug.genericName})`}
-          size="md"
+          title="Stock-In Purchase Entry (GRN)"
+          description={`${inwardDrug.name} (${inwardDrug.genericName}) • HSN: ${inwardDrug.hsnCode}`}
+          size="lg"
         >
           <form onSubmit={handleInwardSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="form-label">Batch Number *</label>
-              <input
-                type="text"
-                required
-                value={inwardBatchNo}
-                onChange={e => setInwardBatchNo(e.target.value)}
-                placeholder="e.g. BAT-2026-09"
-                className="form-input uppercase mono font-bold"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">Batch Number *</label>
+                <input
+                  type="text"
+                  required
+                  value={inwardBatchNo}
+                  onChange={e => setInwardBatchNo(e.target.value)}
+                  placeholder="e.g. BAT-2026-09"
+                  className="form-input uppercase font-mono font-bold"
+                />
+              </div>
+              <div>
+                <label className="form-label">Pack Size</label>
+                <input
+                  type="text"
+                  value={inwardPackSize}
+                  onChange={e => setInwardPackSize(e.target.value)}
+                  placeholder={inwardDrug.standardPackSize || "e.g. 10 Tablets / Strip"}
+                  className="form-input"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -464,7 +551,7 @@ export default function PharmacyBatches() {
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="form-label">Quantity *</label>
+                <label className="form-label">Quantity Received *</label>
                 <input
                   type="number"
                   required
@@ -500,6 +587,47 @@ export default function PharmacyBatches() {
               </div>
             </div>
 
+            <div className="border-t border-[var(--color-border)] pt-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">
+                Statutory Supplier Details (Drugs & Cosmetics Act)
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="form-label">Supplier</label>
+                  <select
+                    value={inwardSupplierId}
+                    onChange={e => setInwardSupplierId(e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="">Select registered supplier…</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} {s.gstin ? `(${s.gstin})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Supplier Invoice No.</label>
+                  <input
+                    type="text"
+                    value={inwardInvoiceNo}
+                    onChange={e => setInwardInvoiceNo(e.target.value)}
+                    placeholder="e.g. INV-2026-4401"
+                    className="form-input font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Supplier Drug Licence</label>
+                  <input
+                    type="text"
+                    value={inwardSupplierLicence}
+                    onChange={e => setInwardSupplierLicence(e.target.value)}
+                    placeholder="e.g. DL-20B-7821"
+                    className="form-input font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="pt-3 border-t border-[var(--color-border)] flex justify-end gap-2">
               <button
                 type="button"
@@ -513,14 +641,14 @@ export default function PharmacyBatches() {
                 disabled={inwarding}
                 className="btn btn-primary btn-sm cursor-pointer"
               >
-                {inwarding ? 'Inwarding…' : 'Save Batch Stock'}
+                {inwarding ? 'Stocking In…' : 'Record Stock-In'}
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* ── Drug Detail & All Batches Modal ── */}
+      {/* ── Drug Detail & All Batches Modal with Recall Action ── */}
       {viewDrugDetail && (
         <Modal
           open={!!viewDrugDetail}
@@ -530,19 +658,26 @@ export default function PharmacyBatches() {
           size="lg"
         >
           <div className="space-y-4">
-            <h4 className="section-title">All Batches (FEFO Sorted)</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="section-title">All Batches (FEFO Sorted)</h4>
+              <span className="text-xs text-slate-500 font-mono">Total Stock: {viewDrugDetail.totalStock || 0} units</span>
+            </div>
             {viewDrugDetail.batches?.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-title">No batches recorded for this medicine.</div>
               </div>
             ) : (
-              <div className="card divide-y max-h-64 overflow-y-auto" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="card divide-y max-h-72 overflow-y-auto" style={{ borderColor: 'var(--color-border)' }}>
                 {viewDrugDetail.batches?.map((b: BatchDetail) => (
                   <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-[var(--color-surface-hover)]">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-[var(--color-text)]">{b.batchNumber}</span>
-                        {b.isExpired ? (
+                        {b.isRecalled ? (
+                          <span className="badge badge-danger">
+                            RECALLED
+                          </span>
+                        ) : b.isExpired ? (
                           <span className="badge badge-danger">
                             EXPIRED
                           </span>
@@ -558,12 +693,28 @@ export default function PharmacyBatches() {
                       </div>
                       <p className="text-[var(--color-text-muted)] text-[11px] mt-0.5">
                         Exp: {b.expiryDate} {b.mfgDate && `• Mfg: ${b.mfgDate}`} • Supplier: {b.supplierName || '—'}
+                        {b.isRecalled && b.recallReason && (
+                          <span className="text-rose-600 font-medium"> • Recall Note: {b.recallReason}</span>
+                        )}
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <div className="font-bold text-[var(--color-text)]">{b.quantityRemaining} / {b.quantityReceived} units</div>
-                      <div className="text-[11px] text-[var(--color-text-muted)]">MRP: ₹{b.mrp.toFixed(2)} • Cost: ₹{b.purchaseRate.toFixed(2)}</div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="font-bold text-[var(--color-text)]">{b.quantityRemaining} / {b.quantityReceived} units</div>
+                        <div className="text-[11px] text-[var(--color-text-muted)]">MRP: ₹{b.mrp.toFixed(2)} • Cost: ₹{b.purchaseRate.toFixed(2)}</div>
+                      </div>
+
+                      {!b.isRecalled && b.quantityRemaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setRecallingBatch(b); setRecallReason(''); }}
+                          className="btn btn-secondary btn-xs text-rose-600 hover:bg-rose-50 border-rose-200 cursor-pointer"
+                          title="Statutory CDSCO Batch Recall"
+                        >
+                          Recall
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -580,6 +731,52 @@ export default function PharmacyBatches() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Statutory Batch Recall Confirmation Modal ── */}
+      {recallingBatch && (
+        <Modal
+          open={!!recallingBatch}
+          onClose={() => setRecallingBatch(null)}
+          title={`CDSCO Statutory Batch Recall: ${recallingBatch.batchNumber}`}
+          description="Immediate quarantine. Recalled batch stock will be zeroed and permanently blocked from POS and clinical dispense."
+          size="md"
+        >
+          <form onSubmit={handleRecallSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="form-label">Reason for Batch Recall *</label>
+              <textarea
+                required
+                rows={3}
+                placeholder="e.g. CDSCO national alert, quality control failure, packaging breach, discoloration..."
+                value={recallReason}
+                onChange={e => setRecallReason(e.target.value)}
+                className="form-input"
+              />
+            </div>
+
+            <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+              ⚠️ Warning: This action will record an immediate debit stock movement and zero remaining quantity ({recallingBatch.quantityRemaining} units).
+            </div>
+
+            <div className="pt-3 border-t border-[var(--color-border)] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRecallingBatch(null)}
+                className="btn btn-secondary btn-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={recalling || !recallReason.trim()}
+                className="btn btn-primary btn-sm bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+              >
+                {recalling ? 'Quarantining Batch…' : 'Confirm Batch Recall'}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

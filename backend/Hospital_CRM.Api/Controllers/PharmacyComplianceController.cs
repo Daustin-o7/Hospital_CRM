@@ -506,6 +506,93 @@ public class PharmacyComplianceController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Fetches a finalized prescription with line items, patient demographic, and doctor registration details
+    /// for review and batch selection prior to dispensing.
+    /// </summary>
+    [HttpGet("prescriptions/{id:guid}")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
+    public async Task<IActionResult> GetPrescriptionForDispense(Guid id, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var prescription = await _db.Prescriptions
+            .Include(p => p.Items)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Doctor)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Appointment)
+                    .ThenInclude(a => a!.Patient)
+            .FirstOrDefaultAsync(p => p.Id == id, ct);
+
+        if (prescription == null)
+            return NotFound(new { error = "prescription_not_found" });
+
+        if (prescription.Consultation != null && prescription.Consultation.Status == ConsultationStatus.Draft)
+            return BadRequest(new { error = "cannot_dispense_draft_prescription", message = "Prescription must be finalized by doctor before dispensing." });
+
+        return Ok(new
+        {
+            prescriptionId = prescription.Id,
+            consultationId = prescription.ConsultationId,
+            patientName = prescription.Consultation?.Appointment?.Patient?.Name ?? "Walk-in Patient",
+            patientPhone = prescription.Consultation?.Appointment?.Patient?.Phone,
+            doctorName = prescription.Consultation?.Doctor?.Name ?? "Treating Doctor",
+            doctorRegNo = prescription.Consultation?.DoctorRegistrationNumber ?? "",
+            createdAt = prescription.CreatedAt,
+            items = prescription.Items.Select(i => new
+            {
+                id = i.Id,
+                drugId = i.DrugId,
+                genericName = i.GenericName,
+                brandName = i.BrandName,
+                dosageForm = i.DosageForm,
+                strength = i.Strength,
+                route = i.Route,
+                frequency = i.Frequency,
+                duration = i.Duration,
+                durationUnit = i.DurationUnit,
+                totalQuantity = i.TotalQuantity,
+                scheduleClass = i.ScheduleClass.ToString(),
+                isDispensed = i.IsDispensed
+            })
+        });
+    }
+
+    /// <summary>
+    /// Lists recent pending prescriptions available for pharmacy dispensing.
+    /// </summary>
+    [HttpGet("prescriptions/pending")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
+    public async Task<IActionResult> GetPendingPrescriptions([FromQuery] int limit = 20, CancellationToken ct = default)
+    {
+        var tenantId = TenantId;
+        var pending = await _db.Prescriptions
+            .Include(p => p.Items)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Doctor)
+            .Include(p => p.Consultation)
+                .ThenInclude(c => c!.Appointment)
+                    .ThenInclude(a => a!.Patient)
+            .Where(p => p.Consultation != null && 
+                        p.Consultation.Status != ConsultationStatus.Draft &&
+                        p.Items.Any(i => !i.IsDispensed))
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(limit)
+            .Select(p => new
+            {
+                prescriptionId = p.Id,
+                patientName = p.Consultation!.Appointment!.Patient.Name,
+                patientPhone = p.Consultation.Appointment.Patient.Phone,
+                doctorName = p.Consultation.Doctor.Name,
+                itemCount = p.Items.Count,
+                pendingItemCount = p.Items.Count(i => !i.IsDispensed),
+                createdAt = p.CreatedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(pending);
+    }
+
     [HttpGet("compliance/register")]
     [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
     public async Task<IActionResult> GetComplianceRegister(

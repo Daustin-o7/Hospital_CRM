@@ -60,7 +60,7 @@
 
 ### P2 Gaps
 - [x] **7. Server-side PDF**: For invoices, credit notes and prescriptions from finalized versions only; real QR image on Rx.
-- [ ] **8. Minimal pharmacy UI**: Dispense, stock-in, H1 export, recall.
+- [x] **8. Minimal pharmacy UI**: Dispense, stock-in, H1 export, recall.
 
 ### P3 Release Gating
 - [ ] **9. Task 1.4**: docker compose up end to end; fix what breaks.
