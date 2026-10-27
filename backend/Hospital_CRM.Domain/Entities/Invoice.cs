@@ -50,8 +50,15 @@ public class Invoice : ITenantScoped
     [Column(TypeName = "decimal(18,2)")]
     public decimal PaidAmount { get; set; } = 0.0m;
 
+    /// <summary>Approved credit notes. Never decreases, and is why BalanceDue is not simply Total - PaidAmount.</summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal CreditedAmount { get; set; } = 0.0m;
+
     [Column(TypeName = "decimal(18,2)")]
     public decimal BalanceDue { get; set; } = 0.0m;
+
+    /// <summary>The one way to compute BalanceDue: money still owed after payments and credit notes.</summary>
+    public void RecalculateBalance() => BalanceDue = Math.Max(0m, Total - PaidAmount - CreditedAmount);
 
     public int PrintCount { get; set; } = 0;
     public DateTimeOffset? LastPrintedAt { get; set; }

@@ -358,7 +358,7 @@ public class InvoicesController : ControllerBase
             invoice.Status = InvoiceStatus.Finalized;
             invoice.FinalizedAt = DateTimeOffset.UtcNow;
             invoice.FinalizedByUserId = User.GetUserId();
-            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            invoice.RecalculateBalance();
             invoice.UpdatedAt = DateTimeOffset.UtcNow;
 
             var invoiceRef = invoice.FormatInvoiceNumber();
@@ -596,7 +596,8 @@ public class InvoicesController : ControllerBase
                 });
 
                 // Adjust invoice balance
-                invoice.BalanceDue = Math.Max(0m, invoice.BalanceDue - req.Amount);
+                invoice.CreditedAmount += req.Amount;
+                invoice.RecalculateBalance();
                 invoice.UpdatedAt = now;
             }
 
@@ -691,7 +692,8 @@ public class InvoicesController : ControllerBase
         });
 
         // Adjust invoice balance
-        creditNote.Invoice.BalanceDue = Math.Max(0m, creditNote.Invoice.BalanceDue - creditNote.Amount);
+        creditNote.Invoice.CreditedAmount += creditNote.Amount;
+        creditNote.Invoice.RecalculateBalance();
         creditNote.Invoice.UpdatedAt = now;
 
         await _db.SaveChangesAsync(ct);
@@ -880,7 +882,7 @@ public class InvoicesController : ControllerBase
             _db.Payments.Add(refundPayment);
 
             invoice.PaidAmount -= req.Amount;
-            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            invoice.RecalculateBalance();
             if (invoice.PaidAmount <= 0m)
                 invoice.Status = InvoiceStatus.Refunded;
             else
@@ -1005,7 +1007,7 @@ public class InvoicesController : ControllerBase
             refundPayment.PaidAt = now;
 
             invoice.PaidAmount -= refundAmount;
-            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            invoice.RecalculateBalance();
             if (invoice.PaidAmount <= 0m)
                 invoice.Status = InvoiceStatus.Refunded;
             else
@@ -1505,7 +1507,7 @@ public class InvoicesController : ControllerBase
 
         _db.Payments.Add(manualPayment);
         invoice.PaidAmount += request.Amount;
-        invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+        invoice.RecalculateBalance();
         invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
         invoice.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -1625,7 +1627,7 @@ public class InvoicesController : ControllerBase
                                 if (payment.TenantId == Guid.Empty)
                                     payment.TenantId = invoice.TenantId;
                                 invoice.PaidAmount += payment.Amount;
-                                invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+                                invoice.RecalculateBalance();
                                 invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
                                 invoice.UpdatedAt = DateTimeOffset.UtcNow;
 

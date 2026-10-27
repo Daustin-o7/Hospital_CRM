@@ -324,7 +324,7 @@ public class PatientDepositsController : ControllerBase
 
             // Update Invoice balance
             invoice.PaidAmount += requestedAmount;
-            invoice.BalanceDue = Math.Max(0m, invoice.Total - invoice.PaidAmount);
+            invoice.RecalculateBalance();
             invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
             invoice.UpdatedAt = now;
 

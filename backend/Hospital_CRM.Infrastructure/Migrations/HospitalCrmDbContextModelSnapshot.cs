@@ -1447,6 +1447,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<decimal>("CreditedAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("decimal(18,2)");
 

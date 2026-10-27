@@ -681,3 +681,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `ProcessRefund.maxRefundable` now subtracts pending requests as well as confirmed refunds, so two ₹2,000 requests can no longer both sit against a ₹3,000 invoice; `ApproveRefund` recomputes `paid - refunded` and refuses (`refund_exceeds_paid_balance`) when the money was already refunded between request and approval.
 - Each pending request still blocks new ones but does not block its own approval, so an over-committed pair resolves first-come instead of deadlocking.
 - New tests `ProcessRefund_CountsPendingRefundsAgainstTheRefundableBalance` (red before) and `ApproveRefund_RechecksRefundableBalanceAndCannotOverdrawTheInvoice` (red before); suite **372 passed, 0 failed**.
+
+## 2026-10-28 - Audit A9 (#8): Credited Amount Is Stored, One BalanceDue Formula
+- `Invoice` gains `CreditedAmount` and `RecalculateBalance()` (`max(0, Total - PaidAmount - CreditedAmount)`); the migration `AddInvoiceCreditedAmount` adds the column and backfills it from approved credit notes.
+- Credit-note issue/approval now increment `CreditedAmount` instead of decrementing `BalanceDue` in place, and the seven `Total - PaidAmount` recomputes (finalize, collect, refund, approve, deposit, confirm, webhook) call the one helper. Before, the next payment after a credit note re-billed the credited amount (`Total - Paid` ignored the credit), leaving the patient owing money they had already been credited.
+- New `PaymentAfterCreditNote_UsesTheCredit_AndDoesNotRebillIt`; the credit-note fixture stopped seeding `PaidAmount == Total` (which hid the bug); suite **373 passed, 0 failed**.

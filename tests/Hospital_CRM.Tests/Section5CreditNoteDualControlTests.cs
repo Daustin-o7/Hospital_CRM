@@ -54,7 +54,7 @@ public class Section5CreditNoteDualControlTests
             InvoiceNumber = 7,
             Series = "INV",
             Total = total,
-            PaidAmount = total,
+            PaidAmount = 0m,
             BalanceDue = total,
             Status = InvoiceStatus.Finalized
         };
@@ -168,6 +168,47 @@ public class Section5CreditNoteDualControlTests
         Assert.Equal(400, Assert.IsType<BadRequestObjectResult>(laterApprove).StatusCode);
         Assert.Empty(await db.FinanceLedgerEntries.ToListAsync());
         Assert.Equal(2000m, (await db.Invoices.SingleAsync(i => i.Id == invoice.Id)).BalanceDue);
+    }
+
+    [Fact]
+    public async Task PaymentAfterCreditNote_UsesTheCredit_AndDoesNotRebillIt()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceNumber = 9,
+            Series = "INV",
+            Total = 1000m,
+            PaidAmount = 400m,
+            BalanceDue = 600m,
+            Status = InvoiceStatus.PartiallyPaid
+        };
+        db.Invoices.Add(invoice);
+        await db.SaveChangesAsync();
+
+        await ControllerFor(db, adminId, tenantId)
+            .CreateCreditNote(invoice.Id, new CreateCreditNoteRequest(300m, "Waiver"), CancellationToken.None);
+
+        var afterCreditNote = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(300m, afterCreditNote.CreditedAmount);
+        Assert.Equal(300m, afterCreditNote.BalanceDue);
+
+        var payments = new PaymentsController(db);
+        payments.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = Principal(adminId, tenantId) }
+        };
+        var res = await payments.ConfirmPayment(invoice.Id, new ConfirmPaymentRequest("cash", 300m), CancellationToken.None);
+        Assert.IsType<OkObjectResult>(res);
+
+        var settled = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(0m, settled.BalanceDue);
+        Assert.Equal(InvoiceStatus.Paid, settled.Status);
+        Assert.Equal(300m, settled.CreditedAmount);
     }
 
     [Fact]
