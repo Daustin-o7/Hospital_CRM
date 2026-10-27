@@ -281,6 +281,79 @@ public class Section5RefundTests
     }
 
     [Fact]
+    public async Task ProcessRefund_CountsPendingRefundsAgainstTheRefundableBalance()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var (invoice, admin1, _) = await SeedPaidInvoiceAsync(db, tenantId, 3000m);
+        var controller = CreateController(db, tenantId, admin1.Id);
+
+        var first = await controller.ProcessRefund(invoice.Id, new CreateRefundRequest(
+            Amount: 2000m, Method: PaymentMethod.UPI, RefundReference: "REF-A", Reason: "First request"), CancellationToken.None);
+        Assert.Equal(202, Assert.IsType<ObjectResult>(first).StatusCode);
+
+        // Only ₹1,000 is still uncommitted, so a second ₹2,000 request must not be accepted as pending too.
+        var second = await controller.ProcessRefund(invoice.Id, new CreateRefundRequest(
+            Amount: 2000m, Method: PaymentMethod.UPI, RefundReference: "REF-B", Reason: "Second request"), CancellationToken.None);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(second);
+        Assert.Contains("refund_exceeds_paid_balance", bad.Value?.ToString() ?? "");
+        Assert.Single(db.Payments.Where(p => p.InvoiceId == invoice.Id && p.Status == PaymentStatus.Pending));
+    }
+
+    [Fact]
+    public async Task ApproveRefund_RechecksRefundableBalanceAndCannotOverdrawTheInvoice()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var (invoice, admin1, admin2) = await SeedPaidInvoiceAsync(db, tenantId, 3000m);
+
+        // Two requests slipped past creation (e.g. raised concurrently); approval must still refuse the overdraw.
+        var first = new Payment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            Method = PaymentMethod.UPI,
+            Amount = -2000m,
+            Status = PaymentStatus.Pending,
+            VerificationStatus = PaymentVerificationStatus.Pending,
+            ConfirmedByUserId = admin1.Id,
+            RefundReference = "REF-1",
+            RefundReason = "Pending one",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        var second = new Payment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            Method = PaymentMethod.UPI,
+            Amount = -2000m,
+            Status = PaymentStatus.Pending,
+            VerificationStatus = PaymentVerificationStatus.Pending,
+            ConfirmedByUserId = admin1.Id,
+            RefundReference = "REF-2",
+            RefundReason = "Pending two",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.Payments.AddRange(first, second);
+        await db.SaveChangesAsync();
+
+        var approver = CreateController(db, tenantId, admin2.Id);
+        Assert.IsType<OkObjectResult>(await approver.ApproveRefund(invoice.Id, first.Id, null, CancellationToken.None));
+
+        var secondRes = await approver.ApproveRefund(invoice.Id, second.Id, null, CancellationToken.None);
+        var bad = Assert.IsType<BadRequestObjectResult>(secondRes);
+        Assert.Contains("refund_exceeds_paid_balance", bad.Value?.ToString() ?? "");
+
+        var reloaded = await db.Invoices.FindAsync(invoice.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(1000m, reloaded.PaidAmount);
+        Assert.True(reloaded.BalanceDue >= 0m);
+    }
+
+    [Fact]
     public async Task ProcessRefund_ExceedingPaidAmount_Blocked()
     {
         var db = CreateInMemoryDb();

@@ -790,14 +790,18 @@ public class InvoicesController : ControllerBase
             }
         }
 
-        // Calculate maximum refundable based on confirmed payments minus prior refunds
+        // Calculate maximum refundable based on confirmed payments minus prior refunds and pending requests
         var totalPaid = invoice.Payments
             .Where(p => p.Status == PaymentStatus.Completed)
             .Sum(p => p.Amount);
         var totalRefunded = invoice.Payments
             .Where(p => p.Status == PaymentStatus.Refunded && p.VerificationStatus == PaymentVerificationStatus.Confirmed)
             .Sum(p => Math.Abs(p.Amount));
-        var maxRefundable = Math.Max(0m, totalPaid - totalRefunded);
+        // A pending request is money already promised to the patient; ignoring it lets two requests overdraw the invoice.
+        var pendingRefunds = invoice.Payments
+            .Where(p => p.Status == PaymentStatus.Pending && p.VerificationStatus == PaymentVerificationStatus.Pending)
+            .Sum(p => Math.Abs(p.Amount));
+        var maxRefundable = Math.Max(0m, totalPaid - totalRefunded - pendingRefunds);
 
         if (req.Amount > maxRefundable)
         {
@@ -972,6 +976,21 @@ public class InvoicesController : ControllerBase
             return NotFound(new { error = "invoice_not_found" });
 
         var refundAmount = Math.Abs(refundPayment.Amount);
+
+        // Re-check at approval time: an earlier request may have been approved between creation and now.
+        var totalPaid = await _db.Payments
+            .Where(p => p.InvoiceId == id && p.Status == PaymentStatus.Completed)
+            .SumAsync(p => p.Amount, ct);
+        var totalRefunded = await _db.Payments
+            .Where(p => p.InvoiceId == id && p.Status == PaymentStatus.Refunded && p.VerificationStatus == PaymentVerificationStatus.Confirmed)
+            .SumAsync(p => Math.Abs(p.Amount), ct);
+        var refundableNow = Math.Max(0m, totalPaid - totalRefunded);
+        if (refundAmount > refundableNow)
+            return BadRequest(new
+            {
+                error = "refund_exceeds_paid_balance",
+                message = $"Refund of ₹{refundAmount:F2} exceeds the refundable paid balance of ₹{refundableNow:F2}."
+            });
 
         var strategy = _db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync<IActionResult>(async () =>

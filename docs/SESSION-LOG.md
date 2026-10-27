@@ -676,3 +676,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `AuthContext.hasRole` now lowercases both sides (`roles.some(r => r.toLowerCase() === user.role.toLowerCase())`). The old code only lowercased the user's role, so PascalCase call sites (`hasRole(['"'"'ClinicAdmin'"'"', '"'"'Receptionist'"'"'])` in `Inventory.tsx`) failed whenever the role arrived lowercase.
 - Session restore (`AuthContext.tsx:365`) stores `role` lowercased while `/auth/login` returns `ClinicAdmin`, so after a refresh an admin lost `canEdit` and the Inventory restock action disappeared. Both spellings now resolve.
 - No frontend unit runner; verified with `npm run build` (exit 0) and `npm run lint` (exit 0).
+
+## 2026-10-28 - Audit A8 (#6): Refund Cap Reserves Pending Requests
+- `ProcessRefund.maxRefundable` now subtracts pending requests as well as confirmed refunds, so two ₹2,000 requests can no longer both sit against a ₹3,000 invoice; `ApproveRefund` recomputes `paid - refunded` and refuses (`refund_exceeds_paid_balance`) when the money was already refunded between request and approval.
+- Each pending request still blocks new ones but does not block its own approval, so an over-committed pair resolves first-come instead of deadlocking.
+- New tests `ProcessRefund_CountsPendingRefundsAgainstTheRefundableBalance` (red before) and `ApproveRefund_RechecksRefundableBalanceAndCannotOverdrawTheInvoice` (red before); suite **372 passed, 0 failed**.

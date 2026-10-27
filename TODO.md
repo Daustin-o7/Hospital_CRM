@@ -207,7 +207,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
 
 ### Phase 1 - Money correctness
-- [ ] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.
+- [x] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.
 - [ ] **A9 (#8) Credited/BalanceDue**: `Credited` tracked on invoice; one BalanceDue formula.
 - [ ] **A10 (#11) Draft PATCH**: recompute `Total` from lines.
 - [ ] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
