@@ -8,6 +8,7 @@ using Hospital_CRM.Api.Services;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
 using Hospital_CRM.Domain.Services;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -536,21 +537,65 @@ public class PaymentIntegrationsController : ControllerBase
     /// </summary>
     private Payment CloseInvoice(Invoice invoice, Guid tenantId, decimal? amount, string? utr)
     {
+        var now = DateTimeOffset.UtcNow;
+        var paid = amount ?? invoice.BalanceDue;
+        var userId = User.GetUserId();
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             InvoiceId = invoice.Id,
             Method = PaymentMethod.UPI,
-            Amount = amount ?? invoice.Total,
+            Amount = paid,
             Utr = utr,
             Status = PaymentStatus.Completed,
-            PaidAt = DateTimeOffset.UtcNow,
-            CreatedAt = DateTimeOffset.UtcNow
+            VerificationStatus = PaymentVerificationStatus.Confirmed,
+            ConfirmedAt = now,
+            ConfirmedByUserId = userId,
+            PaidAt = now,
+            CreatedAt = now
         };
         _db.Payments.Add(payment);
-        invoice.Status = InvoiceStatus.Paid;
-        invoice.UpdatedAt = DateTimeOffset.UtcNow;
+
+        // Close the invoice the same way a staff-confirmed payment does, or the bill stays open in reporting.
+        invoice.PaidAmount += paid;
+        invoice.RecalculateBalance();
+        invoice.Status = invoice.BalanceDue <= 0m ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+        invoice.UpdatedAt = now;
+
+        var invoiceRef = invoice.FormatInvoiceNumber();
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.PaymentConfirmed,
+            ReferenceType = "Payment",
+            ReferenceId = payment.Id,
+            ReferenceNumber = payment.Utr ?? invoiceRef,
+            AccountCategory = "Bank",
+            DebitAmount = paid,
+            CreditAmount = 0.0m,
+            Narration = $"Payment confirmed for {invoiceRef} via UPI. UTR: {payment.Utr ?? "N/A"}",
+            PostedByUserId = userId,
+            CreatedAt = now
+        });
+
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.PaymentConfirmed,
+            ReferenceType = "Invoice",
+            ReferenceId = invoice.Id,
+            ReferenceNumber = invoiceRef,
+            AccountCategory = "AccountsReceivable",
+            DebitAmount = 0.0m,
+            CreditAmount = paid,
+            Narration = $"Receivable offset for {invoiceRef} from payment {payment.Id:N}",
+            PostedByUserId = userId,
+            CreatedAt = now
+        });
+
         return payment;
     }
 

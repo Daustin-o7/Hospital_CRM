@@ -691,3 +691,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `UpdateInvoiceDraft` now always recomputes `Total = Subtotal + GstAmount - Discount` (and `RecalculateBalance()`), rejecting a discount larger than the new gross; before, `Total` only moved when the body re-sent `DiscountAmount`, so editing lines left a stale total that finalization would have to rescue.
 - While testing it, the replaced line items turned out never to be written: the new rows arrive with pre-assigned ids, so EF marked them `Modified` and issued an UPDATE against rows that do not exist (Postgres silently changed 0 rows). They are now `AddRange`d explicitly.
 - New `UpdateDraft_RecomputesTotalFromTheNewLines` (asserts total, balance and the persisted line); suite **374 passed, 0 failed**.
+
+## 2026-10-28 - Audit A11 (#9): Webhook/bridge Payments Close the Invoice Like a Staff Payment
+- `PaymentIntegrationsController.CloseInvoice` (shared by the PSP webhook match queue and the device bridge) used to write a `Payment` row and flip `Status = Paid` without touching `PaidAmount`, `BalanceDue` or the ledger, so a ₹400 UPI part-payment marked a ₹1,000 invoice paid and left the receivable open in reports.
+- It now adds the amount to `PaidAmount`, recomputes `BalanceDue` via `RecalculateBalance()`, sets `PartiallyPaid`/`Paid` from the remaining balance, records `VerificationStatus = Confirmed`/`ConfirmedAt`/`ConfirmedByUserId`, and posts the same two `PaymentConfirmed` ledger entries (Bank debit, AccountsReceivable credit) as `PaymentsController.ConfirmPayment`.
+- New `Section5PaymentIntegrationsTests` (matched webhook → balance + ledger, already-paid invoice → rejected); suite **376 passed, 0 failed**.

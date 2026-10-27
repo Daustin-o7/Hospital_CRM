@@ -210,7 +210,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A8 (#6) Refund cap**: count Pending refunds; re-check at approval.
 - [x] **A9 (#8) Credited/BalanceDue**: `Credited` tracked on invoice; one BalanceDue formula.
 - [x] **A10 (#11) Draft PATCH**: recompute `Total` from lines.
-- [ ] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
+- [x] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
 
 ### Phase 2 - Auth hardening
 - [ ] **A12 (#3) Audit REVOKE**: migration-level least privilege; fix `ALTER DEFAULT PRIVILEGES`.
