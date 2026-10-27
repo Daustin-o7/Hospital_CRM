@@ -79,9 +79,9 @@ public class SectionZeroTests
     {
         var raw = "refresh-token-value";
 
-        Assert.Equal(raw.HashRefreshToken(), raw.HashRefreshToken());
-        Assert.Equal(64, raw.HashRefreshToken().Length);
-        Assert.DoesNotContain(raw, raw.HashRefreshToken());
+        Assert.Equal(raw.HashToken(), raw.HashToken());
+        Assert.Equal(64, raw.HashToken().Length);
+        Assert.DoesNotContain(raw, raw.HashToken());
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class SectionZeroTests
             ClinicId = selectedClinic,
             Role = UserRole.Doctor,
             FamilyId = Guid.NewGuid(),
-            TokenHash = raw.HashRefreshToken(),
+            TokenHash = raw.HashToken(),
             IssuedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
         });
@@ -167,7 +167,7 @@ public class SectionZeroTests
         Assert.Equal(tenantId, body.RootElement.GetProperty("tenantId").GetGuid());
         Assert.Equal(selectedClinic, body.RootElement.GetProperty("clinicId").GetGuid());
 
-        var issued = await db.RefreshTokens.SingleAsync(t => t.TokenHash != raw.HashRefreshToken());
+        var issued = await db.RefreshTokens.SingleAsync(t => t.TokenHash != raw.HashToken());
         Assert.Equal(tenantId, issued.TenantId);
         Assert.Equal(selectedClinic, issued.ClinicId);
         Assert.Equal(UserRole.Doctor, issued.Role);
@@ -198,7 +198,7 @@ public class SectionZeroTests
             {
                 Id = Guid.NewGuid(), UserId = userId, TenantId = tenantId,
                 Role = UserRole.Doctor, FamilyId = familyId,
-                TokenHash = reused.HashRefreshToken(),
+                TokenHash = reused.HashToken(),
                 IssuedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
                 RevokedAt = DateTimeOffset.UtcNow
@@ -207,7 +207,7 @@ public class SectionZeroTests
             {
                 Id = Guid.NewGuid(), UserId = userId, TenantId = tenantId,
                 Role = UserRole.Doctor, FamilyId = familyId,
-                TokenHash = live.HashRefreshToken(),
+                TokenHash = live.HashToken(),
                 IssuedAt = DateTimeOffset.UtcNow,
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
             });
@@ -217,7 +217,7 @@ public class SectionZeroTests
         var result = await controller.Refresh(new RefreshRequest(reused), CancellationToken.None);
 
         Assert.IsType<UnauthorizedObjectResult>(result);
-        var remaining = await db.RefreshTokens.SingleAsync(t => t.TokenHash == live.HashRefreshToken());
+        var remaining = await db.RefreshTokens.SingleAsync(t => t.TokenHash == live.HashToken());
         Assert.NotNull(remaining.RevokedAt);
         Assert.True(await db.AuthAuditLogs.AnyAsync(a => a.EventType == AuthEvent.RefreshReuseDetected));
     }

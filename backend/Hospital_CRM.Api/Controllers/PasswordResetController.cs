@@ -36,7 +36,7 @@ public class PasswordResetController : ControllerBase
             return Ok(new { message = "If the email exists, a reset token has been issued." });
 
         var rawToken = Guid.NewGuid().ToString("N");
-        var tokenHash = rawToken.HashPassword();
+        var tokenHash = rawToken.HashToken();
 
         var resetToken = new PasswordResetToken
         {
@@ -65,13 +65,12 @@ public class PasswordResetController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.ResetToken) || string.IsNullOrWhiteSpace(request.NewPassword))
             return BadRequest(new { error = "token_and_password_required" });
 
-        var validTokens = await _db.PasswordResetTokens
-            .Where(t => t.UsedAt == null && t.ExpiresAt > DateTimeOffset.UtcNow)
-            .OrderByDescending(t => t.ExpiresAt)
-            .Take(50)
-            .ToListAsync(ct);
-
-        var tokenRecord = validTokens.FirstOrDefault(t => request.ResetToken.VerifyPassword(t.TokenHash));
+        // Digest lookup: one indexed read instead of hashing every live token.
+        var tokenHash = request.ResetToken.HashToken();
+        var tokenRecord = await _db.PasswordResetTokens
+            .FirstOrDefaultAsync(t => t.TokenHash == tokenHash
+                                      && t.UsedAt == null
+                                      && t.ExpiresAt > DateTimeOffset.UtcNow, ct);
         if (tokenRecord is null)
             return BadRequest(new { error = "invalid_or_expired_token" });
 

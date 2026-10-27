@@ -2414,6 +2414,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
                     b.HasIndex("UserId");
 
                     b.ToTable("PasswordResetTokens");
@@ -3812,6 +3815,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("ClinicId");
 
                     b.HasIndex("NurseProfileId")
+                        .IsUnique();
+
+                    b.HasIndex("TokenHash")
                         .IsUnique();
 
                     b.HasIndex("UserId");

@@ -246,7 +246,7 @@ public class AuthController : ControllerBase
             TenantId = tenantId,
             ClinicId = clinicId,
             Role = role,
-            TokenHash = rawToken.HashRefreshToken(),
+            TokenHash = rawToken.HashToken(),
             IssuedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshExpiryDays),
             LastUsedAt = DateTimeOffset.UtcNow
@@ -349,7 +349,7 @@ public class AuthController : ControllerBase
             return NoContent();
 
         // Deterministic digest => one indexed lookup. No scan, no BCrypt cost.
-        var tokenHash = rawToken.HashRefreshToken();
+        var tokenHash = rawToken.HashToken();
         var storedToken = await _db.RefreshTokens
             .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, ct);
@@ -611,7 +611,7 @@ public class AuthController : ControllerBase
         {
             // Same deterministic digest as refresh; a BCrypt scan here would silently
             // never match and leave the row alive after "log out".
-            var tokenHash = rawToken.HashRefreshToken();
+            var tokenHash = rawToken.HashToken();
             var storedToken = await _db.RefreshTokens
                 .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.RevokedAt == null, ct);
 

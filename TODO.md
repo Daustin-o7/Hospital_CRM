@@ -214,7 +214,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 
 ### Phase 2 - Auth hardening
 - [x] **A12 (#3) Audit REVOKE**: migration-level least privilege; fix `ALTER DEFAULT PRIVILEGES`.
-- [ ] **A13 (#13) Invite/reset tokens**: digest lookup, rate limits, stop logging invite tokens.
+- [x] **A13 (#13) Invite/reset tokens**: digest lookup, rate limits, stop logging invite tokens.
 - [ ] **A14 (#14) Forwarded headers**: explicit trusted proxies.
 - [ ] **A15 (#17) Refresh rotation**: atomic.
 - [ ] **A16 (#16) Password reset**: revoke sessions.

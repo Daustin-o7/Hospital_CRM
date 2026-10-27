@@ -9,6 +9,7 @@ using Hospital_CRM.Domain.Services;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
@@ -62,7 +63,7 @@ public class StaffController : ControllerBase
             return Conflict(new { error = "email_already_registered" });
 
         var rawToken = Guid.NewGuid().ToString("N");
-        var tokenHash = rawToken.HashPassword();
+        var tokenHash = rawToken.HashToken();
 
         var invite = new StaffInvite
         {
@@ -104,7 +105,7 @@ public class StaffController : ControllerBase
         _db.StaffInvites.Add(invite);
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("Invite link generated for {Email}: token={Token}", request.Email, rawToken);
+        _logger.LogInformation("Invite link generated for {Email}", request.Email);
 
         return Ok(new
         {
@@ -116,14 +117,16 @@ public class StaffController : ControllerBase
 
     [HttpPost("accept-invite")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> AcceptInvite([FromBody] AcceptInviteRequest request, CancellationToken ct)
     {
-        var validInvites = await _db.StaffInvites
+        // Digest lookup: one indexed read, and a stolen database row cannot be replayed.
+        var tokenHash = request.InviteToken.HashToken();
+        var invite = await _db.StaffInvites
             .IgnoreQueryFilters()
-            .Where(i => i.ExpiresAt > DateTimeOffset.UtcNow && i.AcceptedAt == null)
-            .ToListAsync(ct);
-
-        var invite = validInvites.FirstOrDefault(i => request.InviteToken.VerifyPassword(i.TokenHash));
+            .FirstOrDefaultAsync(i => i.TokenHash == tokenHash
+                                      && i.ExpiresAt > DateTimeOffset.UtcNow
+                                      && i.AcceptedAt == null, ct);
 
         if (invite is null)
             return Unauthorized(new { error = "invalid_or_expired_invite" });

@@ -182,6 +182,7 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.TokenHash).HasMaxLength(512);
+            e.HasIndex(x => x.TokenHash).IsUnique();
             e.HasOne(x => x.User).WithMany(u => u.PasswordResetTokens).HasForeignKey(x => x.UserId);
         });
 
@@ -189,6 +190,7 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TenantId, x.ClinicId, x.Email, x.AcceptedAt });
+            e.HasIndex(x => x.TokenHash).IsUnique();
             e.Property(x => x.Name).HasMaxLength(255);
             e.Property(x => x.Email).HasMaxLength(255);
             e.Property(x => x.TokenHash).HasMaxLength(512);
