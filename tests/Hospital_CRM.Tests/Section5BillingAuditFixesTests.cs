@@ -141,6 +141,7 @@ public class Section5BillingAuditFixesTests
         invoice.LineItems.Add(new InvoiceLineItem
         {
             Id = Guid.NewGuid(),
+            InvoiceId = invoice.Id,
             Description = "Original line",
             Quantity = 1,
             UnitPrice = 1000m,
