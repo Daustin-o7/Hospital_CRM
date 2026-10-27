@@ -82,7 +82,7 @@ export default function Settings() {
 
   const { user } = useAuth()
   const userRole = String(user?.role || 'doctor').toLowerCase()
-  const isAdmin = userRole === 'clinicadmin'
+  const isAdmin = userRole === 'clinicadmin' || userRole === 'owner'
 
   const showToast = (msg: string, kind: 'ok' | 'err' = 'ok') => {
     setToast({ msg, kind })

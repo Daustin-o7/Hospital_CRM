@@ -157,7 +157,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Role Workspace Launchpad (Domain Selector Cards) ── */}
-      {String(user?.role || '').toLowerCase() === 'clinicadmin' && (
+      {['clinicadmin', 'owner'].includes(String(user?.role || '').toLowerCase()) && (
       <div className="card p-4 space-y-3 bg-[var(--color-surface)] border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

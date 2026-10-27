@@ -8,6 +8,7 @@ public static class RoleRegistry
 {
     // Individual system roles
     public const string ClinicAdmin = "ClinicAdmin";
+    public const string Owner = "Owner";
     public const string Doctor = "Doctor";
     public const string Receptionist = "Receptionist";
     public const string Pharmacist = "Pharmacist";
@@ -16,15 +17,17 @@ public static class RoleRegistry
 
     // Common composite authorization groups
     public const string ClinicalStaff = $"{Doctor},{Nurse}";
-    public const string AdminOrDoctor = $"{ClinicAdmin},{Doctor}";
-    public const string AdminOrReceptionist = $"{ClinicAdmin},{Receptionist}";
-    public const string ClinicalOrAdmin = $"{ClinicAdmin},{Doctor},{Nurse}";
-    public const string PharmacyAccess = $"{ClinicAdmin},{Pharmacist},{Doctor},{Receptionist},{Nurse}";
-    public const string AllClinicRoles = $"{ClinicAdmin},{Doctor},{Receptionist},{Pharmacist},{Nurse}";
+    public const string AdminOrDoctor = $"{ClinicAdmin},{Owner},{Doctor}";
+    public const string AdminOrReceptionist = $"{ClinicAdmin},{Owner},{Receptionist}";
+    public const string ClinicalOrAdmin = $"{ClinicAdmin},{Owner},{Doctor},{Nurse}";
+    public const string PharmacyAccess = $"{ClinicAdmin},{Owner},{Pharmacist},{Doctor},{Receptionist},{Nurse}";
+    public const string AllClinicRoles = $"{ClinicAdmin},{Owner},{Doctor},{Receptionist},{Pharmacist},{Nurse}";
 
+    // PlatformAdmin is not a clinic role: it is minted only by bootstrap/provisioning.
     public static readonly string[] All =
     [
         ClinicAdmin,
+        Owner,
         Doctor,
         Receptionist,
         Pharmacist,

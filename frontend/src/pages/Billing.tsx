@@ -140,7 +140,7 @@ interface PrintableInvoice {
 
 export default function Billing() {
   const { user } = useAuth()
-  const isClinicAdmin = user?.role === 'clinicadmin'
+  const isClinicAdmin = user?.role === 'clinicadmin' || user?.role === 'owner'
 
   const [activeTab, setActiveTab] = useState<'invoices' | 'daily' | 'outstanding' | 'ledger'>('invoices')
   const [invoices, setInvoices] = useState<Invoice[]>([])

@@ -19,14 +19,14 @@ public static class Permissions
 
     private static readonly Dictionary<string, HashSet<UserRole>> Granted = new(StringComparer.Ordinal)
     {
-        [PatientsRead] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor, UserRole.Nurse],
-        [PatientWrite] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor],
-        [VitalsWrite] = [UserRole.Nurse, UserRole.Doctor, UserRole.ClinicAdmin, UserRole.Receptionist],
+        [PatientsRead] = [UserRole.ClinicAdmin, UserRole.Owner, UserRole.Receptionist, UserRole.Doctor, UserRole.Nurse],
+        [PatientWrite] = [UserRole.ClinicAdmin, UserRole.Owner, UserRole.Receptionist, UserRole.Doctor],
+        [VitalsWrite] = [UserRole.Nurse, UserRole.Doctor, UserRole.ClinicAdmin, UserRole.Owner, UserRole.Receptionist],
         [ConsultationWrite] = [UserRole.Doctor],
-        [InvoiceWrite] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor],
-        [PaymentRecord] = [UserRole.ClinicAdmin, UserRole.Receptionist, UserRole.Doctor, UserRole.Pharmacist],
-        [PharmacyDispense] = [UserRole.ClinicAdmin, UserRole.Pharmacist, UserRole.Doctor],
-        [LedgerWrite] = [UserRole.ClinicAdmin]
+        [InvoiceWrite] = [UserRole.ClinicAdmin, UserRole.Owner, UserRole.Receptionist, UserRole.Doctor],
+        [PaymentRecord] = [UserRole.ClinicAdmin, UserRole.Owner, UserRole.Receptionist, UserRole.Doctor, UserRole.Pharmacist],
+        [PharmacyDispense] = [UserRole.ClinicAdmin, UserRole.Owner, UserRole.Pharmacist, UserRole.Doctor],
+        [LedgerWrite] = [UserRole.ClinicAdmin, UserRole.Owner]
     };
 
     public static bool IsKnown(string? permission) =>

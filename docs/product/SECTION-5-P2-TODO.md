@@ -15,10 +15,11 @@
 - [x] Docs updated (`SECTION-5-TODO.md` §5.8, `WORKFLOW.md` §5.7/§5.8)
 
 ## 2. Owner role — DONE
-- [x] `Owner` added to `UserRole` (after `ClinicAdmin`) and to `MfaPolicy.RequiresEnrolment`
+- [x] `Owner` added to `UserRole` (appended as 6 — the value is persisted as an int) and to `MfaPolicy.RequiresEnrolment`
 - [x] `PayeeAccountsController` list/create/update accept `Owner`
 - [x] Credit-note create/approve/reject accept `Owner`; refund second approver accepts `Owner`
-- Note: `Owner` is an approval role only — it is deliberately **not** in `PermissionRegistry`, so it has no clinical/invoice write permissions of its own.
+- [x] `Owner` inherits the whole ClinicAdmin area (`AuthorizeRolesAttribute` expands `ClinicAdmin` → `ClinicAdmin,Owner`) and holds the same `PermissionRegistry` capabilities, so an Owner gets the full clinic shell in the PWA — earlier it landed on an empty sidebar.
+- [x] `Owner` is not invitable (`StaffRolePolicy`), same as `ClinicAdmin`/`PlatformAdmin`; the development seed creates `owner@samstack.ai`.
 
 ## 3. Indian Financial Year (Apr–Mar) numbering — ALREADY BUILT, docs corrected
 - [x] `IndianFinancialYearUtils.GetFinancialYear` → `"2026-27"`

@@ -480,6 +480,40 @@ if (autoMigrate)
                     });
                     await db.SaveChangesAsync();
                 }
+                // Owner cannot be invited (StaffRolePolicy), so existing dev DBs need the seeded one.
+                if (!await db.Users.AnyAsync(u => u.Role == UserRole.Owner))
+                {
+                    var ownerClinic = await db.Clinics.FirstOrDefaultAsync();
+                    if (ownerClinic != null)
+                    {
+                        var ownerUser = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = "owner@samstack.ai",
+                            PasswordHash = "OwnerPass123!".HashPassword(),
+                            Name = "Dr. Owner",
+                            Role = UserRole.Owner,
+                            ClinicId = ownerClinic.Id,
+                            TenantId = ownerClinic.TenantId,
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        };
+                        db.Users.Add(ownerUser);
+                        db.TenantMemberships.Add(new TenantMembership
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = ownerUser.Id,
+                            TenantId = ownerClinic.TenantId,
+                            ClinicId = ownerClinic.Id,
+                            Role = UserRole.Owner,
+                            IsDefault = true,
+                            Status = "active",
+                            CreatedAt = DateTimeOffset.UtcNow,
+                            UpdatedAt = DateTimeOffset.UtcNow
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
                 // MOD-26: existing dev DBs predate NurseProfile — backfill so the
                 // seeded nurse preset can use roster/leave/handover.
                 var seededNurse = await db.Users.FirstOrDefaultAsync(u => u.Email == "nurse@samstack.ai");
@@ -793,6 +827,21 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     };
     db.Users.Add(admin);
 
+    // Clinic owner: not invitable (StaffRolePolicy), seeded here so the role is reachable in dev.
+    var owner = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = "owner@samstack.ai",
+        PasswordHash = "OwnerPass123!".HashPassword(),
+        Name = "Dr. Owner",
+        Role = UserRole.Owner,
+        ClinicId = clinic.Id,
+        TenantId = tenant.Id,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UpdatedAt = DateTimeOffset.UtcNow
+    };
+    db.Users.Add(owner);
+
     var doctor = new User
     {
         Id = Guid.NewGuid(),
@@ -867,7 +916,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
 
     // Section 0: explicit membership rows for every clinic-scoped seed user. The migration
     // backfill only covers users that existed before it ran; a fresh install seeds after.
-    foreach (var clinicUser in new[] { admin, doctor, receptionist, pharmacist, nurse })
+    foreach (var clinicUser in new[] { admin, owner, doctor, receptionist, pharmacist, nurse })
     {
         db.TenantMemberships.Add(new TenantMembership
         {

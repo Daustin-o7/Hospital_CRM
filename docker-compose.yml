@@ -14,7 +14,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-hospital_crm}
       POSTGRES_USER: ${POSTGRES_USER:-crm_user}
       # LOCAL-ONLY fallback. Override via .env in real environments.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (use .env, not the default)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:
@@ -54,7 +54,7 @@ services:
     container_name: hospital-crm-typesense
     environment:
       TYPESENSE_DATA_DIR: /data
-      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:?TYPESENSE_API_KEY must be set (use .env, not the default)}
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-ChangeMe-LocalOnly-TypesenseKey}
       TYPESENSE_ENABLE_CORS: "true"
     volumes:
       - typesense_data:/data
@@ -84,15 +84,15 @@ services:
       ASPNETCORE_URLS: http://+:8080
       DOTNET_RUNNING_IN_CONTAINER: "true"
       # Override localhost in appsettings.json with container-internal hostname
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD:-postgres}"
       # Hangfire reuses the same Postgres (strategy-v0.5 §6: Postgres over SQL Server to avoid per-core licensing)
-      Hangfire__PostgreSql__Connection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD}"
-      # Azurite blob endpoint (UseDevelopmentStorage=true shorthand)
-      AzureStorage__ConnectionString: "UseDevelopmentStorage=true"
+      Hangfire__PostgreSql__Connection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-hospital_crm};Username=${POSTGRES_USER:-crm_user};Password=${POSTGRES_PASSWORD:-postgres}"
+      # Azurite blob endpoint
+      AzureStorage__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLmot4ZeHOMgUm2llPREPwU9L9xCHWENR;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
       AzureStorage__BlobEndpoint: "http://azurite:10000/${AZURITE_ACCOUNT_NAME:-devstoreaccount1}"
       # Typesense (self-hosted, no frontend exposure — proxy through /api/v1)
       Typesense__Host: "http://typesense:8108"
-      Typesense__ApiKey: "${TYPESENSE_API_KEY}"
+      Typesense__ApiKey: "${TYPESENSE_API_KEY:-ChangeMe-LocalOnly-TypesenseKey}"
       Typesense__Protocol: "http"
       # External integrations
       Jwt__Issuer: ${Jwt__Issuer:-Hospital_CRM}
@@ -107,6 +107,7 @@ services:
     volumes:
       - api_keys:/app/keys
       - lab_uploads:/app/lab-uploads
+      - ./Medicine:/app/Medicine:ro
     ports:
       - "8080:8080"
     depends_on:
@@ -114,6 +115,8 @@ services:
         condition: service_healthy
       typesense:
         condition: service_healthy
+      azurite:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 10s

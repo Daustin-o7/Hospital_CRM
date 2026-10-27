@@ -203,6 +203,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 const ROLE_LABEL: Record<string, string> = {
   clinicadmin:   'Administrator',
+  owner:         'Owner',
   doctor:        'Doctor',
   receptionist:  'Receptionist',
   pharmacist:    'Pharmacist',
@@ -269,7 +270,9 @@ export default function DashboardLayout() {
     }
   }
 
-  const rawRole = String(user?.role || 'doctor').toLowerCase()
+  const sessionRole = String(user?.role || 'doctor').toLowerCase()
+  // An Owner runs the clinic: same shell as ClinicAdmin, still labelled "Owner" in the footer.
+  const rawRole = sessionRole === 'owner' ? 'clinicadmin' : sessionRole
   const searchParams = new URLSearchParams(location.search)
   const canPreview = rawRole === 'clinicadmin' || rawRole === 'platformadmin'
   const previewParam = canPreview ? searchParams.get('previewRole') : null
@@ -279,7 +282,7 @@ export default function DashboardLayout() {
 
   const displayRole = previewParam
     ? `${ROLE_LABEL[effectiveRole] ?? effectiveRole} (Preview)`
-    : (ROLE_LABEL[rawRole] ?? (user?.role || 'Staff'))
+    : (ROLE_LABEL[sessionRole] ?? (user?.role || 'Staff'))
   const isMultiDomainRole = effectiveRole === 'doctor' || effectiveRole === 'clinicadmin'
 
   const activeWorkspace = resolveWorkspace(location.pathname, location.search, effectiveRole)

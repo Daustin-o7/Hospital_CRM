@@ -34,6 +34,19 @@ public class StaffRolePolicyTests
         Assert.False(StaffRolePolicy.TryParseInvitableRole("PlatformAdmin", allowClinicAdmin: true, out _));
     }
 
+    [Fact]
+    public void Owner_Is_Not_Invitable_By_A_Clinic_Admin()
+    {
+        Assert.False(StaffRolePolicy.TryParseInvitableRole("Owner", allowClinicAdmin: false, out _));
+    }
+
+    [Fact]
+    public void Owner_Is_Minted_By_The_Privileged_Path()
+    {
+        Assert.True(StaffRolePolicy.TryParseInvitableRole("Owner", allowClinicAdmin: true, out var role));
+        Assert.Equal(UserRole.Owner, role);
+    }
+
     [Theory]
     [InlineData("doctor", UserRole.Doctor)]
     [InlineData("NURSE", UserRole.Nurse)]
