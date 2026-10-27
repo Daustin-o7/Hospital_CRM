@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Controllers;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
@@ -34,6 +35,25 @@ public class ConsultationsControllerTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };
         return controller;
+    }
+
+    // Clinical notes and prescriptions are doctor/admin-only; front-desk staff book appointments, they do not read charts.
+    [Theory]
+    [InlineData("List")]
+    [InlineData("Get")]
+    [InlineData("GetPrescriptions")]
+    public void ClinicalReadActions_DoNotAdmitReceptionist(string action)
+    {
+        var roles = typeof(ConsultationsController)
+            .GetMethod(action)!
+            .GetCustomAttributes(typeof(AuthorizeRolesAttribute), inherit: false)
+            .Cast<AuthorizeRolesAttribute>()
+            .SelectMany(a => (a.Roles ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .ToList();
+
+        Assert.DoesNotContain("Receptionist", roles, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Doctor", roles);
+        Assert.Contains("ClinicAdmin", roles);
     }
 
     [Fact]

@@ -636,3 +636,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Deleted `.AllowPasswordFlow()` from the OpenIddict server pipeline and dropped `GrantTypes.Password` from the seeded `hospital-crm-pwa` client, closing an MFA-bypass path (password grant issues tokens without any second factor).
 - Grep confirms no caller depended on it: the PWA authenticates through `POST /auth/login` + authorization-code/PKCE, and `/connect/token` is only used for refresh. Server-level denial also neutralises the grant on databases where the client was already seeded.
 - New source guard `PasswordFlowRemovedTests.OpenIddict_DoesNotExpose_ResourceOwnerPasswordGrant`; suite **363 passed, 0 failed**.
+
+## 2026-10-27 — P3 Hardening Item 12 (Task 2.3: Comprehensive FRD Acceptance Criteria Walkthrough)
+- Audited all 22 Phase 1 functional requirements (`docs/product/FRD_FINAL.md`), 9 Phase 2 fast-follow modules (`FRD-Phase-2-FINAL.md`), and Track 2 pharmacy controllers.
+- Generated single comprehensive compliance matrix in `docs/product/FRD-AUDIT-WALKTHROUGH.md` mapping every requirement to code evidence, API shape, and automated test coverage.
+- Confirmed zero (0) Must-level statutory or clinical compliance gaps remain across the codebase; verified test suite (**363 passed, 0 failed**).
