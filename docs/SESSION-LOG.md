@@ -562,4 +562,11 @@ Remaining P2 items above were left as documented limits (no dual approver, no Ow
 - Enforced payee account `DailyLimit` in `GenerateDynamicQr` with automatic rollover to backup accounts when primary reaches limit; applied migration `Section5ReportedPaymentControls`.
 - Verified with 4 tests in `Section5ReportedPaymentControlsTests.cs`; total suite **323 passed, 0 failed**.
 
+## 2026-10-27 — P1 Hardening Item 4 (Deposits and Advances)
+- Implemented `PatientDeposit` and `PatientDepositAllocation` entities with gapless Indian FY sequences (`DEP-{FY}-{sequence:D6}`).
+- Added `PatientDepositsController` with deposit collection, patient deposit summary, and FIFO advance allocation to finalized invoices (`POST /api/v1/invoices/{id}/apply-advance`).
+- Recorded double-entry financial ledger postings (Debit Cash/Bank, Credit PatientDeposits liability on collection; Debit PatientDeposits, Credit AccountsReceivable on allocation); applied migration `Section5PatientDepositsAndAdvances`.
+- Verified with 4 tests in `Section5PatientDepositsTests.cs`; total suite **327 passed, 0 failed**.
+
+
 

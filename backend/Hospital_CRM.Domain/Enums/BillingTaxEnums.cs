@@ -28,5 +28,8 @@ public enum FinanceEntryType
     RefundProcessed = 2,
     CreditNoteIssued = 3,
     Adjustment = 4,
-    Reversal = 5
+    Reversal = 5,
+    DepositCollected = 6,
+    DepositApplied = 7,
+    DepositRefunded = 8
 }

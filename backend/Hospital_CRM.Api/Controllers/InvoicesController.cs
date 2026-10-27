@@ -463,7 +463,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("invoices/{id:guid}/credit-notes")]
-    [AuthorizeRoles("ClinicAdmin")]
+    [AuthorizeRoles("ClinicAdmin", "Owner")]
     public async Task<IActionResult> CreateCreditNote(Guid id, [FromBody] CreateCreditNoteRequest req, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -475,6 +475,9 @@ public class InvoicesController : ControllerBase
 
         if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled or InvoiceStatus.Refunded)
             return BadRequest(new { error = "invoice_not_finalized", message = "Credit notes can only be issued against a finalized invoice." });
+
+        var taxProfile = await _db.TenantTaxProfiles.FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+        var creditNoteThreshold = taxProfile?.ThresholdCreditNoteApproval ?? 5000.0m;
 
         var currentFy = IndianFinancialYearUtils.GetFinancialYear(DateTimeOffset.UtcNow);
         var series = "CN";
@@ -519,6 +522,10 @@ public class InvoicesController : ControllerBase
             var currentUserId = User.GetUserId() ?? Guid.Empty;
             var now = DateTimeOffset.UtcNow;
 
+            // Dual-control: amounts above threshold require second approval
+            var requiresSecondApproval = req.Amount >= creditNoteThreshold;
+            var initialStatus = requiresSecondApproval ? CreditNoteStatus.PendingApproval : CreditNoteStatus.Approved;
+
             var creditNote = new CreditNote
             {
                 Id = Guid.NewGuid(),
@@ -531,49 +538,54 @@ public class InvoicesController : ControllerBase
                 Amount = req.Amount,
                 Reason = req.Reason.Trim(),
                 ApprovedByUserId = currentUserId,
+                SecondApprovedByUserId = requiresSecondApproval ? null : currentUserId,
+                Status = initialStatus,
                 IssuedAt = now,
                 CreatedAt = now
             };
 
             _db.CreditNotes.Add(creditNote);
 
-            // Reversal entry in append-only financial ledger
-            var invoiceRef = invoice.FormatInvoiceNumber();
-            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+            // Reversal entry in append-only financial ledger (only if approved immediately)
+            if (!requiresSecondApproval)
             {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                EntryType = FinanceEntryType.CreditNoteIssued,
-                ReferenceType = "CreditNote",
-                ReferenceId = creditNote.Id,
-                ReferenceNumber = creditNoteNum,
-                AccountCategory = "SalesReturnsAndAllowances",
-                DebitAmount = req.Amount,
-                CreditAmount = 0.0m,
-                Narration = $"Credit note {creditNoteNum} issued against {invoiceRef}. Reason: {req.Reason}",
-                PostedByUserId = currentUserId,
-                CreatedAt = now
-            });
+                var invoiceRef = invoice.FormatInvoiceNumber();
+                _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    EntryType = FinanceEntryType.CreditNoteIssued,
+                    ReferenceType = "CreditNote",
+                    ReferenceId = creditNote.Id,
+                    ReferenceNumber = creditNoteNum,
+                    AccountCategory = "SalesReturnsAndAllowances",
+                    DebitAmount = req.Amount,
+                    CreditAmount = 0.0m,
+                    Narration = $"Credit note {creditNoteNum} issued against {invoiceRef}. Reason: {req.Reason}",
+                    PostedByUserId = currentUserId,
+                    CreatedAt = now
+                });
 
-            _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                EntryType = FinanceEntryType.CreditNoteIssued,
-                ReferenceType = "Invoice",
-                ReferenceId = invoice.Id,
-                ReferenceNumber = invoiceRef,
-                AccountCategory = "AccountsReceivable",
-                DebitAmount = 0.0m,
-                CreditAmount = req.Amount,
-                Narration = $"Receivable reduced by {creditNoteNum}",
-                PostedByUserId = currentUserId,
-                CreatedAt = now
-            });
+                _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    EntryType = FinanceEntryType.CreditNoteIssued,
+                    ReferenceType = "Invoice",
+                    ReferenceId = invoice.Id,
+                    ReferenceNumber = invoiceRef,
+                    AccountCategory = "AccountsReceivable",
+                    DebitAmount = 0.0m,
+                    CreditAmount = req.Amount,
+                    Narration = $"Receivable reduced by {creditNoteNum}",
+                    PostedByUserId = currentUserId,
+                    CreatedAt = now
+                });
 
-            // Adjust invoice balance
-            invoice.BalanceDue = Math.Max(0m, invoice.BalanceDue - req.Amount);
-            invoice.UpdatedAt = now;
+                // Adjust invoice balance
+                invoice.BalanceDue = Math.Max(0m, invoice.BalanceDue - req.Amount);
+                invoice.UpdatedAt = now;
+            }
 
             await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
@@ -585,9 +597,125 @@ public class InvoicesController : ControllerBase
                 invoiceId = invoice.Id,
                 amount = creditNote.Amount,
                 reason = creditNote.Reason,
+                status = creditNote.Status.ToString().ToLower(),
+                requiresSecondApproval,
                 newBalanceDue = invoice.BalanceDue,
                 issuedAt = creditNote.IssuedAt
             });
+        });
+    }
+
+    [HttpPost("credit-notes/{creditNoteId:guid}/approve")]
+    [AuthorizeRoles("ClinicAdmin", "Owner")]
+    public async Task<IActionResult> ApproveCreditNote(Guid creditNoteId, [FromBody] ApproveCreditNoteRequest req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var creditNote = await _db.CreditNotes
+            .Include(c => c.Invoice)
+            .FirstOrDefaultAsync(c => c.Id == creditNoteId && c.TenantId == tenantId, ct);
+
+        if (creditNote == null)
+            return NotFound(new { error = "credit_note_not_found" });
+
+        if (creditNote.Status != CreditNoteStatus.PendingApproval)
+            return BadRequest(new { error = "credit_note_not_pending", message = "This credit note is not pending approval." });
+
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+        if (currentUserId == creditNote.ApprovedByUserId)
+            return BadRequest(new { error = "cannot_self_approve", message = "The original approver cannot provide the second approval." });
+
+        var now = DateTimeOffset.UtcNow;
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+
+        creditNote.Status = CreditNoteStatus.Approved;
+        creditNote.SecondApprovedByUserId = currentUserId;
+        creditNote.IssuedAt = now;
+
+        // Post reversal entries to ledger now that it's approved
+        var invoiceRef = creditNote.Invoice.FormatInvoiceNumber();
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.CreditNoteIssued,
+            ReferenceType = "CreditNote",
+            ReferenceId = creditNote.Id,
+            ReferenceNumber = creditNote.CreditNoteNumber,
+            AccountCategory = "SalesReturnsAndAllowances",
+            DebitAmount = creditNote.Amount,
+            CreditAmount = 0.0m,
+            Narration = $"Credit note {creditNote.CreditNoteNumber} approved against {invoiceRef}. Reason: {creditNote.Reason}",
+            PostedByUserId = currentUserId,
+            CreatedAt = now
+        });
+
+        _db.FinanceLedgerEntries.Add(new FinanceLedgerEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EntryType = FinanceEntryType.CreditNoteIssued,
+            ReferenceType = "Invoice",
+            ReferenceId = creditNote.InvoiceId,
+            ReferenceNumber = invoiceRef,
+            AccountCategory = "AccountsReceivable",
+            DebitAmount = 0.0m,
+            CreditAmount = creditNote.Amount,
+            Narration = $"Receivable reduced by {creditNote.CreditNoteNumber}",
+            PostedByUserId = currentUserId,
+            CreatedAt = now
+        });
+
+        // Adjust invoice balance
+        creditNote.Invoice.BalanceDue = Math.Max(0m, creditNote.Invoice.BalanceDue - creditNote.Amount);
+        creditNote.Invoice.UpdatedAt = now;
+
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Ok(new
+        {
+            creditNoteId = creditNote.Id,
+            creditNoteNumber = creditNote.CreditNoteNumber,
+            invoiceId = creditNote.InvoiceId,
+            amount = creditNote.Amount,
+            status = creditNote.Status.ToString().ToLower(),
+            secondApprovedByUserId = currentUserId,
+            approvedAt = now,
+            newBalanceDue = creditNote.Invoice.BalanceDue
+        });
+    }
+
+    [HttpPost("credit-notes/{creditNoteId:guid}/reject")]
+    [AuthorizeRoles("ClinicAdmin", "Owner")]
+    public async Task<IActionResult> RejectCreditNote(Guid creditNoteId, [FromBody] RejectCreditNoteRequest req, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var creditNote = await _db.CreditNotes
+            .FirstOrDefaultAsync(c => c.Id == creditNoteId && c.TenantId == tenantId, ct);
+
+        if (creditNote == null)
+            return NotFound(new { error = "credit_note_not_found" });
+
+        if (creditNote.Status != CreditNoteStatus.PendingApproval)
+            return BadRequest(new { error = "credit_note_not_pending", message = "This credit note is not pending approval." });
+
+        var currentUserId = User.GetUserId() ?? Guid.Empty;
+        if (currentUserId == creditNote.ApprovedByUserId)
+            return BadRequest(new { error = "cannot_self_reject", message = "The original approver cannot reject their own credit note." });
+
+        creditNote.Status = CreditNoteStatus.Rejected;
+        creditNote.SecondApprovedByUserId = currentUserId;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            creditNoteId = creditNote.Id,
+            creditNoteNumber = creditNote.CreditNoteNumber,
+            status = creditNote.Status.ToString().ToLower(),
+            rejectedByUserId = currentUserId,
+            rejectedAt = DateTimeOffset.UtcNow
         });
     }
 
@@ -1007,6 +1135,146 @@ public class InvoicesController : ControllerBase
         });
     }
 
+    [HttpPatch("invoices/{id:guid}")]
+    [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
+    [RequirePermission(Permissions.InvoiceWrite)]
+    public async Task<IActionResult> UpdateInvoiceDraft(Guid id, [FromBody] UpdateInvoiceDraftRequest request, CancellationToken ct)
+    {
+        var tenantId = TenantId;
+        var invoice = await _db.Invoices
+            .Include(i => i.LineItems)
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct);
+
+        if (invoice == null)
+            return NotFound(new { error = "invoice_not_found" });
+
+        if (invoice.Status != InvoiceStatus.Draft)
+            return BadRequest(new { error = "invoice_not_draft", message = "Only draft invoices can be updated." });
+
+        // Validate line items if provided
+        if (request.LineItems is not null)
+        {
+            if (request.LineItems.Count == 0)
+                return BadRequest(new { error = "line_items_required" });
+
+            // Retrieve tenant tax profile for validation
+            var taxProfile = await _db.TenantTaxProfiles
+                .FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+
+            var defaultTaxCat = taxProfile?.DefaultOpdTaxCategory ?? TaxCategory.Exempt;
+            var defaultHsnSac = taxProfile?.DefaultOpdHsnSac ?? "999312";
+            var defaultGstRate = taxProfile?.DefaultOpdGstRate ?? 0.0m;
+
+            decimal calculatedSubtotal = 0m;
+            decimal calculatedGst = 0m;
+            var newLineItems = new List<InvoiceLineItem>();
+
+            foreach (var item in request.LineItems)
+            {
+                if (item.Quantity <= 0)
+                    return BadRequest(new { error = "invalid_line_quantity", description = item.Description });
+
+                var qty = item.Quantity;
+                var unitPrice = item.UnitPrice ?? (item.Amount / qty);
+                if (unitPrice <= 0)
+                    return BadRequest(new { error = "invalid_line_amount", description = item.Description });
+
+                if (item.DiscountAmount < 0 || item.DiscountAmount > qty * unitPrice)
+                    return BadRequest(new { error = "invalid_line_discount", description = item.Description });
+
+                var hsnSac = !string.IsNullOrWhiteSpace(item.HsnSacCode) ? item.HsnSacCode.Trim() : defaultHsnSac;
+
+                var taxCat = defaultTaxCat;
+                if (!string.IsNullOrWhiteSpace(item.TaxCategory) && Enum.TryParse<TaxCategory>(item.TaxCategory, true, out var parsedCat))
+                    taxCat = parsedCat;
+
+                decimal lineGstRate;
+                if (taxCat is TaxCategory.Exempt or TaxCategory.Nil)
+                {
+                    if (defaultTaxCat == TaxCategory.Taxable && !hsnSac.StartsWith("9993", StringComparison.Ordinal))
+                        return BadRequest(new { error = "tax_category_not_permitted", description = item.Description, message = "This clinic is configured for taxable supplies; exempt lines must use a healthcare SAC (9993xx)." });
+                    lineGstRate = 0.0m;
+                }
+                else
+                {
+                    lineGstRate = item.GstRate ?? defaultGstRate;
+                    if (lineGstRate <= 0)
+                        return BadRequest(new { error = "taxable_line_requires_gst_rate", description = item.Description });
+                }
+
+                var unitPriceValue = unitPrice ?? 0m;
+                var lineBaseAmount = qty * unitPriceValue - item.DiscountAmount;
+                var lineGst = Math.Round(lineBaseAmount * lineGstRate / 100m, 2, MidpointRounding.AwayFromZero);
+
+                calculatedSubtotal += lineBaseAmount;
+                calculatedGst += lineGst;
+
+                newLineItems.Add(new InvoiceLineItem
+                {
+                    Id = Guid.NewGuid(),
+                    Description = item.Description.Trim(),
+                    Quantity = qty,
+                    UnitPrice = unitPriceValue,
+                    Amount = lineBaseAmount,
+                    TaxCategory = taxCat,
+                    HsnSacCode = hsnSac,
+                    GstRate = lineGstRate,
+                    TaxAmount = lineGst
+                });
+            }
+
+            // Replace line items
+            _db.InvoiceLineItems.RemoveRange(invoice.LineItems);
+            invoice.LineItems = newLineItems;
+            invoice.Subtotal = calculatedSubtotal;
+            invoice.GstAmount = calculatedGst;
+
+            // Update document type based on GST
+            if (calculatedGst > 0)
+                invoice.DocumentType = InvoiceDocumentType.TaxInvoice;
+            else
+                invoice.DocumentType = InvoiceDocumentType.BillOfSupply;
+        }
+
+        // Update discount if provided
+        if (request.DiscountAmount.HasValue)
+        {
+            var gross = invoice.Subtotal + invoice.GstAmount;
+            if (request.DiscountAmount.Value < 0 || request.DiscountAmount.Value > gross)
+                return BadRequest(new { error = "invalid_discount_amount", message = $"Discount must be between 0 and ₹{gross:F2}." });
+
+            if (request.DiscountAmount.Value > 0 && string.IsNullOrWhiteSpace(request.DiscountReason))
+                return BadRequest(new { error = "discount_reason_required" });
+
+            invoice.DiscountAmount = request.DiscountAmount.Value;
+            invoice.DiscountReason = request.DiscountReason;
+            invoice.Total = gross - invoice.DiscountAmount;
+        }
+
+        // Update walk-in customer info if provided
+        if (request.WalkInCustomerName is not null)
+            invoice.WalkInCustomerName = request.WalkInCustomerName;
+        if (request.WalkInCustomerPhone is not null)
+            invoice.WalkInCustomerPhone = request.WalkInCustomerPhone;
+
+        invoice.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var invoiceRef = invoice.FormatInvoiceNumber();
+        return Ok(new
+        {
+            invoiceId = invoice.Id,
+            invoiceNumber = invoiceRef,
+            subtotal = invoice.Subtotal,
+            gstAmount = invoice.GstAmount,
+            discountAmount = invoice.DiscountAmount,
+            total = invoice.Total,
+            balanceDue = invoice.BalanceDue,
+            status = invoice.Status.ToString().ToLower(),
+            updatedAt = invoice.UpdatedAt
+        });
+    }
+
     [HttpPost("invoices/{id:guid}/payment")]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin")]
     [RequirePermission(Permissions.PaymentRecord)]
@@ -1415,5 +1683,43 @@ public record CreateRefundRequest(
 public record ApproveRefundRequest(
     [MaxLength(500)]
     string? Note = null);
+
+public record UpdateInvoiceLineItemRequest(
+    [Required, MinLength(1), MaxLength(255)]
+    string Description,
+    [Range(1, int.MaxValue)]
+    int Quantity,
+    [Range(0.01, double.MaxValue)]
+    decimal? UnitPrice = null,
+    [Range(0.01, double.MaxValue)]
+    decimal? Amount = null,
+    [Range(0, double.MaxValue)]
+    decimal DiscountAmount = 0.0m,
+    [MaxLength(20)]
+    string? HsnSacCode = null,
+    [MaxLength(20)]
+    string? TaxCategory = null,
+    [Range(0, 100)]
+    decimal? GstRate = null);
+
+public record UpdateInvoiceDraftRequest(
+    List<UpdateInvoiceLineItemRequest>? LineItems = null,
+    [Range(0, double.MaxValue)]
+    decimal? DiscountAmount = null,
+    [MaxLength(255)]
+    string? DiscountReason = null,
+    [MaxLength(255)]
+    string? WalkInCustomerName = null,
+    [MaxLength(20)]
+    string? WalkInCustomerPhone = null);
+
+public record ApproveCreditNoteRequest(
+    [MaxLength(500)]
+    string? Note = null);
+
+public record RejectCreditNoteRequest(
+    [MaxLength(500)]
+    string? Reason = null);
+
 
 

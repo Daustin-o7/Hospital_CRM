@@ -3,6 +3,7 @@ namespace Hospital_CRM.Domain.Enums;
 public enum UserRole
 {
     ClinicAdmin,
+    Owner,              // Clinic owner — can approve payee changes, dual-control thresholds
     Doctor,
     Receptionist,
     PlatformAdmin,  // MOD-14: SAMSTACK's own staff — never exposed to clinic users

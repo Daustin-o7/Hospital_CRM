@@ -54,7 +54,7 @@
 - [x] **1. Invoice and credit-note numbering**: Indian FY (Apr-Mar, e.g. `2026-27`) series reset on April 1, gapless sequential numbering, unique per tenant+series+FY index in DB.
 - [x] **2. Refunds**: Reversal entries, dual approval above a clinic-set threshold, refund reference recorded.
 - [x] **3. Reported-payment controls**: Cap on total reported-unconfirmed per clinic; alert when one staff member's confirmations spike; enforce payee daily limit in primary/backup selection.
-- [ ] **4. Deposits/advances**: Recorded against patient, applied at invoicing, shown on ledger.
+- [x] **4. Deposits/advances**: Recorded against patient, applied at invoicing, shown on ledger.
 - [ ] **5. Link pharmacy dispense to billing**: PHARM invoice appears as a linked document (own series, not merged), payable through the same confirm flow.
 - [ ] **6. Data licences**: Read CDCI License.txt; check TrueMD provenance/licence. Drop TrueMD if unclear. Log result in OPEN-QUESTIONS.md.
 

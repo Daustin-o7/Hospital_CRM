@@ -831,6 +831,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("SecondApprovedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("SequenceNumber")
                         .HasColumnType("integer");
 
@@ -838,6 +841,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -847,6 +853,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.HasIndex("ApprovedByUserId");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SecondApprovedByUserId");
 
                     b.HasIndex("TenantId", "CreditNoteNumber")
                         .IsUnique();
@@ -2586,6 +2594,131 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.ToTable("PatientConsents");
                 });
 
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientDeposit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AllocatedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CollectedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FinancialYear")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReceiptNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("TenantId", "ReceiptNumber")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "FinancialYear", "SequenceNumber")
+                        .IsUnique()
+                        .HasFilter("\"SequenceNumber\" > 0");
+
+                    b.HasIndex("TenantId", "PatientId", "Status");
+
+                    b.ToTable("PatientDeposits");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientDepositAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AllocatedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("AllocatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AllocatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("PatientDepositId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("PatientDepositId");
+
+                    b.HasIndex("TenantId", "InvoiceId");
+
+                    b.HasIndex("TenantId", "PatientDepositId");
+
+                    b.ToTable("PatientDepositAllocations");
+                });
+
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientNurseAssignment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4116,6 +4249,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("ThresholdCreditNoteApproval")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("ThresholdHighValueUtr")
                         .HasColumnType("decimal(18,2)");
 
@@ -4617,9 +4753,15 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Hospital_CRM.Domain.Entities.User", "SecondApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("SecondApprovedByUserId");
+
                     b.Navigation("ApprovedByUser");
 
                     b.Navigation("Invoice");
+
+                    b.Navigation("SecondApprovedByUser");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.Department", b =>
@@ -5021,6 +5163,43 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Navigation("CapturedByUser");
 
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientDeposit", b =>
+                {
+                    b.HasOne("Hospital_CRM.Domain.Entities.Clinic", "Clinic")
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Hospital_CRM.Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Clinic");
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientDepositAllocation", b =>
+                {
+                    b.HasOne("Hospital_CRM.Domain.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hospital_CRM.Domain.Entities.PatientDeposit", "PatientDeposit")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PatientDepositId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("PatientDeposit");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientNurseAssignment", b =>
@@ -5499,6 +5678,11 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Navigation("AuditLogs");
 
                     b.Navigation("Consents");
+                });
+
+            modelBuilder.Entity("Hospital_CRM.Domain.Entities.PatientDeposit", b =>
+                {
+                    b.Navigation("Allocations");
                 });
 
             modelBuilder.Entity("Hospital_CRM.Domain.Entities.PayeeAccount", b =>

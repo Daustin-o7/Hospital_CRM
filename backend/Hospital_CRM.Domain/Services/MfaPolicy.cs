@@ -10,5 +10,5 @@ namespace Hospital_CRM.Domain.Services;
 public static class MfaPolicy
 {
     public static bool RequiresEnrolment(UserRole role) =>
-        role is UserRole.ClinicAdmin or UserRole.Doctor or UserRole.PlatformAdmin or UserRole.Receptionist;
+        role is UserRole.ClinicAdmin or UserRole.Owner or UserRole.Doctor or UserRole.PlatformAdmin or UserRole.Receptionist;
 }

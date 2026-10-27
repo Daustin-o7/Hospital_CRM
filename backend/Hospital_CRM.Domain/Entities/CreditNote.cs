@@ -6,6 +6,7 @@ namespace Hospital_CRM.Domain.Entities;
 /// <summary>
 /// Immutable credit note issued against finalized invoices.
 /// Enforces: Mistakes are corrected via Credit Notes, never by mutating finalized invoices.
+/// Dual-control: amounts above ThresholdCreditNoteApproval require a second ClinicAdmin/Owner approval.
 /// </summary>
 public class CreditNote : ITenantScoped
 {
@@ -32,10 +33,21 @@ public class CreditNote : ITenantScoped
     public string Reason { get; set; } = string.Empty;
 
     public Guid ApprovedByUserId { get; set; }
+    public Guid? SecondApprovedByUserId { get; set; }
+
+    public CreditNoteStatus Status { get; set; } = CreditNoteStatus.PendingApproval;
 
     public DateTimeOffset IssuedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public virtual Invoice Invoice { get; set; } = null!;
     public virtual User ApprovedByUser { get; set; } = null!;
+    public virtual User? SecondApprovedByUser { get; set; }
+}
+
+public enum CreditNoteStatus
+{
+    PendingApproval = 0,
+    Approved = 1,
+    Rejected = 2
 }

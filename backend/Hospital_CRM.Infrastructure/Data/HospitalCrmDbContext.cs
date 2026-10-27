@@ -89,6 +89,8 @@ public class HospitalCrmDbContext : DbContext
     public DbSet<CreditNote> CreditNotes => Set<CreditNote>();
     public DbSet<FinanceLedgerEntry> FinanceLedgerEntries => Set<FinanceLedgerEntry>();
     public DbSet<InvoicePrintLog> InvoicePrintLogs => Set<InvoicePrintLog>();
+    public DbSet<PatientDeposit> PatientDeposits => Set<PatientDeposit>();
+    public DbSet<PatientDepositAllocation> PatientDepositAllocations => Set<PatientDepositAllocation>();
 
 
     public Guid CurrentTenantId => _tenantContext?.CurrentTenantId ?? Guid.Empty;
@@ -950,20 +952,41 @@ public class HospitalCrmDbContext : DbContext
             e.HasOne(x => x.Invoice).WithMany(i => i.PrintLogs).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.PrintedByUser).WithMany().HasForeignKey(x => x.PrintedByUserId).OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.Entity<PatientDeposit>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.ReceiptNumber }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.FinancialYear, x.SequenceNumber })
+                .IsUnique()
+                .HasFilter("\"SequenceNumber\" > 0");
+            e.HasIndex(x => new { x.TenantId, x.PatientId, x.Status });
+            e.HasOne(x => x.Patient).WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Clinic).WithMany().HasForeignKey(x => x.ClinicId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PatientDepositAllocation>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TenantId, x.PatientDepositId });
+            e.HasIndex(x => new { x.TenantId, x.InvoiceId });
+            e.HasOne(x => x.PatientDeposit).WithMany(d => d.Allocations).HasForeignKey(x => x.PatientDepositId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         EnforceTenantScopedInserts();
-        EnforceAppendOnlyAuditLogs();
+        PreventAppendOnlyModifications();
         return base.SaveChangesAsync(cancellationToken);
     }
 
     public override int SaveChanges()
     {
         EnforceTenantScopedInserts();
-        EnforceAppendOnlyAuditLogs();
+        PreventAppendOnlyModifications();
         return base.SaveChanges();
     }
 
@@ -984,7 +1007,7 @@ public class HospitalCrmDbContext : DbContext
         }
     }
 
-    private void EnforceAppendOnlyAuditLogs()
+    private void PreventAppendOnlyModifications()
     {
         var forbiddenEntries = ChangeTracker.Entries()
             .Where(e => (e.State == EntityState.Modified || e.State == EntityState.Deleted) &&
@@ -1000,6 +1023,7 @@ public class HospitalCrmDbContext : DbContext
                          e.Entity is MedicineSearchMissLog ||
                          e.Entity is FinanceLedgerEntry ||
                          e.Entity is CreditNote ||
+                         e.Entity is PatientDepositAllocation ||
                          e.Entity is InvoicePrintLog))
             .ToList();
 

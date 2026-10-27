@@ -39,7 +39,7 @@ public class PayeeAccountsController : ControllerBase
     private Guid? ClinicId => User.GetClinicId();
 
     [HttpGet]
-    [AuthorizeRoles("ClinicAdmin", "Receptionist", "Doctor")]
+    [AuthorizeRoles("ClinicAdmin", "Owner", "Receptionist", "Doctor")]
     public async Task<IActionResult> ListAccounts([FromQuery] bool? includeInactive, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -77,7 +77,7 @@ public class PayeeAccountsController : ControllerBase
     }
 
     [HttpPost]
-    [AuthorizeRoles("ClinicAdmin")]
+    [AuthorizeRoles("ClinicAdmin", "Owner")]
     public async Task<IActionResult> CreateAccount([FromBody] CreatePayeeAccountRequest req, CancellationToken ct)
     {
         var tenantId = TenantId;
@@ -152,7 +152,7 @@ public class PayeeAccountsController : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
-    [AuthorizeRoles("ClinicAdmin")]
+    [AuthorizeRoles("ClinicAdmin", "Owner")]
     public async Task<IActionResult> UpdateAccount(Guid id, [FromBody] UpdatePayeeAccountRequest req, CancellationToken ct)
     {
         var tenantId = TenantId;

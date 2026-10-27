@@ -7,5 +7,6 @@ public enum PaymentMethod
     Card,
     NetBanking,
     Wallet,
-    Razorpay
+    Razorpay,
+    AdvanceDeposit
 }
