@@ -203,7 +203,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
 - [x] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
 - [x] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.
-- [ ] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
+- [x] **A6 (#10) Patient switch**: one helper clears clinical fields at all 3 call sites.
 - [ ] **A7 (#18) `hasRole` casing**: case-insensitive compare; restores Inventory restock.
 
 ### Phase 1 - Money correctness

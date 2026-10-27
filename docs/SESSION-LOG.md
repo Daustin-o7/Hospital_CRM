@@ -666,3 +666,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - `CreateRefundRequest` lost `SecondApprovedByUserId`, and `ProcessRefund` lost the branch that accepted it. Above the clinic threshold a refund now always opens as a 202 `pending_approval` row with `ConfirmedByUserId` = requester and no approver; `POST /refunds/{refundId}/approve` already rejects self-approval and now also carries `[RequirePermission(PaymentRecord)]` (ClinicAdmin/Owner hold it).
 - Before: one request could name a friendly colleague and move the money immediately, collapsing dual control into a single call. Nobody read `dualApproved` / `secondApprovedByUserId` from the 201 response, so those fields were dropped too.
 - New `CreateRefundRequest_CannotNameASecondApprover` (reflection, red before the change) and `ProcessRefund_AboveThreshold_AlwaysPending_EvenWhenBodyNamesASecondApprover`; suite **370 passed, 0 failed**.
+
+## 2026-10-28 - Audit A6 (#10): One Patient-Switch Helper Clears the Chart
+- New `selectAppointment()` in `Consultations.tsx` is the only way a patient is selected: prev/next queue navigation, the command ribbon, and the initial/query-driven load now all reset chief complaint, observations, diagnosis, advised investigations, follow-up, prescriptions, odontogram, consultation id/version and draft timestamp.
+- Before, the three switch sites only reset the id/version/status, so the next patient inherited the previous patient's notes and Rx - a cross-patient clinical data leak on a shared device.
+- No frontend unit runner; verified with `npm run build` (exit 0) and `npm run lint` (exit 0, warnings unchanged).

@@ -135,6 +135,24 @@ export default function Consultations() {
     setTimeout(() => setToast(null), 4000)
   }, [])
 
+  // Switching patient must never carry the previous chart into the next one.
+  const selectAppointment = useCallback((appointment: AppointmentItem | null) => {
+    setSelectedAppointment(appointment)
+    setActiveConsultationId(null)
+    setVersionNumber(1)
+    setConsultationStatus('draft')
+    setChiefComplaint('')
+    setObservations('')
+    setDiagnosis('')
+    setAdvisedInvestigations('')
+    setFollowUpDate('')
+    setFollowUpNotes('')
+    setPrescriptions([])
+    setTeeth(INITIAL_TEETH)
+    setDraftSavedAt(null)
+    setValidationErrors({})
+  }, [])
+
   // ── Fetch Appointments Queue ──
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
@@ -160,20 +178,20 @@ export default function Consultations() {
         setAppointments(mapped)
         const match = queryAppointmentId ? mapped.find(m => m.id === queryAppointmentId) : null
         const pMatch = queryPatientId ? mapped.find(m => m.patientId === queryPatientId) : null
-        setSelectedAppointment(match || pMatch || mapped[0])
+        selectAppointment(match || pMatch || mapped[0])
       } else {
         setAppointments(DEMO_APPOINTMENTS)
         const match = queryAppointmentId ? DEMO_APPOINTMENTS.find(m => m.id === queryAppointmentId) : null
         const pMatch = queryPatientId ? DEMO_APPOINTMENTS.find(m => m.patientId === queryPatientId) : null
-        setSelectedAppointment(match || pMatch || DEMO_APPOINTMENTS[0] || null)
+        selectAppointment(match || pMatch || DEMO_APPOINTMENTS[0] || null)
       }
     } catch {
       setAppointments(DEMO_APPOINTMENTS.slice(0, 1))
-      setSelectedAppointment(DEMO_APPOINTMENTS[0] || null)
+      selectAppointment(DEMO_APPOINTMENTS[0] || null)
     } finally {
       setLoading(false)
     }
-  }, [queryAppointmentId, queryPatientId])
+  }, [queryAppointmentId, queryPatientId, selectAppointment])
 
   useEffect(() => {
     fetchAppointments()
@@ -679,21 +697,15 @@ export default function Consultations() {
 
   const handlePrevPatient = useCallback(() => {
     if (currentQueueIndex > 0) {
-      setSelectedAppointment(appointments[currentQueueIndex - 1])
-      setActiveConsultationId(null)
-      setVersionNumber(1)
-      setConsultationStatus('draft')
+      selectAppointment(appointments[currentQueueIndex - 1])
     }
-  }, [appointments, currentQueueIndex])
+  }, [appointments, currentQueueIndex, selectAppointment])
 
   const handleNextPatient = useCallback(() => {
     if (currentQueueIndex >= 0 && currentQueueIndex < appointments.length - 1) {
-      setSelectedAppointment(appointments[currentQueueIndex + 1])
-      setActiveConsultationId(null)
-      setVersionNumber(1)
-      setConsultationStatus('draft')
+      selectAppointment(appointments[currentQueueIndex + 1])
     }
-  }, [appointments, currentQueueIndex])
+  }, [appointments, currentQueueIndex, selectAppointment])
 
   const handleInsertFindingsFromTools = useCallback((snippet: string, toastMsg: string) => {
     setObservations(prev => (prev ? `${prev}\n\n${snippet}` : snippet))
@@ -821,12 +833,7 @@ export default function Consultations() {
         selectedAppointment={selectedAppointment}
         patientDetails={patientDetails}
         currentQueueIndex={currentQueueIndex}
-        onSelectAppointment={(found) => {
-          setSelectedAppointment(found)
-          setActiveConsultationId(null)
-          setVersionNumber(1)
-          setConsultationStatus('draft')
-        }}
+        onSelectAppointment={selectAppointment}
         onPrevPatient={handlePrevPatient}
         onNextPatient={handleNextPatient}
         showToast={showToast}
