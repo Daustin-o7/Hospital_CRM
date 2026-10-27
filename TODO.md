@@ -213,7 +213,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A11 (#9) CloseInvoice**: parity with finalize (numbering, ledger, immutability).
 
 ### Phase 2 - Auth hardening
-- [ ] **A12 (#3) Audit REVOKE**: migration-level least privilege; fix `ALTER DEFAULT PRIVILEGES`.
+- [x] **A12 (#3) Audit REVOKE**: migration-level least privilege; fix `ALTER DEFAULT PRIVILEGES`.
 - [ ] **A13 (#13) Invite/reset tokens**: digest lookup, rate limits, stop logging invite tokens.
 - [ ] **A14 (#14) Forwarded headers**: explicit trusted proxies.
 - [ ] **A15 (#17) Refresh rotation**: atomic.

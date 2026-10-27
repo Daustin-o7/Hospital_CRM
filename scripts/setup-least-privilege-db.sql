@@ -21,6 +21,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 
 -- 4. Automatically apply to future tables created in public schema
+--    Every new table inherits UPDATE/DELETE here, including new audit tables. The
+--    `audit_append_only` DDL trigger created by migration EnforceAuditAppendOnly
+--    revokes them again for the audit tables below, so the list must be kept in both
+--    places when an audit table is added.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
@@ -56,6 +60,8 @@ GRANT INSERT, SELECT ON TABLE "PrescriptionPrintLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "FinanceLedgerEntries" TO app_user;
 GRANT INSERT, SELECT ON TABLE "InvoicePrintLogs" TO app_user;
 GRANT INSERT, SELECT ON TABLE "CreditNotes" TO app_user;
+-- Dual-control approval is the one legitimate credit-note state change.
+GRANT UPDATE ("Status", "SecondApprovedByUserId", "IssuedAt") ON TABLE "CreditNotes" TO app_user;
 
 -- 6. Invalidate Legacy Sessions on Key Rotation
 UPDATE "RefreshTokens" SET "RevokedAt" = NOW() WHERE "RevokedAt" IS NULL;
