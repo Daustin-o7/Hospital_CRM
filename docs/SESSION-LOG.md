@@ -641,3 +641,8 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - Audited all 22 Phase 1 functional requirements (`docs/product/FRD_FINAL.md`), 9 Phase 2 fast-follow modules (`FRD-Phase-2-FINAL.md`), and Track 2 pharmacy controllers.
 - Generated single comprehensive compliance matrix in `docs/product/FRD-AUDIT-WALKTHROUGH.md` mapping every requirement to code evidence, API shape, and automated test coverage.
 - Confirmed zero (0) Must-level statutory or clinical compliance gaps remain across the codebase; verified test suite (**363 passed, 0 failed**).
+
+## 2026-10-28 - Audit A2 (#2): Receptionist Dropped From Clinical Reads
+- `GET /consultations`, `GET /consultations/{id}` and `GET /consultations/{id}/prescriptions` now admit only ClinicAdmin/Doctor (Owner inherits via the attribute); the dead Receptionist clinic-scope branch is gone.
+- grep found no frontend or mobile caller of the three endpoints, so nothing loses a working screen; the front desk keeps its appointment/queue endpoints.
+- New reflection theory `ClinicalReadActions_DoNotAdmitReceptionist`; suite **366 passed, 0 failed**.

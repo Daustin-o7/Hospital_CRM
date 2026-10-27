@@ -199,7 +199,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 
 ### Phase 0 - Production blockers
 - [x] **A1 (#1) OpenIddict password grant**: delete `.AllowPasswordFlow()` + seeded `GrantTypes.Password` (MFA bypass).
-- [ ] **A2 (#2) Receptionist clinical reads**: remove Receptionist from consultation list/detail/prescriptions.
+- [x] **A2 (#2) Receptionist clinical reads**: remove Receptionist from consultation list/detail/prescriptions.
 - [ ] **A3 (#5) POS synthetic receipt**: delete fabricated receipt on failed sale.
 - [ ] **A4 (#4) `payments/confirm`**: reject rows that were never reported (refund rows included).
 - [ ] **A5 (#7) Refund second approver**: delete `SecondApprovedByUserId` from request; approver = authenticated user.

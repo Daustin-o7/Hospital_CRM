@@ -1116,7 +1116,7 @@ public class ConsultationsController : ControllerBase
     #region Queries & Legacy Compatibility
 
     [HttpGet("consultations")]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor")]
     public async Task<IActionResult> List(
         [FromQuery] Guid? doctorId,
         [FromQuery] Guid? patientId,
@@ -1141,8 +1141,7 @@ public class ConsultationsController : ControllerBase
         {
             query = query.Where(c => c.DoctorId == userId.Value);
         }
-        else if (string.Equals(userRole, "Receptionist", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(userRole, "ClinicAdmin", StringComparison.OrdinalIgnoreCase))
         {
             var user = await _db.Users.FindAsync([userId.Value], ct);
             if (user?.ClinicId != null)
@@ -1186,7 +1185,7 @@ public class ConsultationsController : ControllerBase
     }
 
     [HttpGet("consultations/{consultationId:guid}")]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor")]
     public async Task<IActionResult> Get(Guid consultationId, CancellationToken ct)
     {
         var userId = User.GetUserId();
@@ -1258,7 +1257,7 @@ public class ConsultationsController : ControllerBase
     }
 
     [HttpGet("consultations/{consultationId:guid}/prescriptions")]
-    [AuthorizeRoles("ClinicAdmin", "Doctor", "Receptionist")]
+    [AuthorizeRoles("ClinicAdmin", "Doctor")]
     public async Task<IActionResult> GetPrescriptions(Guid consultationId, CancellationToken ct)
     {
         var consultation = await _db.Consultations
