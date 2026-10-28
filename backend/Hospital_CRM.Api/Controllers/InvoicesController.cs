@@ -1728,6 +1728,7 @@ public class InvoicesController : ControllerBase
             {
                 invoiceId = i.Id,
                 invoiceNumber = i.InvoiceNumber > 0 ? $"{(i.Series != null && i.Series != "" ? i.Series : "INV")}-{i.FinancialYear}-{i.InvoiceNumber:D6}" : "DRAFT",
+                patientId = i.Appointment != null ? i.Appointment.PatientId : (Guid?)null,
                 patientName = i.Appointment != null ? i.Appointment.Patient.Name : (i.WalkInCustomerName ?? "Walk-in Customer"),
                 subtotal = i.Subtotal,
                 gstAmount = i.GstAmount,

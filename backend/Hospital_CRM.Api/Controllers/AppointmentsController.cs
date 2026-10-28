@@ -464,7 +464,7 @@ public class AppointmentsController : ControllerBase
     [HttpGet]
     [Authorize]
     [AuthorizeRoles("Receptionist", "Doctor", "ClinicAdmin", "Nurse")]
-    public async Task<IActionResult> List([FromQuery] string? date, [FromQuery] Guid? doctorId, CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] string? date, [FromQuery] Guid? doctorId, [FromQuery] Guid? patientId, CancellationToken ct)
     {
         var query = _db.Appointments
             .Include(a => a.Patient)
@@ -476,6 +476,9 @@ public class AppointmentsController : ControllerBase
 
         if (doctorId.HasValue)
             query = query.Where(a => a.DoctorId == doctorId.Value);
+
+        if (patientId.HasValue)
+            query = query.Where(a => a.PatientId == patientId.Value);
 
         var list = await query
             .OrderByDescending(a => a.Priority) // emergency (1) before normal (0)
@@ -493,6 +496,7 @@ public class AppointmentsController : ControllerBase
                 patientAge = a.Patient.ApproxAge,
                 doctorId = a.DoctorId,
                 doctorName = a.Doctor.Name,
+                date = a.Date,
                 time = a.TimeSlot,
                 status = formatStatus(a.Status),
                 priority = a.Priority.ToString().ToLower(),

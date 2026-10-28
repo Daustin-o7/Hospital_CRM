@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,9 +7,11 @@ import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Modal } from '../components/ui/Modal'
+import { fmtDate } from '../utils/format'
 
 const invoiceSchema = z.object({
-  patientName: z.string().min(1, 'Patient name is required'),
+  patientId: z.string().min(1, 'Select a patient'),
+  appointmentId: z.string().min(1, 'Select the appointment this invoice belongs to'),
   discountAmount: z.number().min(0),
   discountReason: z.string().optional(),
   autoFinalize: z.boolean(),
@@ -28,6 +30,7 @@ type InvoiceForm = z.infer<typeof invoiceSchema>
 interface Invoice {
   invoiceId: string
   invoiceNumber: string
+  patientId?: string | null
   patientName: string
   subtotal: number
   gstAmount: number
@@ -37,6 +40,21 @@ interface Invoice {
   balanceDue: number
   status: 'draft' | 'finalized' | 'issued' | 'paid' | 'partiallypaid' | 'cancelled' | 'refunded'
   createdAt: string
+}
+
+interface PatientOption {
+  id: string
+  name: string
+  phone?: string
+}
+
+interface AppointmentOption {
+  appointmentId: string
+  patientId: string
+  doctorName: string
+  date: string
+  time: string
+  status: string
 }
 
 interface TaxProfile {
@@ -74,6 +92,44 @@ interface OutstandingDues {
     balanceDue: number
     status: string
     daysPast: number
+    createdAt: string
+  }>
+}
+
+interface LedgerPayment {
+  id: string
+  method: string
+  amount: number
+  utr?: string
+  status: string
+  verificationStatus: string
+  paidAt?: string
+}
+
+interface InvoiceDetail {
+  invoiceId: string
+  invoiceNumber: string
+  patient?: { name: string }
+  paidAmount: number
+  balanceDue: number
+  payments: LedgerPayment[]
+}
+
+interface PatientDeposits {
+  patientId: string
+  patientName: string
+  totalDeposited: number
+  totalAllocated: number
+  totalRefunded: number
+  availableBalance: number
+  deposits: Array<{
+    depositId: string
+    receiptNumber: string
+    amount: number
+    allocatedAmount: number
+    balance: number
+    method: string
+    status: string
     createdAt: string
   }>
 }
@@ -141,9 +197,14 @@ interface PrintableInvoice {
 export default function Billing() {
   const { user } = useAuth()
   const isClinicAdmin = user?.role === 'clinicadmin' || user?.role === 'owner'
+  const canRecordPayments = isClinicAdmin || user?.role === 'receptionist'
 
-  const [activeTab, setActiveTab] = useState<'invoices' | 'daily' | 'outstanding' | 'ledger'>('invoices')
+  const [activeTab, setActiveTab] = useState<'invoices' | 'daily' | 'outstanding' | 'deposits' | 'ledger'>('invoices')
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [patients, setPatients] = useState<PatientOption[]>([])
+  const [patientAppointments, setPatientAppointments] = useState<AppointmentOption[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false)
+  const appointmentRequest = useRef(0)
   const [taxProfile, setTaxProfile] = useState<TaxProfile | null>(null)
   const [dailyCollection, setDailyCollection] = useState<DailyCollection | null>(null)
   const [outstandingDues, setOutstandingDues] = useState<OutstandingDues | null>(null)
@@ -172,15 +233,33 @@ export default function Billing() {
   const [printModalOpen, setPrintModalOpen] = useState(false)
   const [printableData, setPrintableData] = useState<PrintableInvoice | null>(null)
 
+  // Refunds (dual-control above the clinic threshold)
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [refundInvoice, setRefundInvoice] = useState<Invoice | null>(null)
+  const [refundDetail, setRefundDetail] = useState<InvoiceDetail | null>(null)
+  const [refundAmount, setRefundAmount] = useState<number>(0)
+  const [refundMethod, setRefundMethod] = useState<'cash' | 'upi' | 'card' | 'netbanking'>('upi')
+  const [refundReference, setRefundReference] = useState('')
+  const [refundReason, setRefundReason] = useState('')
+
+  // Patient advance deposits
+  const [depositPatientId, setDepositPatientId] = useState('')
+  const [depositSummary, setDepositSummary] = useState<PatientDeposits | null>(null)
+  const [depositAmount, setDepositAmount] = useState<number>(0)
+  const [depositMethod, setDepositMethod] = useState<'cash' | 'upi' | 'card' | 'netbanking'>('cash')
+  const [depositReference, setDepositReference] = useState('')
+  const [depositLoading, setDepositLoading] = useState(false)
+
   const showToast = (msg: string, type: 'success' | 'err' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 4000)
   }
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<InvoiceForm>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<InvoiceForm>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      patientName: '',
+      patientId: '',
+      appointmentId: '',
       discountAmount: 0,
       autoFinalize: false,
       lineItems: [{ description: 'OPD General Consultation', quantity: 1, unitPrice: 800, taxCategory: 'Exempt', hsnSacCode: '999312', gstRate: 0 }],
@@ -190,6 +269,7 @@ export default function Billing() {
   const { fields, append, remove } = useFieldArray({ control, name: 'lineItems' })
   const watchedLineItems = watch('lineItems') || []
   const watchedDiscount = watch('discountAmount') || 0
+  const selectedPatientId = watch('patientId')
 
   const calculatedSubtotal = watchedLineItems.reduce((acc, item) => acc + ((item.quantity || 1) * (item.unitPrice || 0)), 0)
   const calculatedTax = watchedLineItems.reduce((acc, item) => {
@@ -204,14 +284,16 @@ export default function Billing() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [invRes, taxRes, dailyRes, duesRes] = await Promise.allSettled([
+      const [invRes, taxRes, dailyRes, duesRes, patientRes] = await Promise.allSettled([
         api.get('/invoices'),
         api.get('/clinic/tax-profile'),
         api.get('/ledger/daily-collection'),
         api.get('/ledger/outstanding-dues'),
+        api.get('/patients'),
       ])
 
       if (invRes.status === 'fulfilled') setInvoices(invRes.value.data)
+      if (patientRes.status === 'fulfilled') setPatients(patientRes.value.data)
       if (taxRes.status === 'fulfilled') setTaxProfile(taxRes.value.data)
       if (dailyRes.status === 'fulfilled') setDailyCollection(dailyRes.value.data)
       if (duesRes.status === 'fulfilled') setOutstandingDues(duesRes.value.data)
@@ -226,12 +308,46 @@ export default function Billing() {
     fetchData()
   }, [fetchData])
 
+  const closeCreateModal = () => {
+    appointmentRequest.current += 1
+    setCreateModalOpen(false)
+    setPatientAppointments([])
+    setAppointmentsLoading(false)
+    reset()
+  }
+
+  const handleSelectPatient = async (patientId: string) => {
+    const requestId = ++appointmentRequest.current
+    setPatientAppointments([])
+    setValue('appointmentId', '')
+    setAppointmentsLoading(Boolean(patientId))
+    if (!patientId) return
+
+    try {
+      const res = await api.get('/appointments', { params: { patientId } })
+      if (requestId !== appointmentRequest.current) return
+
+      const list: AppointmentOption[] = Array.isArray(res.data) ? res.data : []
+      setPatientAppointments(list
+        .filter(appointment => appointment.status === 'completed')
+        .sort((left, right) => `${right.date} ${right.time}`.localeCompare(`${left.date} ${left.time}`)))
+    } catch {
+      if (requestId === appointmentRequest.current) {
+        showToast('Could not load appointments for this patient.', 'err')
+      }
+    } finally {
+      if (requestId === appointmentRequest.current) {
+        setAppointmentsLoading(false)
+      }
+    }
+  }
+
   // Create Invoice Handler
   const handleCreateInvoice = async (data: InvoiceForm) => {
     try {
       setActionLoading('create-invoice')
       const payload = {
-        appointmentId: '00000000-0000-0000-0000-000000000000', // walk-in default or selected appointment
+        appointmentId: data.appointmentId,
         discountAmount: data.discountAmount,
         discountReason: data.discountReason,
         autoFinalize: data.autoFinalize,
@@ -247,9 +363,9 @@ export default function Billing() {
       }
 
       await api.post('/invoices', payload)
-      showToast(`Invoice generated for ${data.patientName}.`)
-      setCreateModalOpen(false)
-      reset()
+      const patientName = patients.find(p => p.id === data.patientId)?.name ?? 'the selected patient'
+      showToast(`Invoice generated for ${patientName}.`)
+      closeCreateModal()
       await fetchData()
     } catch (err: any) {
       showToast(friendlyError(err), 'err')
@@ -407,6 +523,146 @@ export default function Billing() {
     }
   }
 
+  // ── Refunds ──
+
+  const refundableOn = (detail: InvoiceDetail | null) => {
+    if (!detail) return 0
+    const paid = detail.payments.filter(p => p.amount > 0 && p.status === 'Completed').reduce((s, p) => s + p.amount, 0)
+    const refunded = detail.payments.filter(p => p.amount < 0 && p.status === 'Refunded').reduce((s, p) => s + Math.abs(p.amount), 0)
+    const pending = detail.payments.filter(p => p.amount < 0 && p.status === 'Pending').reduce((s, p) => s + Math.abs(p.amount), 0)
+    return Math.max(0, paid - refunded - pending)
+  }
+
+  const loadRefundDetail = async (invoiceId: string) => {
+    try {
+      const res = await api.get(`/invoices/${invoiceId}`)
+      setRefundDetail(res.data)
+      return res.data as InvoiceDetail
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+      return null
+    }
+  }
+
+  const handleOpenRefund = async (invoice: Invoice) => {
+    setRefundInvoice(invoice)
+    setRefundMethod('upi')
+    setRefundReference('')
+    setRefundReason('')
+    setRefundDetail(null)
+    setRefundModalOpen(true)
+    const detail = await loadRefundDetail(invoice.invoiceId)
+    setRefundAmount(refundableOn(detail))
+  }
+
+  const handleSubmitRefund = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!refundInvoice) return
+    if (!refundReference.trim()) {
+      showToast('Refund reference (UTR / gateway refund ID / voucher) is mandatory.', 'err')
+      return
+    }
+    if (!refundReason.trim()) {
+      showToast('Reason for the refund is mandatory.', 'err')
+      return
+    }
+    try {
+      setActionLoading('refund')
+      const res = await api.post(`/invoices/${refundInvoice.invoiceId}/refund`, {
+        amount: Number(refundAmount),
+        method: refundMethod,
+        refundReference: refundReference.trim(),
+        reason: refundReason.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      })
+      showToast(res.data.message ?? `Refund of ₹${Number(refundAmount).toLocaleString('en-IN')} processed.`)
+      await loadRefundDetail(refundInvoice.invoiceId)
+      setRefundReference('')
+      setRefundReason('')
+      setRefundAmount(0)
+      await fetchData()
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleApproveRefund = async (refundId: string) => {
+    if (!refundInvoice) return
+    try {
+      setActionLoading(`approve-${refundId}`)
+      await api.post(`/invoices/${refundInvoice.invoiceId}/refunds/${refundId}/approve`, {})
+      showToast('Refund approved and disbursed.')
+      await loadRefundDetail(refundInvoice.invoiceId)
+      await fetchData()
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // ── Patient advance deposits ──
+
+  const loadDeposits = async (patientId: string) => {
+    setDepositPatientId(patientId)
+    setDepositSummary(null)
+    if (!patientId) return
+    setDepositLoading(true)
+    try {
+      const res = await api.get(`/patients/${patientId}/deposits`)
+      setDepositSummary(res.data)
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setDepositLoading(false)
+    }
+  }
+
+  const handleCollectDeposit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!depositPatientId) return
+    try {
+      setActionLoading('deposit')
+      const res = await api.post(`/patients/${depositPatientId}/deposits`, {
+        amount: Number(depositAmount),
+        method: depositMethod,
+        referenceNumber: depositReference.trim() || undefined,
+        idempotencyKey: crypto.randomUUID(),
+      })
+      showToast(`Advance ${res.data.receiptNumber} collected: ₹${Number(depositAmount).toLocaleString('en-IN')}.`)
+      setDepositAmount(0)
+      setDepositReference('')
+      await loadDeposits(depositPatientId)
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleApplyAdvance = async (invoice: Invoice) => {
+    if (!invoice.patientId) {
+      showToast('This invoice is not linked to a patient profile, so no advance can be applied.', 'err')
+      return
+    }
+    const amount = invoice.balanceDue > 0 ? invoice.balanceDue : invoice.total
+    if (!window.confirm(`Apply ₹${amount.toLocaleString('en-IN')} from the patient's advance deposit to ${invoice.invoiceNumber}?`)) return
+    try {
+      setActionLoading(`advance-${invoice.invoiceId}`)
+      const res = await api.post(`/invoices/${invoice.invoiceId}/apply-advance`, {
+        amount: invoice.balanceDue > 0 ? invoice.balanceDue : invoice.total,
+      })
+      showToast(`Advance of ₹${Number(res.data.allocatedAdvanceAmount).toLocaleString('en-IN')} applied. Balance due: ₹${Number(res.data.balanceDue).toLocaleString('en-IN')}.`)
+      await fetchData()
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   return (
     <div className="space-y-6 pb-12 animate-fadein">
       {/* ── Page Header ── */}
@@ -525,6 +781,12 @@ export default function Billing() {
           className={`btn btn-sm ${activeTab === 'outstanding' ? 'btn-primary' : 'btn-ghost'}`}
         >
           Outstanding Aging ({outstandingDues?.invoices?.length || 0})
+        </button>
+        <button
+          onClick={() => setActiveTab('deposits')}
+          className={`btn btn-sm ${activeTab === 'deposits' ? 'btn-primary' : 'btn-ghost'}`}
+        >
+          Advance Deposits
         </button>
       </div>
 
@@ -655,6 +917,27 @@ export default function Billing() {
                             Credit Note
                           </button>
                         )}
+
+                        {canRecordPayments && inv.status !== 'draft' && inv.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleOpenRefund(inv)}
+                            className="btn btn-ghost btn-sm text-xs text-rose-500 hover:text-rose-600"
+                            title="Refund a confirmed payment (dual approval above the clinic threshold)"
+                          >
+                            Refund
+                          </button>
+                        )}
+
+                        {canRecordPayments && (inv.balanceDue ?? 0) > 0 && inv.status !== 'draft' && (
+                          <button
+                            onClick={() => handleApplyAdvance(inv)}
+                            disabled={actionLoading === `advance-${inv.invoiceId}`}
+                            className="btn btn-ghost btn-sm text-xs"
+                            title="Settle this balance from the patient's advance deposit"
+                          >
+                            {actionLoading === `advance-${inv.invoiceId}` ? 'Applying…' : 'Use Advance'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -693,6 +976,141 @@ export default function Billing() {
               )
             })}
           </div>
+        </div>
+      ) : activeTab === 'deposits' ? (
+        <div className="card p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
+                Patient Advance Deposits
+              </h3>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium">
+                Money held on behalf of a patient, posted to the ledger as a liability until applied to an invoice.
+              </p>
+            </div>
+          </div>
+
+          <div className="form-group max-w-md">
+            <label className="form-label">Patient</label>
+            <select
+              className="form-select"
+              value={depositPatientId}
+              onChange={e => loadDeposits(e.target.value)}
+            >
+              <option value="">Select patient…</option>
+              {patients.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.phone ? ` · ${p.phone}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {depositLoading && <div className="skeleton-list" />}
+
+          {depositSummary && (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Deposited</span>
+                  <div className="text-base font-bold font-mono mt-0.5">₹{Number(depositSummary.totalDeposited || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Applied to invoices</span>
+                  <div className="text-base font-bold font-mono mt-0.5">₹{Number(depositSummary.totalAllocated || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Refunded</span>
+                  <div className="text-base font-bold font-mono mt-0.5">₹{Number(depositSummary.totalRefunded || 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div className="p-3 rounded-xl border border-[var(--color-border)] bg-emerald-500/5">
+                  <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Available</span>
+                  <div className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">₹{Number(depositSummary.availableBalance || 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              {canRecordPayments && (
+                <form onSubmit={handleCollectDeposit} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                  <div>
+                    <label className="form-label text-xs">Amount (₹)</label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      className="form-input font-mono text-xs"
+                      value={depositAmount || ''}
+                      onChange={e => setDepositAmount(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Method</label>
+                    <select
+                      className="form-select text-xs"
+                      value={depositMethod}
+                      onChange={e => setDepositMethod(e.target.value as typeof depositMethod)}
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                      <option value="netbanking">Net Banking</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label text-xs">Reference (optional)</label>
+                    <input
+                      type="text"
+                      className="form-input text-xs"
+                      value={depositReference}
+                      onChange={e => setDepositReference(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={actionLoading === 'deposit' || !depositAmount}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {actionLoading === 'deposit' ? 'Collecting…' : 'Collect Advance'}
+                  </button>
+                </form>
+              )}
+
+              {depositSummary.deposits.length === 0 ? (
+                <p className="text-xs text-[var(--color-text-muted)]">No advance deposits recorded for this patient.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Receipt</th>
+                        <th>Date</th>
+                        <th>Method</th>
+                        <th>Amount</th>
+                        <th>Applied</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {depositSummary.deposits.map(d => (
+                        <tr key={d.depositId}>
+                          <td className="font-mono text-xs font-bold">{d.receiptNumber}</td>
+                          <td className="text-xs text-[var(--color-text-muted)]">
+                            {new Date(d.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td className="text-xs uppercase">{d.method}</td>
+                          <td className="font-mono text-xs">₹{Number(d.amount).toLocaleString('en-IN')}</td>
+                          <td className="font-mono text-xs">₹{Number(d.allocatedAmount).toLocaleString('en-IN')}</td>
+                          <td className="font-mono text-xs font-bold">₹{Number(d.balance).toLocaleString('en-IN')}</td>
+                          <td className="text-xs">{d.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div className="card p-5 space-y-4">
@@ -971,6 +1389,112 @@ export default function Billing() {
         </form>
       </Modal>
 
+      {/* ── Refund Modal ── */}
+      <Modal
+        open={refundModalOpen}
+        onClose={() => setRefundModalOpen(false)}
+        title={`Refund · ${refundInvoice?.invoiceNumber ?? ''}`}
+        description="Refunds are append-only reversal entries. Amounts above the clinic threshold wait for a second approver."
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="text-xs text-[var(--color-text-muted)] font-medium">
+            Refundable now: <span className="font-mono font-bold text-[var(--color-text)]">₹{refundableOn(refundDetail).toLocaleString('en-IN')}</span>
+            {' · '}Paid: <span className="font-mono">₹{Number(refundDetail?.paidAmount ?? 0).toLocaleString('en-IN')}</span>
+          </div>
+
+          {refundDetail && refundDetail.payments.some(p => p.amount < 0) && (
+            <div className="space-y-2">
+              <span className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider font-mono">Refund history</span>
+              {refundDetail.payments.filter(p => p.amount < 0).map(p => (
+                <div key={p.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] text-xs">
+                  <div>
+                    <span className="font-mono font-bold">₹{Math.abs(p.amount).toLocaleString('en-IN')}</span>
+                    <span className="text-[var(--color-text-muted)]"> · {p.method} · {p.status}</span>
+                  </div>
+                  {isClinicAdmin && p.status === 'Pending' && (
+                    <button
+                      type="button"
+                      onClick={() => handleApproveRefund(p.id)}
+                      disabled={actionLoading === `approve-${p.id}`}
+                      className="btn btn-primary btn-sm text-xs"
+                    >
+                      {actionLoading === `approve-${p.id}` ? 'Approving…' : 'Approve'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitRefund} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="form-group">
+                <label className="form-label text-xs">Amount (₹)</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max={refundableOn(refundDetail)}
+                  value={refundAmount || ''}
+                  onChange={e => setRefundAmount(Number(e.target.value))}
+                  className="form-input font-mono text-xs"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label text-xs">Refunded via</label>
+                <select
+                  className="form-select text-xs"
+                  value={refundMethod}
+                  onChange={e => setRefundMethod(e.target.value as typeof refundMethod)}
+                >
+                  <option value="upi">UPI</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="netbanking">Net Banking</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label text-xs">Refund reference (UTR / gateway refund ID / voucher)</label>
+              <input
+                type="text"
+                value={refundReference}
+                onChange={e => setRefundReference(e.target.value)}
+                className="form-input text-xs"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label text-xs">Reason</label>
+              <input
+                type="text"
+                value={refundReason}
+                onChange={e => setRefundReason(e.target.value)}
+                className="form-input text-xs"
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
+              <button type="button" onClick={() => setRefundModalOpen(false)} className="btn btn-secondary">
+                Close
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading === 'refund' || refundableOn(refundDetail) <= 0}
+                className="btn btn-danger"
+              >
+                {actionLoading === 'refund' ? 'Processing…' : 'Issue Refund'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
       {/* ── Printable Invoice Receipt Modal ── */}
       <Modal
         open={printModalOpen}
@@ -1091,21 +1615,59 @@ export default function Billing() {
       {/* ── Create Invoice Modal ── */}
       <Modal
         open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={closeCreateModal}
         title="Create Patient Invoice"
         description="Per-line tax calculation based on Notification 12/2017 healthcare exemptions."
         size="lg"
       >
         <form onSubmit={handleSubmit(handleCreateInvoice)} className="space-y-4">
           <div className="form-group">
-            <label className="form-label">Patient Full Name</label>
-            <input
-              type="text"
-              {...register('patientName')}
-              placeholder="e.g. Ramesh Kumar"
-              className="form-input"
-            />
-            {errors.patientName && <p className="form-error">{errors.patientName.message}</p>}
+            <label htmlFor="invoice-patient" className="form-label">Patient</label>
+            <select
+              id="invoice-patient"
+              className="form-select"
+              disabled={patients.length === 0}
+              {...register('patientId', { onChange: e => handleSelectPatient(e.target.value) })}
+            >
+              <option value="">{patients.length === 0 ? 'No patients available' : 'Select patient…'}</option>
+              {patients.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.phone ? ` · ${p.phone}` : ''}
+                </option>
+              ))}
+            </select>
+            {errors.patientId && <p className="form-error">{errors.patientId.message}</p>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="invoice-appointment" className="form-label">Completed appointment</label>
+            <select
+              id="invoice-appointment"
+              className="form-select"
+              disabled={!selectedPatientId || appointmentsLoading || patientAppointments.length === 0}
+              {...register('appointmentId')}
+            >
+              <option value="">
+                {appointmentsLoading
+                  ? 'Loading appointments…'
+                  : !selectedPatientId
+                    ? 'Select a patient first'
+                  : patientAppointments.length === 0
+                    ? 'No completed appointment found'
+                    : 'Select appointment…'}
+              </option>
+              {patientAppointments.map(a => (
+                <option key={a.appointmentId} value={a.appointmentId}>
+                  {fmtDate(a.date)} · {a.time} · {a.doctorName}
+                </option>
+              ))}
+            </select>
+            {errors.appointmentId && <p className="form-error">{errors.appointmentId.message}</p>}
+            {selectedPatientId && !appointmentsLoading && patientAppointments.length === 0 && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Complete this patient’s appointment before creating the consultation invoice.
+              </p>
+            )}
           </div>
 
           {/* Quick Add Presets */}
@@ -1277,7 +1839,7 @@ export default function Billing() {
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
             <button
               type="button"
-              onClick={() => setCreateModalOpen(false)}
+              onClick={closeCreateModal}
               className="btn btn-secondary cursor-pointer"
             >
               Cancel
