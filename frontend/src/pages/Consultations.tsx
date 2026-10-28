@@ -101,6 +101,8 @@ export default function Consultations() {
   const [observations, setObservations] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [advisedInvestigations, setAdvisedInvestigations] = useState('')
+  const [orderedLabTests, setOrderedLabTests] = useState<string[]>([])
+  const [labTestInput, setLabTestInput] = useState('')
   const [followUpDate, setFollowUpDate] = useState('')
   const [followUpNotes, setFollowUpNotes] = useState('')
 
@@ -145,6 +147,8 @@ export default function Consultations() {
     setObservations('')
     setDiagnosis('')
     setAdvisedInvestigations('')
+    setOrderedLabTests([])
+    setLabTestInput('')
     setFollowUpDate('')
     setFollowUpNotes('')
     setPrescriptions([])
@@ -569,7 +573,7 @@ export default function Consultations() {
           scheduleClass: p.scheduleClass,
           isUnverified: p.isUnverified ?? false
         })),
-        orderedLabTests: []
+        orderedLabTests
       }
 
       const res = await api.post(`/appointments/${selectedAppointment.id}/consultation/finalize`, payload)
@@ -600,7 +604,7 @@ export default function Consultations() {
     } finally {
       setSubmitting(false)
     }
-  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, followUpDate, followUpNotes, prescriptions, showToast])
+  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, followUpDate, followUpNotes, prescriptions, orderedLabTests, showToast])
 
   // ── Clinical Amendment (FR-14 & FR-15 Non-destructive v2) ──
   const handleConfirmAmendment = useCallback(async (amendmentReason: string) => {
@@ -980,6 +984,59 @@ export default function Consultations() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Lab orders land in the Lab Worklist (Module 08) on finalize. */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Order Lab Tests (sent to Lab Worklist on signing)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={labTestInput}
+                  onChange={(e) => setLabTestInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    e.preventDefault()
+                    const test = labTestInput.trim()
+                    if (!test) return
+                    setOrderedLabTests(prev => prev.includes(test) ? prev : [...prev, test])
+                    setLabTestInput('')
+                  }}
+                  placeholder="e.g. Complete Blood Count (CBC)"
+                  className="form-input text-xs w-full"
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm text-xs whitespace-nowrap"
+                  onClick={() => {
+                    const test = labTestInput.trim()
+                    if (!test) return
+                    setOrderedLabTests(prev => prev.includes(test) ? prev : [...prev, test])
+                    setLabTestInput('')
+                  }}
+                >
+                  + Add Test
+                </button>
+              </div>
+              {orderedLabTests.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {orderedLabTests.map(test => (
+                    <span key={test} className="badge badge-neutral gap-1.5">
+                      {test}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${test}`}
+                        className="cursor-pointer"
+                        onClick={() => setOrderedLabTests(prev => prev.filter(t => t !== test))}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

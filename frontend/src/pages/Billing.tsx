@@ -134,6 +134,28 @@ interface PatientDeposits {
   }>
 }
 
+interface ExpenseRow {
+  id: string
+  category: string
+  amount: number
+  expenseDate: string
+  note?: string
+}
+
+interface MonthSummary {
+  month: string
+  income: number
+  reportedPendingIncome: number
+  creditNotesIssued: number
+  expenses: { total: number; byCategory: Array<{ category: string; total: number }> }
+  net: number
+}
+
+const EXPENSE_CATEGORIES = [
+  'rent', 'utilities', 'salaries', 'supplies', 'equipment',
+  'marketing', 'professionalservices', 'insurance', 'taxes', 'other',
+]
+
 interface DynamicQrData {
   invoiceId: string
   invoiceNumber: string
@@ -199,7 +221,7 @@ export default function Billing() {
   const isClinicAdmin = user?.role === 'clinicadmin' || user?.role === 'owner'
   const canRecordPayments = isClinicAdmin || user?.role === 'receptionist'
 
-  const [activeTab, setActiveTab] = useState<'invoices' | 'daily' | 'outstanding' | 'deposits' | 'ledger'>('invoices')
+  const [activeTab, setActiveTab] = useState<'invoices' | 'daily' | 'outstanding' | 'deposits' | 'expenses' | 'ledger'>('invoices')
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [patients, setPatients] = useState<PatientOption[]>([])
   const [patientAppointments, setPatientAppointments] = useState<AppointmentOption[]>([])
@@ -249,6 +271,16 @@ export default function Billing() {
   const [depositMethod, setDepositMethod] = useState<'cash' | 'upi' | 'card' | 'netbanking'>('cash')
   const [depositReference, setDepositReference] = useState('')
   const [depositLoading, setDepositLoading] = useState(false)
+
+  // Monthly expenses & month-end summary
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const [expenseMonth, setExpenseMonth] = useState(todayISO.slice(0, 7))
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([])
+  const [monthSummary, setMonthSummary] = useState<MonthSummary | null>(null)
+  const [expenseCategory, setExpenseCategory] = useState('rent')
+  const [expenseAmount, setExpenseAmount] = useState<number>(0)
+  const [expenseDate, setExpenseDate] = useState(todayISO)
+  const [expenseNote, setExpenseNote] = useState('')
 
   const showToast = (msg: string, type: 'success' | 'err' = 'success') => {
     setToast({ msg, type })
@@ -642,6 +674,40 @@ export default function Billing() {
     }
   }
 
+  const loadExpenses = async (month: string) => {
+    try {
+      const [expenseRes, summaryRes] = await Promise.allSettled([
+        api.get('/ledger/expenses', { params: { month } }),
+        api.get('/ledger/summary', { params: { month } }),
+      ])
+      if (expenseRes.status === 'fulfilled') setExpenses(expenseRes.value.data || [])
+      if (summaryRes.status === 'fulfilled') setMonthSummary(summaryRes.value.data)
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    }
+  }
+
+  const handleCreateExpense = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      setActionLoading('expense')
+      await api.post('/ledger/expenses', {
+        category: expenseCategory,
+        amount: Number(expenseAmount),
+        expenseDate,
+        note: expenseNote.trim() || undefined,
+      })
+      showToast('Expense recorded.')
+      setExpenseAmount(0)
+      setExpenseNote('')
+      await loadExpenses(expenseMonth)
+    } catch (err: any) {
+      showToast(friendlyError(err), 'err')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleApplyAdvance = async (invoice: Invoice) => {
     if (!invoice.patientId) {
       showToast('This invoice is not linked to a patient profile, so no advance can be applied.', 'err')
@@ -788,6 +854,14 @@ export default function Billing() {
         >
           Advance Deposits
         </button>
+        {isClinicAdmin && (
+          <button
+            onClick={() => { setActiveTab('expenses'); void loadExpenses(expenseMonth) }}
+            className={`btn btn-sm ${activeTab === 'expenses' ? 'btn-primary' : 'btn-ghost'}`}
+          >
+            Expenses &amp; Month-End
+          </button>
+        )}
       </div>
 
       {/* ── Main Tab Contents ── */}
@@ -1110,6 +1184,136 @@ export default function Billing() {
                 </div>
               )}
             </>
+          )}
+        </div>
+      ) : activeTab === 'expenses' ? (
+        <div className="card p-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
+                Clinic Expenses &amp; Month-End Summary
+              </h3>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium">
+                Every expense is a ledger entry; the month-end figure is income less credit notes and expenses.
+              </p>
+            </div>
+            <input
+              type="month"
+              value={expenseMonth}
+              onChange={e => { setExpenseMonth(e.target.value); void loadExpenses(e.target.value) }}
+              className="form-input text-xs w-40 font-mono"
+            />
+          </div>
+
+          {monthSummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Confirmed income</span>
+                <div className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  ₹{Number(monthSummary.income || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Credit notes</span>
+                <div className="text-base font-bold font-mono mt-0.5">
+                  ₹{Number(monthSummary.creditNotesIssued || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Expenses</span>
+                <div className="text-base font-bold font-mono mt-0.5">
+                  ₹{Number(monthSummary.expenses?.total || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                <span className="text-[11px] text-[var(--color-text-muted)] font-bold">Net</span>
+                <div className={`text-base font-bold font-mono mt-0.5 ${monthSummary.net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  ₹{Number(monthSummary.net || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleCreateExpense} className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+            <div>
+              <label className="form-label text-xs">Category</label>
+              <select
+                className="form-select text-xs"
+                value={expenseCategory}
+                onChange={e => setExpenseCategory(e.target.value)}
+              >
+                {EXPENSE_CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c === 'professionalservices' ? 'Professional services' : c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label text-xs">Amount (₹)</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                className="form-input font-mono text-xs"
+                value={expenseAmount || ''}
+                onChange={e => setExpenseAmount(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="form-label text-xs">Date</label>
+              <input
+                type="date"
+                required
+                className="form-input text-xs"
+                value={expenseDate}
+                onChange={e => setExpenseDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label text-xs">Note</label>
+              <input
+                type="text"
+                className="form-input text-xs"
+                value={expenseNote}
+                onChange={e => setExpenseNote(e.target.value)}
+              />
+            </div>
+            <button type="submit" disabled={actionLoading === 'expense' || !expenseAmount} className="btn btn-primary btn-sm">
+              {actionLoading === 'expense' ? 'Saving…' : 'Record Expense'}
+            </button>
+          </form>
+
+          {expenses.length === 0 ? (
+            <p className="text-xs text-[var(--color-text-muted)]">No expenses recorded for {expenseMonth}.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th className="text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map(x => (
+                    <tr key={x.id}>
+                      <td className="text-xs font-mono">{x.expenseDate}</td>
+                      <td className="text-xs">{x.category}</td>
+                      <td className="text-xs text-[var(--color-text-muted)]">{x.note || '-'}</td>
+                      <td className="text-right font-mono text-xs">₹{Number(x.amount).toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={3} className="text-right text-xs font-bold">Total</td>
+                    <td className="text-right font-mono text-xs font-bold">
+                      ₹{expenses.reduce((sum, x) => sum + Number(x.amount || 0), 0).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       ) : (
