@@ -32,3 +32,27 @@ The drug master database supports doctor prescription search, generic autocomple
 ### Decision
 Health care services by a clinical establishment or an authorised medical practitioner are GST-exempt under Notification No. 12/2017 - Central Tax (Rate). Pharmacy drug sales are taxable supplies subject to reverse GST calculation from printed MRP (HSN `3004xxxx` at 5%, 12%, or 18%).
 - **Default Adopted**: Consultation and medical services remain on the `INV` series (exempt Bill of Supply), while counter drug dispensing produces an independent, non-merged `PHARM` tax invoice linked via `LinkedPharmacyInvoiceId`. Neither document compromises the tax exemption of the other.
+
+---
+
+## 3. Invoice-Level Discount vs. GSTR-1 Taxable Value
+
+### Background
+Invoices can carry a whole-invoice `DiscountAmount` (reason required) in addition to per-line discounts.
+The discount reduces `Invoice.Total`, but it is not apportioned across `InvoiceLineItem` rows, so the
+line-level taxable and tax values still add up to the pre-discount amount.
+
+### Why it matters
+GSTR-1 taxable value is built from the line items. If the discount is a pre-supply trade discount it
+should reduce the reported taxable value; if it is a post-supply concession it should instead be a
+credit note. The data model cannot currently tell the two apart.
+
+### Safest Default Taken
+Report what the invoice actually says (line taxable + GST as charged) and emit
+`invoice_level_discount_not_apportioned_to_lines` in every GSTR-1 export containing such an invoice.
+No statutory value is silently re-computed.
+
+### Question for the CA
+For a discount shown on the invoice that reduces the amount collected, should the discount
+(a) reduce the taxable value proportionally on the invoice, or (b) be issued as a credit note?
+The answer decides whether line apportionment or a credit-note prompt is the correct fix.

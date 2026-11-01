@@ -10,12 +10,21 @@ namespace Hospital_CRM.Api.Services;
 public interface IPdfService
 {
     byte[] GeneratePrescriptionPdf(Prescription prescription, Consultation consultation, Clinic? clinic, bool isDuplicate);
-    byte[] GenerateInvoicePdf(Invoice invoice, Clinic? clinic, bool isDuplicate);
-    byte[] GenerateCreditNotePdf(CreditNote creditNote, Invoice invoice, Clinic? clinic);
+    byte[] GenerateInvoicePdf(Invoice invoice, Clinic? clinic, bool isDuplicate, string? supplierGstin = null);
+    byte[] GenerateCreditNotePdf(CreditNote creditNote, Invoice invoice, Clinic? clinic, string? supplierGstin = null);
 }
 
 public class PdfService : IPdfService
 {
+    private readonly string _publicBaseUrl;
+
+    public PdfService(IConfiguration? configuration = null) =>
+        _publicBaseUrl = configuration?["App:PublicBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+
+    /// <summary>A camera scan needs an absolute URL; a relative path resolves to nothing on paper.</summary>
+    public static string BuildVerificationUrl(string publicBaseUrl, string code, int version) =>
+        $"{publicBaseUrl.TrimEnd('/')}/rx-verify/{Uri.EscapeDataString(code)}?v={version}";
+
     public byte[] GeneratePrescriptionPdf(Prescription prescription, Consultation consultation, Clinic? clinic, bool isDuplicate)
     {
         var canvas = new PdfCanvas();
@@ -126,9 +135,9 @@ public class PdfService : IPdfService
         float footerY = 130;
         canvas.DrawLine(40, footerY + 10, 555, footerY + 10, 0.8f, 0.8f, 0.8f, 1f);
 
-        // Verification QR code (links to /rx-verify/{code}?v={version})
+        // Verification QR code (absolute URL so a phone camera can open it)
         var qrCodeValue = consultation.VerificationQrCode ?? prescription.Id.ToString("N");
-        var qrUrl = $"/rx-verify/{qrCodeValue}?v={consultation.Version}";
+        var qrUrl = BuildVerificationUrl(_publicBaseUrl, qrCodeValue, consultation.Version);
         canvas.DrawQrCode(qrUrl, 40, footerY - 80, 80);
 
         canvas.DrawText("VERIFY RX AUTHENTICITY", 130, footerY - 5, 9, bold: true, r: 0.08f, g: 0.25f, b: 0.45f);
@@ -150,7 +159,7 @@ public class PdfService : IPdfService
         return canvas.ToPdfBytes();
     }
 
-    public byte[] GenerateInvoicePdf(Invoice invoice, Clinic? clinic, bool isDuplicate)
+    public byte[] GenerateInvoicePdf(Invoice invoice, Clinic? clinic, bool isDuplicate, string? supplierGstin = null)
     {
         var canvas = new PdfCanvas();
 
@@ -170,9 +179,9 @@ public class PdfService : IPdfService
         canvas.DrawText(clinicAddr, 40, y, 9, bold: false, r: 0.35f, g: 0.35f, b: 0.35f);
         y -= 12;
 
-        if (!string.IsNullOrWhiteSpace(clinic?.PharmacyGstNumber))
+        if (!string.IsNullOrWhiteSpace(supplierGstin))
         {
-            canvas.DrawText($"GSTIN: {clinic.PharmacyGstNumber}", 40, y, 8.5f, bold: true, r: 0.3f, g: 0.3f, b: 0.3f);
+            canvas.DrawText($"GSTIN: {supplierGstin}", 40, y, 8.5f, bold: true, r: 0.3f, g: 0.3f, b: 0.3f);
             y -= 12;
         }
 
@@ -238,9 +247,8 @@ public class PdfService : IPdfService
             canvas.DrawRightAlignedText(line.Quantity.ToString(), 330, y, 8, bold: false);
             canvas.DrawRightAlignedText(line.UnitPrice.ToString("F2", CultureInfo.InvariantCulture), 390, y, 8, bold: false);
             canvas.DrawRightAlignedText($"{line.GstRate:F0}%", 440, y, 8, bold: false);
-            canvas.DrawRightAlignedText(line.TaxAmount.ToString("F2", CultureInfo.InvariantCulture), 495, y, 8, bold: false);
-            var lineTotal = line.Amount + line.TaxAmount;
-            canvas.DrawRightAlignedText(lineTotal.ToString("F2", CultureInfo.InvariantCulture), 550, y, 8, bold: true);
+            canvas.DrawRightAlignedText(line.ResolvedTaxAmount().ToString("F2", CultureInfo.InvariantCulture), 495, y, 8, bold: false);
+            canvas.DrawRightAlignedText(line.GrossAmount().ToString("F2", CultureInfo.InvariantCulture), 550, y, 8, bold: true);
 
             canvas.DrawLine(40, y - 4, 555, y - 4, 0.9f, 0.9f, 0.9f, 0.5f);
             y -= 16;
@@ -294,7 +302,7 @@ public class PdfService : IPdfService
         return canvas.ToPdfBytes();
     }
 
-    public byte[] GenerateCreditNotePdf(CreditNote creditNote, Invoice invoice, Clinic? clinic)
+    public byte[] GenerateCreditNotePdf(CreditNote creditNote, Invoice invoice, Clinic? clinic, string? supplierGstin = null)
     {
         var canvas = new PdfCanvas();
 
@@ -309,9 +317,9 @@ public class PdfService : IPdfService
         canvas.DrawText(clinicAddr, 40, y, 9, bold: false, r: 0.35f, g: 0.35f, b: 0.35f);
         y -= 12;
 
-        if (!string.IsNullOrWhiteSpace(clinic?.PharmacyGstNumber))
+        if (!string.IsNullOrWhiteSpace(supplierGstin))
         {
-            canvas.DrawText($"GSTIN: {clinic.PharmacyGstNumber}", 40, y, 8.5f, bold: true, r: 0.3f, g: 0.3f, b: 0.3f);
+            canvas.DrawText($"GSTIN: {supplierGstin}", 40, y, 8.5f, bold: true, r: 0.3f, g: 0.3f, b: 0.3f);
             y -= 12;
         }
 

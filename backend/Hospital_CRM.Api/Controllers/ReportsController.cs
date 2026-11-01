@@ -329,20 +329,20 @@ public class ReportsController : ControllerBase
         // rate-wise + place-of-supply-wise totals, not one row per invoice.
         var b2cs = invoices
             .SelectMany(i => i.LineItems
-                .Where(li => li.TaxCategory == TaxCategory.Taxable && li.TaxAmount > 0)
-                .Select(li => new { li.GstRate, li.Amount, li.TaxAmount }))
+                .Where(li => li.ResolvedTaxAmount() > 0)
+                .Select(li => new { li.GstRate, Taxable = li.TaxableAmount(), Tax = li.ResolvedTaxAmount() }))
             .GroupBy(l => l.GstRate)
             .OrderBy(g => g.Key)
             .Select(g =>
             {
-                var tax = g.Sum(l => l.TaxAmount);
+                var tax = g.Sum(l => l.Tax);
                 var cgst = Math.Round(tax / 2m, 2);
                 return new
                 {
                     type = "OE",
                     placeOfSupply,
                     rate = g.Key,
-                    taxableValue = g.Sum(l => l.Amount),
+                    taxableValue = g.Sum(l => l.Taxable),
                     igstAmount = 0m,
                     cgstAmount = cgst,
                     sgstAmount = tax - cgst,
@@ -351,8 +351,9 @@ public class ReportsController : ControllerBase
             })
             .ToList();
 
+        // A line with no resolved tax is a nil/exempt supply, whatever its stored category.
         var exemptLines = invoices
-            .SelectMany(i => i.LineItems.Where(li => li.TaxCategory != TaxCategory.Taxable))
+            .SelectMany(i => i.LineItems.Where(li => li.ResolvedTaxAmount() == 0))
             .ToList();
 
         var nilExempt = new[]
@@ -360,19 +361,19 @@ public class ReportsController : ControllerBase
             new
             {
                 placeOfSupply,
-                nilAmount = exemptLines.Where(l => l.TaxCategory == TaxCategory.Nil).Sum(l => l.Amount),
-                exemptAmount = exemptLines.Where(l => l.TaxCategory == TaxCategory.Exempt).Sum(l => l.Amount)
+                nilAmount = exemptLines.Where(l => l.TaxCategory == TaxCategory.Nil).Sum(l => l.TaxableAmount()),
+                exemptAmount = exemptLines.Where(l => l.TaxCategory != TaxCategory.Nil).Sum(l => l.TaxableAmount())
             }
         }.Where(n => n.nilAmount > 0 || n.exemptAmount > 0).ToList();
 
         // Table 12: HSN/SAC summary. Mandatory above ₹5 crore turnover; always useful for reconciliation.
         var hsnSummary = invoices
-            .SelectMany(i => i.LineItems.Select(li => new { li.HsnSacCode, li.GstRate, li.Quantity, li.Amount, li.TaxAmount }))
+            .SelectMany(i => i.LineItems.Select(li => new { li.HsnSacCode, li.GstRate, li.Quantity, Taxable = li.TaxableAmount(), Tax = li.ResolvedTaxAmount() }))
             .GroupBy(l => new { l.HsnSacCode, l.GstRate })
             .OrderBy(g => g.Key.HsnSacCode).ThenBy(g => g.Key.GstRate)
             .Select(g =>
             {
-                var tax = g.Sum(l => l.TaxAmount);
+                var tax = g.Sum(l => l.Tax);
                 var cgst = Math.Round(tax / 2m, 2);
                 return new
                 {
@@ -381,7 +382,7 @@ public class ReportsController : ControllerBase
                     uqc = "OTH",
                     quantity = g.Sum(l => l.Quantity),
                     rate = g.Key.GstRate,
-                    taxableValue = g.Sum(l => l.Amount),
+                    taxableValue = g.Sum(l => l.Taxable),
                     igstAmount = 0m,
                     cgstAmount = cgst,
                     sgstAmount = tax - cgst,

@@ -26,6 +26,11 @@ echo "==> Starting database backup for '${PGDATABASE}' at ${TIMESTAMP}..."
 echo "    Host: ${PGHOST}:${PGPORT} | User: ${PGUSER}"
 
 # Execute pg_dump with custom archive format and compression
+if ! command -v pg_dump >/dev/null 2>&1; then
+  echo "ERROR: pg_dump not found on PATH. Install the PostgreSQL client tools and retry." >&2
+  exit 1
+fi
+
 pg_dump \
   --no-password \
   --host="${PGHOST}" \
@@ -42,11 +47,12 @@ if command -v sha256sum >/dev/null 2>&1; then
   sha256sum "${DUMP_FILE}" > "${CHECKSUM_FILE}"
 elif command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "${DUMP_FILE}" > "${CHECKSUM_FILE}"
+else
+  echo "ERROR: neither sha256sum nor shasum is available; cannot write an integrity checksum." >&2
+  exit 1
 fi
 
 FILESIZE=$(ls -lh "${DUMP_FILE}" | awk '{print $5}')
 echo "==> Backup complete successfully!"
 echo "    Archive:  ${DUMP_FILE} (${FILESIZE})"
-if [ -f "${CHECKSUM_FILE}" ]; then
-  echo "    Checksum: ${CHECKSUM_FILE}"
-fi
+echo "    Checksum: ${CHECKSUM_FILE}"

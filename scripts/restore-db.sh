@@ -17,7 +17,9 @@ PGUSER="${PGUSER:-postgres}"
 
 if [ -z "${BACKUP_FILE}" ]; then
   # Find latest dump file in backups directory
-  BACKUP_FILE=$(find ./backups -name "*.dump" -type f | sort -r | head -n 1)
+  if [ -d ./backups ]; then
+    BACKUP_FILE=$(find ./backups -name "*.dump" -type f | sort -r | head -n 1)
+  fi
   if [ -z "${BACKUP_FILE}" ]; then
     echo "ERROR: No backup dump file specified and no .dump files found in ./backups." >&2
     echo "Usage: $0 [path/to/backup.dump]" >&2
@@ -39,6 +41,9 @@ if [ -f "${CHECKSUM_FILE}" ]; then
     sha256sum -c "${CHECKSUM_FILE}"
   elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 -c "${CHECKSUM_FILE}"
+  else
+    echo "ERROR: neither sha256sum nor shasum is available; cannot verify the backup." >&2
+    exit 1
   fi
   echo "    Checksum OK."
 fi
@@ -46,7 +51,8 @@ fi
 echo "==> Restoring database '${PGDATABASE}' from '${BACKUP_FILE}'..."
 echo "    Host: ${PGHOST}:${PGPORT} | User: ${PGUSER}"
 
-# Execute pg_restore: clean objects before recreation, ignore privileges/owners
+# Execute pg_restore: clean objects before recreation, ignore privileges/owners.
+# set -e makes a non-zero exit fail the drill instead of reporting a false pass.
 pg_restore \
   --no-password \
   --host="${PGHOST}" \
@@ -58,7 +64,7 @@ pg_restore \
   --no-owner \
   --no-privileges \
   --verbose \
-  "${BACKUP_FILE}" || true
+  "${BACKUP_FILE}"
 
 echo "==> Running post-restore database connectivity check..."
 psql \
@@ -66,6 +72,7 @@ psql \
   --port="${PGPORT}" \
   --username="${PGUSER}" \
   --dbname="${PGDATABASE}" \
+  -v ON_ERROR_STOP=1 \
   -c "SELECT count(*) AS user_count FROM \"Users\";"
 
 echo "==> Restoration verified successfully!"

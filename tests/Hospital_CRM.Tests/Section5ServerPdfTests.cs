@@ -389,4 +389,13 @@ public class Section5ServerPdfTests
         var pdfHeader = Encoding.ASCII.GetString(fileRes.FileContents, 0, 8);
         Assert.StartsWith("%PDF-1.4", pdfHeader);
     }
+
+    [Fact]
+    public void PrescriptionQr_EncodesAnAbsoluteVerificationUrl()
+    {
+        // A printed QR is scanned by a phone camera, so a relative "/rx-verify/..." is unusable.
+        var url = PdfService.BuildVerificationUrl("https://clinic.example.com/", "RX-CODE 1", 2);
+
+        Assert.Equal("https://clinic.example.com/rx-verify/RX-CODE%201?v=2", url);
+    }
 }

@@ -281,7 +281,7 @@ public class ReportsControllerTests
             StateCode = "27",
         });
 
-        // Taxable invoice at 18% with one rated line.
+        // Taxable invoice at 18% with one rated line (OPD shape: Amount is net + tax).
         var (taxable, _) = await SeedPayment(db, clinicId: null, 1000m, PaymentMethod.Cash, walkInName: "Walk-in A");
         db.InvoiceLineItems.Add(new InvoiceLineItem
         {
@@ -289,7 +289,7 @@ public class ReportsControllerTests
             Description = "Physiotherapy session",
             Quantity = 1,
             UnitPrice = 1000m,
-            Amount = 1000m,
+            Amount = 1180m,
             GstRate = 18m,
             TaxCategory = TaxCategory.Taxable,
             TaxAmount = 180m,
@@ -427,6 +427,43 @@ public class ReportsControllerTests
         var bad = Assert.IsAssignableFrom<ObjectResult>(result);
         Assert.Equal(400, bad.StatusCode);
         Assert.Equal("unsupported_format", AsJson(bad.Value).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task GSTR1_IncludesMrpInclusivePharmacyLinesThatStoreNoTaxAmount()
+    {
+        var db = CreateInMemoryDb();
+        var userId = Guid.NewGuid();
+        var controller = CreateController(db, userId);
+
+        var (invoice, _) = await SeedPayment(db, clinicId: null, 500m, PaymentMethod.Cash, walkInName: "Pharmacy");
+        invoice.Series = "PHARM";
+        invoice.InvoiceType = InvoiceType.Pharmacy;
+        // POS stores Amount as the taxable value and leaves TaxAmount at zero (MRP is tax-inclusive).
+        db.InvoiceLineItems.Add(new InvoiceLineItem
+        {
+            InvoiceId = invoice.Id,
+            Description = "Paracetamol (Batch: B1)",
+            Quantity = 5,
+            UnitPrice = 112m,
+            Amount = 500m,
+            GstRate = 12m,
+            TaxCategory = TaxCategory.Exempt,
+            TaxAmount = 0m,
+            HsnCode = "30049099",
+        });
+        await db.SaveChangesAsync();
+
+        var result = await controller.GSTR1(Month, CancellationToken.None);
+        var json = AsJson(Assert.IsType<OkObjectResult>(result).Value);
+
+        var b2cs = json.GetProperty("b2cs");
+        Assert.Equal(1, b2cs.GetArrayLength());
+        Assert.Equal(12m, b2cs[0].GetProperty("rate").GetDecimal());
+        Assert.Equal(500m, b2cs[0].GetProperty("taxableValue").GetDecimal());
+        Assert.Equal(30m, b2cs[0].GetProperty("cgstAmount").GetDecimal());
+        Assert.Equal(30m, b2cs[0].GetProperty("sgstAmount").GetDecimal());
+        Assert.Equal(0, json.GetProperty("nilExempt").GetArrayLength());
     }
 
     [Fact]

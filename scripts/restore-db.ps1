@@ -48,13 +48,27 @@ if (Test-Path $ChecksumFile) {
 Write-Host "==> Restoring database '$Database' from '$BackupFile'..." -ForegroundColor Cyan
 $env:PGCONNECT_TIMEOUT = "3"
 $pgRestore = Get-Command pg_restore -ErrorAction SilentlyContinue
-if ($pgRestore) {
-    try {
-        & $pgRestore.Source --no-password --host=$PgHost --port=$PgPort --username=$User --dbname=$Database --clean --if-exists --no-owner --no-privileges $BackupFile 2>$null
-        Write-Host "==> Restoration command executed!" -ForegroundColor Green
-    } catch {
-        Write-Host "==> Disaster Recovery validation: Dump integrity confirmed ($BackupFile)." -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "==> Disaster Recovery validation: Dump integrity confirmed ($BackupFile)." -ForegroundColor Yellow
+if (-not $pgRestore) {
+    Write-Error "pg_restore was not found on PATH. Install the PostgreSQL client tools and retry."
+    exit 1
 }
+
+& $pgRestore.Source --no-password --host=$PgHost --port=$PgPort --username=$User --dbname=$Database --clean --if-exists --no-owner --no-privileges $BackupFile
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Restore failed: pg_restore exited with code $LASTEXITCODE."
+    exit 1
+}
+
+$psql = Get-Command psql -ErrorAction SilentlyContinue
+if (-not $psql) {
+    Write-Error "psql was not found on PATH; cannot verify the restored database."
+    exit 1
+}
+
+$userCount = & $psql.Source --no-password --host=$PgHost --port=$PgPort --username=$User --dbname=$Database -v ON_ERROR_STOP=1 -t -c 'SELECT count(*) FROM "Users";'
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Restore verification failed: the restored database did not answer the Users query."
+    exit 1
+}
+
+Write-Host "==> Restoration verified successfully! Users restored: $($userCount.Trim())" -ForegroundColor Green

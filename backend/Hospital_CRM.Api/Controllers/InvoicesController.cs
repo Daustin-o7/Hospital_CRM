@@ -1775,6 +1775,11 @@ public class InvoicesController : ControllerBase
         }
 
         var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == invoice.TenantId, ct);
+        var taxProfile = await _db.TenantTaxProfiles.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == invoice.TenantId, ct);
+        var supplierGstin = invoice.InvoiceType == InvoiceType.Pharmacy
+            ? clinic?.PharmacyGstNumber
+            : taxProfile?.Gstin;
 
         var priorPrints = await _db.InvoicePrintLogs
             .CountAsync(l => l.InvoiceId == id, ct);
@@ -1795,7 +1800,7 @@ public class InvoicesController : ControllerBase
         _db.InvoicePrintLogs.Add(printLog);
         await _db.SaveChangesAsync(ct);
 
-        var pdfBytes = pdfService.GenerateInvoicePdf(invoice, clinic, isDuplicate);
+        var pdfBytes = pdfService.GenerateInvoicePdf(invoice, clinic, isDuplicate, supplierGstin);
         var invoiceRef = invoice.FormatInvoiceNumber();
         var filename = $"{invoiceRef}_{(isDuplicate ? "DUPLICATE" : "ORIGINAL")}.pdf";
 
@@ -1831,8 +1836,13 @@ public class InvoicesController : ControllerBase
         }
 
         var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == creditNote.TenantId, ct);
+        var taxProfile = await _db.TenantTaxProfiles.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == creditNote.TenantId, ct);
+        var supplierGstin = creditNote.Invoice.InvoiceType == InvoiceType.Pharmacy
+            ? clinic?.PharmacyGstNumber
+            : taxProfile?.Gstin;
 
-        var pdfBytes = pdfService.GenerateCreditNotePdf(creditNote, creditNote.Invoice, clinic);
+        var pdfBytes = pdfService.GenerateCreditNotePdf(creditNote, creditNote.Invoice, clinic, supplierGstin);
         var cnRef = creditNote.FormatCreditNoteNumber();
         var filename = $"{cnRef}.pdf";
 

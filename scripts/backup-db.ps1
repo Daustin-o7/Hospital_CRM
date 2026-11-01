@@ -31,38 +31,19 @@ Write-Host "    Host: ${PgHost}:${PgPort} | User: $User"
 
 $env:PGCONNECT_TIMEOUT = "3"
 $pgDump = Get-Command pg_dump -ErrorAction SilentlyContinue
-
-$success = $false
-if ($pgDump) {
-    try {
-        & $pgDump.Source --no-password --host=$PgHost --port=$PgPort --username=$User --format=custom --blobs --file=$DumpFile $Database 2>$null
-        if ($LASTEXITCODE -eq 0 -and (Test-Path $DumpFile)) {
-            $success = $true
-        }
-    } catch {
-        $success = $false
-    }
+if (-not $pgDump) {
+    Write-Error "pg_dump was not found on PATH. Install the PostgreSQL client tools and retry."
+    exit 1
 }
 
-if (-not $success) {
-    Write-Host "--> pg_dump unavailable or localhost Postgres offline. Writing DR backup manifest." -ForegroundColor Yellow
-    @{
-        Database = $Database
-        Host = $PgHost
-        Port = $PgPort
-        Timestamp = $Timestamp
-        Format = "custom"
-        Engine = "PostgreSQL 16+"
-        Status = "verified_manifest"
-    } | ConvertTo-Json | Out-File -FilePath $DumpFile -Encoding utf8
+& $pgDump.Source --no-password --host=$PgHost --port=$PgPort --username=$User --format=custom --blobs --file=$DumpFile $Database
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $DumpFile)) {
+    Write-Error "Backup failed: pg_dump exited with code $LASTEXITCODE and no archive was written."
+    exit 1
 }
 
-if (Test-Path $DumpFile) {
-    $hash = (Get-FileHash -Path $DumpFile -Algorithm SHA256).Hash
-    "$hash  $((Get-Item $DumpFile).Name)" | Out-File -FilePath $ChecksumFile -Encoding utf8
-    Write-Host "==> Backup complete successfully!" -ForegroundColor Green
-    Write-Host "    Archive:  $DumpFile"
-    Write-Host "    Checksum: $ChecksumFile"
-} else {
-    Write-Error "Backup creation failed: dump file was not generated."
-}
+$hash = (Get-FileHash -Path $DumpFile -Algorithm SHA256).Hash
+"$hash  $((Get-Item $DumpFile).Name)" | Out-File -FilePath $ChecksumFile -Encoding utf8
+Write-Host "==> Backup complete successfully!" -ForegroundColor Green
+Write-Host "    Archive:  $DumpFile"
+Write-Host "    Checksum: $ChecksumFile"
