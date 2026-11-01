@@ -266,28 +266,134 @@ public class ReportsControllerTests
     }
 
     [Fact]
-    public async Task GSTR1_SplitsB2BAndB2C_AndExcludesCancelled()
+    public async Task GSTR1_AggregatesB2CByRate_AddsExemptAndCreditNotes_AndExcludesCancelled()
     {
         var db = CreateInMemoryDb();
         var userId = Guid.NewGuid();
         var controller = CreateController(db, userId); // no clinic filter
 
-        await SeedPayment(db, clinicId: null, 1000m, PaymentMethod.Cash, walkInName: "Walk-in A");
-        await SeedPayment(db, clinicId: Guid.NewGuid(), 500m, PaymentMethod.Cash);
+        db.TenantTaxProfiles.Add(new TenantTaxProfile
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            IsGstRegistered = true,
+            Gstin = "27AAAAA0000A1Z5",
+            StateCode = "27",
+        });
+
+        // Taxable invoice at 18% with one rated line.
+        var (taxable, _) = await SeedPayment(db, clinicId: null, 1000m, PaymentMethod.Cash, walkInName: "Walk-in A");
+        db.InvoiceLineItems.Add(new InvoiceLineItem
+        {
+            InvoiceId = taxable.Id,
+            Description = "Physiotherapy session",
+            Quantity = 1,
+            UnitPrice = 1000m,
+            Amount = 1000m,
+            GstRate = 18m,
+            TaxCategory = TaxCategory.Taxable,
+            TaxAmount = 180m,
+            HsnSacCode = "999721",
+        });
+
+        // Exempt healthcare invoice (SAC 999312) — nil/exempt section, never taxed at 18%.
+        var (exempt, _) = await SeedPayment(db, clinicId: null, 500m, PaymentMethod.Cash, walkInName: "Walk-in B");
+        exempt.GstAmount = 0m;
+        exempt.Total = 500m;
+        db.InvoiceLineItems.Add(new InvoiceLineItem
+        {
+            InvoiceId = exempt.Id,
+            Description = "OPD consultation",
+            Quantity = 1,
+            UnitPrice = 500m,
+            Amount = 500m,
+            GstRate = 0m,
+            TaxCategory = TaxCategory.Exempt,
+            TaxAmount = 0m,
+            HsnSacCode = "999312",
+        });
+
+        // Cancelled and draft documents must never appear as supply.
         var (_, cancelled) = await SeedPayment(db, clinicId: null, 111m, PaymentMethod.Cash, walkInName: "Cancelled");
         var cancelledInvoice = await db.Invoices.FindAsync(cancelled.InvoiceId);
         cancelledInvoice!.Status = InvoiceStatus.Cancelled;
+
+        var draft = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            InvoiceNumber = 0,
+            WalkInCustomerName = "Draft",
+            Subtotal = 100m,
+            GstAmount = 0m,
+            Total = 100m,
+            Status = InvoiceStatus.Draft,
+            CreatedAt = InMonth,
+        };
+        db.Invoices.Add(draft);
+
+        // Approved credit note reduces the month's liability; a pending one does not.
+        db.CreditNotes.Add(new CreditNote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            InvoiceId = taxable.Id,
+            CreditNoteNumber = "CN-2026-27-000001",
+            FinancialYear = "2026-27",
+            Series = "CN",
+            SequenceNumber = 1,
+            Amount = 118m,
+            Reason = "Procedure cancelled",
+            ApprovedByUserId = userId,
+            Status = CreditNoteStatus.Approved,
+            IssuedAt = InMonth,
+            CreatedAt = InMonth,
+        });
+        db.CreditNotes.Add(new CreditNote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Guid.Empty,
+            InvoiceId = taxable.Id,
+            CreditNoteNumber = "CN-2026-27-000002",
+            FinancialYear = "2026-27",
+            Series = "CN",
+            SequenceNumber = 2,
+            Amount = 50m,
+            Reason = "Awaiting approval",
+            ApprovedByUserId = userId,
+            Status = CreditNoteStatus.PendingApproval,
+            IssuedAt = InMonth,
+            CreatedAt = InMonth,
+        });
+
         await db.SaveChangesAsync();
 
         var result = await controller.GSTR1(Month, CancellationToken.None);
         var json = AsJson(Assert.IsType<OkObjectResult>(result).Value);
 
         Assert.Equal(2, json.GetProperty("totalInvoices").GetInt32());
-        Assert.Equal(1, json.GetProperty("b2bInvoices").GetArrayLength());
-        Assert.Equal(1, json.GetProperty("b2cInvoices").GetArrayLength());
-        Assert.Equal("Walk-in A", json.GetProperty("b2cInvoices")[0].GetProperty("patientName").GetString());
-        Assert.Equal(1500m, json.GetProperty("totalTaxableValue").GetDecimal());
-        Assert.Equal(270m, json.GetProperty("totalGst").GetDecimal());
+        Assert.Equal(0, json.GetProperty("b2bInvoices").GetArrayLength());
+        Assert.Equal("27", json.GetProperty("placeOfSupply").GetString());
+
+        var b2cs = json.GetProperty("b2cs");
+        Assert.Equal(1, b2cs.GetArrayLength());
+        Assert.Equal(18m, b2cs[0].GetProperty("rate").GetDecimal());
+        Assert.Equal(1000m, b2cs[0].GetProperty("taxableValue").GetDecimal());
+        Assert.Equal(90m, b2cs[0].GetProperty("cgstAmount").GetDecimal());
+        Assert.Equal(90m, b2cs[0].GetProperty("sgstAmount").GetDecimal());
+
+        var nilExempt = json.GetProperty("nilExempt");
+        Assert.Equal(1, nilExempt.GetArrayLength());
+        Assert.Equal(500m, nilExempt[0].GetProperty("exemptAmount").GetDecimal());
+
+        var cdnur = json.GetProperty("cdnur");
+        Assert.Equal(1, cdnur.GetArrayLength());
+        Assert.Equal(100m, cdnur[0].GetProperty("taxableValue").GetDecimal());
+        Assert.Equal(9m, cdnur[0].GetProperty("cgstAmount").GetDecimal());
+
+        Assert.Equal(1000m, json.GetProperty("totalTaxableValue").GetDecimal());
+        Assert.Equal(180m, json.GetProperty("totalGst").GetDecimal());
+        Assert.Equal(162m, json.GetProperty("netTaxPayable").GetDecimal());
+        Assert.Empty(json.GetProperty("warnings").EnumerateArray());
     }
 
     [Fact]

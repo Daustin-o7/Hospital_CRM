@@ -2,6 +2,7 @@ using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Entities;
 using Hospital_CRM.Domain.Enums;
+using Hospital_CRM.Domain.Utils;
 using Hospital_CRM.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -139,17 +140,12 @@ public class ReportsController : ControllerBase
 
         var (year, monthNum) = ParseMonth(month);
         var startDate = new DateOnly(year, monthNum, 1);
-        var endDate = startDate.AddMonths(1);
         var startDt = startDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var endDt = endDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var endDt = startDate.AddMonths(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
         var clinicId = await GetUserClinicId(userId.Value, ct);
 
-        var invoices = await QueryInvoices(startDt, endDt, clinicId)
-            .Include(i => i.LineItems)
-            .ToListAsync(ct);
-
-        return Ok(BuildGstr1Payload($"{year:D4}-{monthNum:D2}", invoices));
+        return Ok(await BuildGstr1Async($"{year:D4}-{monthNum:D2}", startDt, endDt, clinicId, ct));
     }
 
     [HttpGet("payment-distribution")]
@@ -249,8 +245,7 @@ public class ReportsController : ControllerBase
                 }
             case "GSTR-1 JSON":
                 {
-                    var invoices = await QueryInvoices(startDt, endDt, clinicId).ToListAsync(ct);
-                    var payload = BuildGstr1Payload(month, invoices);
+                    var payload = await BuildGstr1Async(month, startDt, endDt, clinicId, ct);
                     var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
                     return File(Encoding.UTF8.GetBytes(json), "application/json", $"GSTR1-{month}.json");
                 }
@@ -281,7 +276,11 @@ public class ReportsController : ControllerBase
     {
         var query = _db.Invoices
             .Include(i => i.Appointment).ThenInclude(a => a!.Patient)
-            .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt && i.Status != InvoiceStatus.Cancelled);
+            // A draft has no legal number yet; cancelled documents are reported separately, never as supply.
+            .Where(i => i.CreatedAt >= startDt && i.CreatedAt < endDt
+                     && i.InvoiceNumber > 0
+                     && i.Status != InvoiceStatus.Draft
+                     && i.Status != InvoiceStatus.Cancelled);
 
         // See QueryPayments: walk-in invoices have no appointment to scope by.
         if (clinicId.HasValue)
@@ -291,49 +290,161 @@ public class ReportsController : ControllerBase
         return query;
     }
 
-    private static object BuildGstr1Payload(string month, List<Invoice> invoices)
+    private async Task<object> BuildGstr1Async(string month, DateTime startDt, DateTime endDt, Guid? clinicId, CancellationToken ct)
     {
-        var b2bInvoices = invoices
-            .Where(i => i.Appointment != null)
-            .Select(i => new
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+
+        var taxProfile = await _db.TenantTaxProfiles.AsNoTracking()
+            .Where(p => p.TenantId == tenantId)
+            .OrderByDescending(p => p.ClinicId == clinicId)
+            .FirstOrDefaultAsync(ct);
+
+        var invoices = await QueryInvoices(startDt, endDt, clinicId)
+            .Include(i => i.LineItems)
+            .ToListAsync(ct);
+
+        // Credit notes reduce the month's liability and must reach GSTR-1 (Table 9B), not only the ledger.
+        var creditNotes = await _db.CreditNotes.AsNoTracking()
+            .Include(c => c.Invoice)
+            .Where(c => c.TenantId == tenantId
+                     && c.Status == CreditNoteStatus.Approved
+                     && c.IssuedAt >= startDt && c.IssuedAt < endDt)
+            .ToListAsync(ct);
+
+        return BuildGstr1Payload(month, invoices, creditNotes, taxProfile);
+    }
+
+    private static object BuildGstr1Payload(
+        string month,
+        List<Invoice> invoices,
+        List<CreditNote> creditNotes,
+        TenantTaxProfile? taxProfile)
+    {
+        var supplierState = taxProfile?.StateCode;
+        // OPD supply happens at the clinic, so the place of supply is the supplier's own state.
+        var placeOfSupply = supplierState ?? "";
+        var isRegistered = taxProfile?.IsGstRegistered == true;
+
+        // No GSTIN is captured for patients, so every invoice is B2C. Table 7 (B2CS) is
+        // rate-wise + place-of-supply-wise totals, not one row per invoice.
+        var b2cs = invoices
+            .SelectMany(i => i.LineItems
+                .Where(li => li.TaxCategory == TaxCategory.Taxable && li.TaxAmount > 0)
+                .Select(li => new { li.GstRate, li.Amount, li.TaxAmount }))
+            .GroupBy(l => l.GstRate)
+            .OrderBy(g => g.Key)
+            .Select(g =>
             {
-                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                patientName = i.Appointment?.Patient?.Name ?? i.WalkInCustomerName ?? "Unknown",
-                patientGstin = (string?)null,
-                invoiceValue = i.Total,
-                taxableValue = i.Subtotal,
-                gstRate = 18,
-                gstAmount = i.GstAmount,
-                placeOfSupply = "27",
-                invoiceType = "B2B"
+                var tax = g.Sum(l => l.TaxAmount);
+                var cgst = Math.Round(tax / 2m, 2);
+                return new
+                {
+                    type = "OE",
+                    placeOfSupply,
+                    rate = g.Key,
+                    taxableValue = g.Sum(l => l.Amount),
+                    igstAmount = 0m,
+                    cgstAmount = cgst,
+                    sgstAmount = tax - cgst,
+                    cessAmount = 0m
+                };
             })
             .ToList();
 
-        var b2cInvoices = invoices
-            .Where(i => i.Appointment == null)
-            .Select(i => new
+        var exemptLines = invoices
+            .SelectMany(i => i.LineItems.Where(li => li.TaxCategory != TaxCategory.Taxable))
+            .ToList();
+
+        var nilExempt = new[]
+        {
+            new
             {
-                invoiceNumber = $"INV-{i.InvoiceNumber:D6}",
-                invoiceDate = i.CreatedAt.ToString("yyyy-MM-dd"),
-                patientName = i.WalkInCustomerName ?? "Walk-in Customer",
-                invoiceValue = i.Total,
-                taxableValue = i.Subtotal,
-                gstRate = 18,
-                gstAmount = i.GstAmount,
-                placeOfSupply = "27",
-                invoiceType = "B2C"
+                placeOfSupply,
+                nilAmount = exemptLines.Where(l => l.TaxCategory == TaxCategory.Nil).Sum(l => l.Amount),
+                exemptAmount = exemptLines.Where(l => l.TaxCategory == TaxCategory.Exempt).Sum(l => l.Amount)
+            }
+        }.Where(n => n.nilAmount > 0 || n.exemptAmount > 0).ToList();
+
+        // Table 12: HSN/SAC summary. Mandatory above ₹5 crore turnover; always useful for reconciliation.
+        var hsnSummary = invoices
+            .SelectMany(i => i.LineItems.Select(li => new { li.HsnSacCode, li.GstRate, li.Quantity, li.Amount, li.TaxAmount }))
+            .GroupBy(l => new { l.HsnSacCode, l.GstRate })
+            .OrderBy(g => g.Key.HsnSacCode).ThenBy(g => g.Key.GstRate)
+            .Select(g =>
+            {
+                var tax = g.Sum(l => l.TaxAmount);
+                var cgst = Math.Round(tax / 2m, 2);
+                return new
+                {
+                    hsnSac = g.Key.HsnSacCode,
+                    description = "Healthcare services",
+                    uqc = "OTH",
+                    quantity = g.Sum(l => l.Quantity),
+                    rate = g.Key.GstRate,
+                    taxableValue = g.Sum(l => l.Amount),
+                    igstAmount = 0m,
+                    cgstAmount = cgst,
+                    sgstAmount = tax - cgst,
+                    cessAmount = 0m
+                };
             })
             .ToList();
+
+        // Table 9B (CDNUR): unregistered credit notes, tax split using the parent invoice's taxable ratio.
+        var cdnur = creditNotes
+            .Select(cn =>
+            {
+                var invoiceTotal = cn.Invoice?.Total ?? 0m;
+                var taxableFraction = invoiceTotal > 0 ? cn.Invoice!.Subtotal / invoiceTotal : 1m;
+                var taxableValue = Math.Round(cn.Amount * taxableFraction, 2);
+                var tax = cn.Amount - taxableValue;
+                var cgst = Math.Round(tax / 2m, 2);
+                return new
+                {
+                    noteNumber = cn.FormatCreditNoteNumber(),
+                    noteDate = cn.IssuedAt.ToString("yyyy-MM-dd"),
+                    noteType = "C",
+                    noteValue = cn.Amount,
+                    taxableValue,
+                    rate = taxableValue > 0 ? Math.Round(tax / taxableValue * 100m, 2) : 0m,
+                    placeOfSupply,
+                    igstAmount = 0m,
+                    cgstAmount = cgst,
+                    sgstAmount = tax - cgst,
+                    cessAmount = 0m
+                };
+            })
+            .ToList();
+
+        var warnings = new List<string>();
+        if (!isRegistered) warnings.Add("gst_not_registered");
+        if (string.IsNullOrWhiteSpace(supplierState)) warnings.Add("supplier_state_missing");
+        if (invoices.Any(i => i.DiscountAmount > 0)) warnings.Add("invoice_level_discount_not_apportioned_to_lines");
+
+        var totalGst = invoices.Sum(i => i.GstAmount);
+        var creditNoteTax = cdnur.Sum(c => c.cgstAmount + c.sgstAmount);
 
         return new
         {
             month,
-            b2bInvoices,
-            b2cInvoices,
+            supplierGstin = taxProfile?.Gstin,
+            supplierStateCode = supplierState,
+            placeOfSupply,
+            isGstRegistered = isRegistered,
+            // A registered-recipient (B2B) section requires a recipient GSTIN, which this app never captures.
+            b2bInvoices = Array.Empty<object>(),
+            b2cs,
+            nilExempt,
+            cdnur,
+            hsnSummary,
             totalInvoices = invoices.Count,
-            totalTaxableValue = invoices.Sum(i => i.Subtotal),
-            totalGst = invoices.Sum(i => i.GstAmount)
+            totalInvoiceValue = invoices.Sum(i => i.Total),
+            totalTaxableValue = b2cs.Sum(b => b.taxableValue),
+            totalExemptValue = nilExempt.Sum(n => n.nilAmount + n.exemptAmount),
+            totalGst,
+            creditNoteValue = creditNotes.Sum(c => c.Amount),
+            netTaxPayable = totalGst - creditNoteTax,
+            warnings
         };
     }
 

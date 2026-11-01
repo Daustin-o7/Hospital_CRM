@@ -729,7 +729,10 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 
 ## 2026-11-01 - Audit A18 (#12): The Doctor Workspace Shows the Real Clinical Trail
 - The pre-check answers existed only on the patient-facing form, the queue had no way to hand a patient their live status link, prior visits lived only in the one-consultation context panel, and consultation templates could be created by the API but never edited or deleted from the UI (and never surfaced): all now visible in the workspace.
-- Consultations loads GET /appointments/{id}/precheck inline on the SOAP tab (hides when the module is off or nothing was submitted), the queue row copies /queue-status/{trackingToken}, the patient drawer lists the last 10 consultations, and the Template Sections tab creates/renames/deletes the doctor's own templates (new PUT/DELETE /consult-templates/{id}, own templates only, built-ins read-only).
-- Backend dotnet test **384 passed, 0 failed**; frontend has no unit runner, verified with 
-pm run build (ok) and 
-pm run lint (exit 0, pre-existing warnings only).
+- Consultations loads `GET /appointments/{id}/precheck` inline on the SOAP tab (hides when the module is off or nothing was submitted), the queue row copies `/queue-status/{trackingToken}`, the patient drawer lists the last 10 consultations, and the Template Sections tab creates/renames/deletes the doctor's own templates (new `PUT`/`DELETE /consult-templates/{id}`, own templates only, built-ins read-only).
+- Backend `dotnet test` **384 passed, 0 failed**; frontend has no unit runner, verified with `npm run build` (ok) and `npm run lint` (exit 0, pre-existing warnings only).
+
+## 2026-11-01 - Audit A19 (#20): GSTR-1 Reports Real Tax, Not a Fake 18%
+- The export labelled every appointment invoice B2B, charged 18% on all of them regardless of the line's actual rate, hard-coded Maharashtra (`27`) as the place of supply, ignored exempt/nil healthcare supplies, included draft documents, and dropped approved credit notes entirely: the file would have overstated or invented tax for any clinic actually filing it.
+- GSTR-1 now derives the supplier state and GSTIN from `TenantTaxProfile`, refuses draft/cancelled documents, emits Table 7 `b2cs` aggregated by rate (CGST/SGST split for the clinic's own state), a nil/exempt section, Table 9B `cdnur` for approved credit notes in the month, an HSN/SAC summary, and warnings (`gst_not_registered`, `supplier_state_missing`, `invoice_level_discount_not_apportioned_to_lines`); B2B stays empty because no recipient GSTIN is ever captured.
+- Rewrote `GSTR1_AggregatesB2CByRate_AddsExemptAndCreditNotes_AndExcludesCancelled` (18% rated line, exempt SAC 999312 line, cancelled and draft invoices, approved + pending credit notes); suite **384 passed, 0 failed**.
