@@ -726,3 +726,10 @@ Closed the P2 rows from the 2026-10-27 re-verification (`docs/product/SECTION-5-
 - The axios 401 interceptor, the 15-minute proactive timer and the boot restore each called `/auth/refresh` independently, so a burst of 401s fired N rotations for one cookie: N-1 were rejected and the interceptor cleared the session and redirected to `/login`.
 - `refreshSession()` in `services/api.ts` now memoises the single in-flight call (and clears it when settled); the interceptor, the proactive timer and the boot restore all await that one promise, so every caller receives the same new token.
 - Frontend has no unit runner: verified with `npm run build` (ok) and `npm run lint` (exit 0, pre-existing warnings only).
+
+## 2026-11-01 - Audit A18 (#12): The Doctor Workspace Shows the Real Clinical Trail
+- The pre-check answers existed only on the patient-facing form, the queue had no way to hand a patient their live status link, prior visits lived only in the one-consultation context panel, and consultation templates could be created by the API but never edited or deleted from the UI (and never surfaced): all now visible in the workspace.
+- Consultations loads GET /appointments/{id}/precheck inline on the SOAP tab (hides when the module is off or nothing was submitted), the queue row copies /queue-status/{trackingToken}, the patient drawer lists the last 10 consultations, and the Template Sections tab creates/renames/deletes the doctor's own templates (new PUT/DELETE /consult-templates/{id}, own templates only, built-ins read-only).
+- Backend dotnet test **384 passed, 0 failed**; frontend has no unit runner, verified with 
+pm run build (ok) and 
+pm run lint (exit 0, pre-existing warnings only).

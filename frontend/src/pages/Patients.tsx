@@ -925,6 +925,9 @@ export default function Patients() {
             {/* Nursing care — assignments + handover (MOD-26) */}
             <NursingCareSection patientId={viewingPatient.id} />
 
+            {/* Prior visits (FR-08 clinical history) */}
+            <TreatmentHistorySection patientId={viewingPatient.id} />
+
             {/* Patient Clinical Quick Actions */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
               <span className="text-xs font-medium text-[var(--color-text-muted)]">Direct Clinical Actions:</span>
@@ -980,6 +983,75 @@ function PlusIcon() {
     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 4v16m8-8H4" />
     </svg>
+  )
+}
+
+// ── Prior visits: finalized consultations for this patient ──
+
+interface TreatmentHistoryItem {
+  consultationId: string
+  doctorName: string
+  chiefComplaint: string | null
+  diagnosis: string | null
+  status: string
+  version: number
+  createdAt: string
+  prescriptionCount: number
+}
+
+function TreatmentHistorySection({ patientId }: { patientId: string }) {
+  const { hasRole } = useAuth()
+  const canRead = hasRole(['doctor', 'clinicadmin', 'owner'])
+  const [items, setItems] = useState<TreatmentHistoryItem[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!canRead || !patientId) return
+    let isMounted = true
+    setLoading(true)
+    api.get('/consultations', { params: { patientId, pageSize: 10 } })
+      .then(res => { if (isMounted) setItems(res.data?.data ?? []) })
+      .catch(() => { /* No history or no access — the section stays hidden. */ })
+      .finally(() => { if (isMounted) setLoading(false) })
+    return () => { isMounted = false }
+  }, [canRead, patientId])
+
+  if (!canRead || (!loading && items.length === 0)) return null
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Treatment History</h4>
+      {loading ? (
+        <p className="text-xs text-[var(--color-text-muted)]">Loading prior visits…</p>
+      ) : (
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          {items.map(item => (
+            <div
+              key={item.consultationId}
+              className="p-3 rounded-xl"
+              style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border-subtle)' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[var(--color-text)]">{formatDate(item.createdAt)}</span>
+                <span className="text-[10.5px] text-[var(--color-text-muted)] font-medium">
+                  {item.doctorName}
+                  {item.status !== 'finalized' ? ` · ${item.status}` : ''}
+                  {item.version > 1 ? ` · v${item.version}` : ''}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                {item.diagnosis || item.chiefComplaint || 'No diagnosis recorded'}
+              </p>
+              {item.prescriptionCount > 0 && (
+                <span className="text-[10.5px] text-[var(--color-text-muted)]">
+                  {item.prescriptionCount} prescription{item.prescriptionCount === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

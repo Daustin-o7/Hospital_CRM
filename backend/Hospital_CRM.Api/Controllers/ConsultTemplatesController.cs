@@ -132,9 +132,62 @@ public class ConsultTemplatesController : ControllerBase
             isBuiltIn = false
         });
     }
+
+    // Doctors can rename/restructure only their own templates; built-ins are read-only.
+    [HttpPut("{id:guid}")]
+    [AuthorizeRoles("Doctor")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConsultTemplateRequest request, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var template = await _db.ConsultTemplates.FirstOrDefaultAsync(t => t.Id == id && t.DoctorId == userId.Value, ct);
+        if (template is null) return NotFound(new { error = "template_not_found" });
+
+        if (request.Name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new { error = "name_required" });
+            template.Name = request.Name.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Specialty))
+            template.Specialty = request.Specialty.Trim();
+
+        if (request.Structure is not null)
+            template.StructureJson = request.Structure.Value.GetRawText();
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            id = template.Id,
+            specialty = template.Specialty,
+            name = template.Name,
+            isBuiltIn = false
+        });
+    }
+
+    [HttpDelete("{id:guid}")]
+    [AuthorizeRoles("Doctor")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var userId = User.GetUserId();
+        if (!userId.HasValue) return Unauthorized(new { error = "invalid_token" });
+
+        var template = await _db.ConsultTemplates.FirstOrDefaultAsync(t => t.Id == id && t.DoctorId == userId.Value, ct);
+        if (template is null) return NotFound(new { error = "template_not_found" });
+
+        _db.ConsultTemplates.Remove(template);
+        await _db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
 }
 
 public record CreateConsultTemplateRequest(string Specialty, string Name, JsonElement? Structure);
+
+public record UpdateConsultTemplateRequest(string? Specialty, string? Name, JsonElement? Structure);
 
 public record BuiltInTemplateItem(Guid Id, string Specialty, string Name, string StructureJson);
 

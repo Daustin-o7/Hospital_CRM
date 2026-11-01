@@ -221,7 +221,7 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A17 (#15) Client refresh**: one shared in-flight refresh.
 
 ### Phase 3 - Missing UI (backend shipped, unusable)
-- [ ] **A18 (#12) Create-Invoice patient picker** (first), then refunds + deposits, lab order/result, expenses + monthly summary, pre-check inline, tracking-link copy, treatment history, template CRUD. (Skip the 4 DEV-gated demo modules.)
+- [x] **A18 (#12) Create-Invoice patient picker** (first), then refunds + deposits, lab order/result, expenses + monthly summary, pre-check inline, tracking-link copy, treatment history, template CRUD. (Skip the 4 DEV-gated demo modules.)
 
 ### Phase 4 - Release gates
 - [ ] **A19 (#20) GSTR-1 correctness** before any real filing; then remaining money items, PDF/QR checks, docker/CI/backup gates, FRD evidence table.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { consultationSoapSchema } from '../schemas'
 import {
@@ -65,6 +66,8 @@ const DEMO_APPOINTMENTS: AppointmentItem[] = import.meta.env.DEV
 
 export default function Consultations() {
   const [searchParams] = useSearchParams()
+  const { user } = useAuth()
+  const isDoctor = user?.role === 'doctor'
   const querySpecialty = searchParams.get('specialty') as SpecialtyId | null
   const queryPatientId = searchParams.get('patientId')
   const queryAppointmentId = searchParams.get('appointmentId')
@@ -88,6 +91,14 @@ export default function Consultations() {
   const [clinicalContext, setClinicalContext] = useState<PatientClinicalContext | null>(null)
   const [isContextLoading, setIsContextLoading] = useState(false)
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(true)
+  const [precheck, setPrecheck] = useState<{
+    submitted: boolean
+    submittedAt?: string
+    chiefComplaint?: string | null
+    symptomDuration?: string | null
+    medications?: string | null
+    allergies?: string | null
+  } | null>(null)
   const [consultationStatus, setConsultationStatus] = useState<'draft' | 'finalized' | 'amended'>('draft')
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false)
   const [finalizeData, setFinalizeData] = useState<any>(null)
@@ -109,6 +120,8 @@ export default function Consultations() {
   // ── Dynamic Template Structure from Backend ──
   const [templateSections, setTemplateSections] = useState<Array<{ key: string; label: string; placeholder?: string }>>([])
   const [templateName, setTemplateName] = useState<string>('')
+  const [customTemplates, setCustomTemplates] = useState<Array<{ id: string; name: string; specialty: string }>>([])
+  const [newTemplateName, setNewTemplateName] = useState('')
 
   // ── Shared Odontogram State ──
   const [teeth, setTeeth] = useState<ToothStatus[]>(INITIAL_TEETH)
@@ -304,6 +317,19 @@ export default function Consultations() {
     return () => { isMounted = false }
   }, [selectedAppointment])
 
+  // ── FR-23-03: Patient pre-check answers, shown inline before the doctor starts ──
+  useEffect(() => {
+    setPrecheck(null)
+    const appointmentId = selectedAppointment?.id
+    if (!appointmentId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(appointmentId)) return
+
+    let isMounted = true
+    api.get(`/appointments/${appointmentId}/precheck`)
+      .then(res => { if (isMounted) setPrecheck(res.data) })
+      .catch(() => { /* Precheck module off or nothing submitted — the panel simply hides. */ })
+    return () => { isMounted = false }
+  }, [selectedAppointment])
+
   // ── Auto-save Draft to LocalStorage & Server (Non-Binding Autosave) ──
   useEffect(() => {
     if (!selectedAppointment?.id) return
@@ -376,7 +402,8 @@ export default function Consultations() {
     try {
       const res = await api.get('/consult-templates', { params: { specialty: spec } })
       if (Array.isArray(res.data) && res.data.length > 0) {
-        const tpl = res.data[0]
+        // Prefer the doctor's own template for this specialty over the shipped default.
+        const tpl = res.data.find((t: any) => !t.isBuiltIn) ?? res.data[0]
         setTemplateName(tpl.name || '')
         const sections = tpl.structure?.sections || []
         setTemplateSections(sections)
@@ -385,6 +412,68 @@ export default function Consultations() {
       // Handled seamlessly
     }
   }, [])
+
+  const loadCustomTemplates = useCallback(async () => {
+    try {
+      const res = await api.get('/consult-templates')
+      if (Array.isArray(res.data)) {
+        setCustomTemplates(res.data.filter((t: any) => !t.isBuiltIn).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          specialty: t.specialty,
+        })))
+      }
+    } catch {
+      setCustomTemplates([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isDoctor) void loadCustomTemplates()
+  }, [isDoctor, loadCustomTemplates])
+
+  const handleSaveTemplate = async () => {
+    const name = newTemplateName.trim()
+    if (!name) {
+      showToast('Give the template a name before saving.', 'err')
+      return
+    }
+    try {
+      await api.post('/consult-templates', {
+        specialty: selectedSpecialty,
+        name,
+        structure: { sections: templateSections },
+      })
+      setNewTemplateName('')
+      showToast(`Template "${name}" saved for ${currentSpecialtyConfig.name}.`)
+      await Promise.all([loadCustomTemplates(), fetchTemplateForSpecialty(selectedSpecialty)])
+    } catch (err) {
+      showToast(friendlyError(err), 'err')
+    }
+  }
+
+  const handleRenameTemplate = async (template: { id: string; name: string }) => {
+    const name = window.prompt('Template name', template.name)?.trim()
+    if (!name || name === template.name) return
+    try {
+      await api.put(`/consult-templates/${template.id}`, { name })
+      showToast('Template renamed.')
+      await Promise.all([loadCustomTemplates(), fetchTemplateForSpecialty(selectedSpecialty)])
+    } catch (err) {
+      showToast(friendlyError(err), 'err')
+    }
+  }
+
+  const handleDeleteTemplate = async (template: { id: string; name: string }) => {
+    if (!window.confirm(`Delete the template "${template.name}"? This cannot be undone.`)) return
+    try {
+      await api.delete(`/consult-templates/${template.id}`)
+      showToast('Template deleted.')
+      await Promise.all([loadCustomTemplates(), fetchTemplateForSpecialty(selectedSpecialty)])
+    } catch (err) {
+      showToast(friendlyError(err), 'err')
+    }
+  }
 
   useEffect(() => {
     fetchTemplateForSpecialty(selectedSpecialty)
@@ -922,6 +1011,37 @@ export default function Consultations() {
       {/* ── TAB 1: SOAP CLINICAL NOTE ── */}
       {activeTab === 'soap' && (
         <div className="space-y-4">
+          {precheck?.submitted && (
+            <div className="card p-4 border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/20 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 font-heading uppercase tracking-wider">
+                  Patient Pre-Check Answers
+                </h3>
+                <span className="badge badge-info">
+                  Submitted{precheck.submittedAt ? ` ${new Date(precheck.submittedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+                </span>
+              </div>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div>
+                  <dt className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Chief complaint</dt>
+                  <dd className="text-[var(--color-text)]">{precheck.chiefComplaint || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Duration</dt>
+                  <dd className="text-[var(--color-text)]">{precheck.symptomDuration || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Current medications</dt>
+                  <dd className="text-[var(--color-text)]">{precheck.medications || 'None reported'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10.5px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Allergies</dt>
+                  <dd className="text-[var(--color-text)]">{precheck.allergies || 'None reported'}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+
           <ClinicalSoapEditor
             chiefComplaint={chiefComplaint}
             setChiefComplaint={setChiefComplaint}
@@ -1097,6 +1217,69 @@ export default function Consultations() {
               </div>
             ))}
           </div>
+
+          {isDoctor && (
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 font-heading uppercase tracking-wider">My Templates</h4>
+                <p className="text-[11px] text-slate-500">
+                  Save the sections above as your own template for {currentSpecialtyConfig.name}. Your template replaces the shipped default in this workspace.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={newTemplateName}
+                  onChange={e => setNewTemplateName(e.target.value)}
+                  placeholder={`e.g. My ${currentSpecialtyConfig.name} routine`}
+                  className="form-input text-xs flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  disabled={!newTemplateName.trim() || templateSections.length === 0}
+                  className="btn btn-secondary btn-sm text-xs whitespace-nowrap"
+                >
+                  Save as my template
+                </button>
+              </div>
+
+              {customTemplates.length === 0 ? (
+                <p className="text-[11px] text-slate-400">You have not saved any custom templates yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {customTemplates.map(t => (
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-slate-800 truncate">{t.name}</div>
+                        <div className="text-[10px] font-mono text-slate-400">{t.specialty}</div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleRenameTemplate(t)}
+                          className="btn btn-ghost btn-sm text-[11px]"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTemplate(t)}
+                          className="btn btn-ghost btn-sm text-[11px] text-rose-500 hover:text-rose-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       )}
 

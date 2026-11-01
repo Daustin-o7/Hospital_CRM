@@ -29,6 +29,7 @@ interface QueueAppointment {
   priority: 'normal' | 'emergency'
   triageReasonCode?: string
   triageConfirmed?: boolean
+  trackingToken?: string | null
 }
 
 interface PriorityLogEntry {
@@ -86,6 +87,7 @@ export default function Queue() {
         time: a.time,
         status: mapStatus(a.status),
         priority: a.priority === 'emergency' ? 'emergency' : 'normal',
+        trackingToken: a.queueTrackingToken ?? null,
       })))
     } catch (err) {
       if (!quiet) setError(friendlyError(err))
@@ -182,6 +184,20 @@ export default function Queue() {
       setModalOpen(false)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const copyTrackingLink = async (patient: QueueAppointment) => {
+    if (!patient.trackingToken) {
+      toast('This appointment has no live tracking link yet — the patient gets one at check-in.')
+      return
+    }
+    const link = `${window.location.origin}/queue-status/${patient.trackingToken}`
+    try {
+      await navigator.clipboard.writeText(link)
+      toast(`Tracking link copied for ${patient.patientName}.`)
+    } catch {
+      toast(link)
     }
   }
 
@@ -493,6 +509,15 @@ export default function Queue() {
                                 style={{ fontSize: '11px', padding: '3px 8px' }}
                               >
                                 {patient.priority === 'emergency' ? 'Set Normal' : 'Triage 🚨'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => copyTrackingLink(patient)}
+                                className="btn btn-ghost btn-sm"
+                                title="Copy the patient-facing live queue status link"
+                                style={{ fontSize: '11px', padding: '3px 8px' }}
+                              >
+                                🔗
                               </button>
                             </>
                           )}
