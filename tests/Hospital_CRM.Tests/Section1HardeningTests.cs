@@ -443,6 +443,54 @@ public class Section1HardeningTests
     }
 
     [Fact]
+    public async Task List_FiltersByPatient_AndReturnsAppointmentDate()
+    {
+        var db = CreateInMemoryDb();
+        var (controller, _, clinicId) = CreateAppointmentsController(db);
+        var doctor = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "doctor@example.com",
+            Name = "Dr. Mehta",
+            Role = UserRole.Doctor,
+            PasswordHash = "hash"
+        };
+        var patient = new Patient { Id = Guid.NewGuid(), Name = "Aarav Patel", Phone = "9876543210" };
+        var otherPatient = new Patient { Id = Guid.NewGuid(), Name = "Diya Patel", Phone = "9876543211" };
+        var appointment = new Appointment
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            DoctorId = doctor.Id,
+            PatientId = patient.Id,
+            Date = new DateOnly(2026, 10, 28),
+            TimeSlot = "09:00",
+            Status = AppointmentStatus.Completed
+        };
+        var otherAppointment = new Appointment
+        {
+            Id = Guid.NewGuid(),
+            ClinicId = clinicId,
+            DoctorId = doctor.Id,
+            PatientId = otherPatient.Id,
+            Date = new DateOnly(2026, 10, 29),
+            TimeSlot = "10:00",
+            Status = AppointmentStatus.Completed
+        };
+
+        db.AddRange(doctor, patient, otherPatient, appointment, otherAppointment);
+        await db.SaveChangesAsync();
+
+        var result = Assert.IsType<OkObjectResult>(
+            await controller.List(null, null, patient.Id, CancellationToken.None));
+        var body = ToJson(result.Value);
+        var returned = Assert.Single(body.EnumerateArray());
+
+        Assert.Equal(appointment.Id, returned.GetProperty("appointmentId").GetGuid());
+        Assert.Equal("2026-10-28", returned.GetProperty("date").GetString());
+    }
+
+    [Fact]
     public async Task Nurse_CanMoveThroughNursing_ButNotComplete()
     {
         var db = CreateInMemoryDb();
