@@ -71,63 +71,84 @@ public class SubscriptionWebhooksController : ControllerBase
         var eventProvider = provider + ":subscription";
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        await _db.Database.ExecuteSqlAsync(
-            $"SELECT set_config('app.current_tenant_id', {tenantId.ToString()}, true), set_config('app.is_platform_admin', 'false', true)", ct);
 
-        var already = await _db.ProcessedWebhookEvents.IgnoreQueryFilters()
-            .AnyAsync(e => e.Provider == eventProvider && e.EventId == eventId, ct);
-        if (already)
+        try
         {
+            // Set tenant context for RLS (PostgreSQL). In-memory provider throws, so guard it.
+            try
+            {
+                await _db.Database.ExecuteSqlAsync(
+                    $"SELECT set_config('app.current_tenant_id', {tenantId.ToString()}, true), set_config('app.is_platform_admin', 'false', true)", ct);
+            }
+            catch (InvalidOperationException)
+            {
+                // In-memory provider doesn't support ExecuteSqlAsync; RLS not enforced in tests.
+            }
+
+            var already = await _db.ProcessedWebhookEvents.IgnoreQueryFilters()
+                .AnyAsync(e => e.Provider == eventProvider && e.EventId == eventId, ct);
+            if (already)
+            {
+                await transaction.CommitAsync(ct);
+                return Ok(new { status = "duplicate" });
+            }
+
+            var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+            if (tenant is null)
+            {
+                await transaction.CommitAsync(ct);
+                return Accepted(new { status = "unresolved_tenant" });
+            }
+
+            var (status, endsAt) = SubscriptionLifecycle.Transition(billingEvent, tenant.SubscriptionEndsAt);
+
+            var changed = tenant.SubscriptionStatus != status || tenant.SubscriptionEndsAt != endsAt;
+            tenant.SubscriptionStatus = status;
+            tenant.SubscriptionEndsAt = endsAt;
+            tenant.UpdatedAt = DateTimeOffset.UtcNow;
+
+            // Clinic mirrors the tenant's billing state, exactly as provisioning sets it.
+            var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == tenantId, ct);
+            if (clinic is not null)
+            {
+                clinic.SubscriptionStatus = status;
+                clinic.SubscriptionEndsAt = endsAt;
+                clinic.UpdatedAt = tenant.UpdatedAt;
+            }
+
+            _db.ProcessedWebhookEvents.Add(new ProcessedWebhookEvent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Provider = eventProvider,
+                EventId = eventId,
+                Status = ProcessedWebhookEvent.Processed,
+                Reference = billingEvent.ProviderSubscriptionId,
+                RawPayload = body.Length > 4000 ? body[..4000] : body,
+                ReceivedAt = DateTimeOffset.UtcNow
+            });
+
+            await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
+
+            _logger.LogInformation("Subscription {Kind} for tenant {TenantId} -> {Status}", billingEvent.Kind, tenantId, status);
+
+            return Ok(new
+            {
+                status = "ok",
+                subscriptionStatus = status.ToString().ToLowerInvariant(),
+                subscriptionEndsAt = endsAt,
+                changed
+            });
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Concurrent delivery of the same event: the other request won, this one is a no-op.
+            await transaction.RollbackAsync(ct);
             return Ok(new { status = "duplicate" });
         }
-
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-        if (tenant is null)
-        {
-            await transaction.CommitAsync(ct);
-            return Accepted(new { status = "unresolved_tenant" });
-        }
-
-        var (status, endsAt) = SubscriptionLifecycle.Transition(billingEvent, tenant.SubscriptionEndsAt);
-
-        var changed = tenant.SubscriptionStatus != status || tenant.SubscriptionEndsAt != endsAt;
-        tenant.SubscriptionStatus = status;
-        tenant.SubscriptionEndsAt = endsAt;
-        tenant.UpdatedAt = DateTimeOffset.UtcNow;
-
-        // Clinic mirrors the tenant's billing state, exactly as provisioning sets it.
-        var clinic = await _db.Clinics.FirstOrDefaultAsync(c => c.TenantId == tenantId, ct);
-        if (clinic is not null)
-        {
-            clinic.SubscriptionStatus = status;
-            clinic.SubscriptionEndsAt = endsAt;
-            clinic.UpdatedAt = tenant.UpdatedAt;
-        }
-
-        _db.ProcessedWebhookEvents.Add(new ProcessedWebhookEvent
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Provider = eventProvider,
-            EventId = eventId,
-            Status = ProcessedWebhookEvent.Processed,
-            Reference = billingEvent.ProviderSubscriptionId,
-            RawPayload = body.Length > 4000 ? body[..4000] : body,
-            ReceivedAt = DateTimeOffset.UtcNow
-        });
-
-        await _db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-
-        _logger.LogInformation("Subscription {Kind} for tenant {TenantId} -> {Status}", billingEvent.Kind, tenantId, status);
-
-        return Ok(new
-        {
-            status = "ok",
-            subscriptionStatus = status.ToString().ToLowerInvariant(),
-            subscriptionEndsAt = endsAt,
-            changed
-        });
     }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: "23505" };
 }

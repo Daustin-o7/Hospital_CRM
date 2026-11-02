@@ -47,7 +47,7 @@ public static class SubscriptionLifecycle
         return billingEvent.Kind switch
         {
             BillingEventKind.Activated or BillingEventKind.Renewed =>
-                (SubscriptionStatus.Active, billingEvent.PaidPeriodEndsAt ?? currentEndsAt),
+                (SubscriptionStatus.Active, MaxEndsAt(billingEvent.PaidPeriodEndsAt, currentEndsAt)),
 
             BillingEventKind.PaymentFailed =>
                 (SubscriptionStatus.PastDue, currentEndsAt),
@@ -56,9 +56,12 @@ public static class SubscriptionLifecycle
                 (SubscriptionStatus.Suspended, currentEndsAt),
 
             _ =>
-                (SubscriptionStatus.Cancelled, billingEvent.PaidPeriodEndsAt ?? currentEndsAt)
+                (SubscriptionStatus.Cancelled, MaxEndsAt(billingEvent.PaidPeriodEndsAt, currentEndsAt))
         };
     }
+
+    private static DateTimeOffset? MaxEndsAt(DateTimeOffset? a, DateTimeOffset? b) =>
+        a.HasValue && b.HasValue ? (a.Value > b.Value ? a : b) : a ?? b;
 
     private static BillingEvent? ParseRazorpay(string body)
     {

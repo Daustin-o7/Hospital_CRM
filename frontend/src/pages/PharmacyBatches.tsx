@@ -575,10 +575,11 @@ export default function PharmacyBatches() {
                 />
               </div>
               <div>
-                <label className="form-label">Purchase Rate (₹)</label>
+                <label className="form-label">Purchase Rate (₹) *</label>
                 <input
                   type="number"
                   step="0.01"
+                  required
                   value={inwardPurchaseRate}
                   onChange={e => setInwardPurchaseRate(e.target.value ? parseFloat(e.target.value) : '')}
                   placeholder="85.00"

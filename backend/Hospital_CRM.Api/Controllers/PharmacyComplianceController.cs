@@ -91,7 +91,11 @@ public class PharmacyComplianceController : ControllerBase
             .Include(p => p.Consultation)
                 .ThenInclude(c => c.Appointment)
                     .ThenInclude(a => a.Patient)
-            .FirstOrDefaultAsync(p => p.Id == req.PrescriptionId, ct);
+            .FirstOrDefaultAsync(p => p.Id == req.PrescriptionId
+                && p.Consultation != null
+                && p.Consultation.Appointment != null
+                && p.Consultation.Appointment.Patient != null
+                && p.Consultation.Appointment.Patient.TenantId == tenantId, ct);
 
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
@@ -106,11 +110,11 @@ public class PharmacyComplianceController : ControllerBase
         if (!string.IsNullOrWhiteSpace(req.IdempotencyKey))
         {
             var existing = await _db.DispenseRecords
-                .FirstOrDefaultAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct);
+                .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.IdempotencyKey == req.IdempotencyKey, ct);
             if (existing != null)
             {
                 var existingInvoice = await _db.Invoices
-                    .FirstOrDefaultAsync(i => i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
+                    .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
                 return Ok(new
                 {
                     dispenseId = existing.Id,
@@ -132,10 +136,10 @@ public class PharmacyComplianceController : ControllerBase
             // Two concurrent callers can pass the pre-transaction check; the in-transaction
             // check plus the filtered unique index turn the second one into a duplicate.
             if (!string.IsNullOrWhiteSpace(req.IdempotencyKey) &&
-                await _db.DispenseRecords.AnyAsync(d => d.IdempotencyKey == req.IdempotencyKey, ct))
+                await _db.DispenseRecords.AnyAsync(d => d.TenantId == tenantId && d.IdempotencyKey == req.IdempotencyKey, ct))
             {
                 var existingInvoice = await _db.Invoices
-                    .FirstOrDefaultAsync(i => i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
+                    .FirstOrDefaultAsync(i => i.TenantId == tenantId && i.IdempotencyKey == $"pharm_inv_{req.IdempotencyKey}", ct);
                 return Ok(new
                 {
                     invoiceId = existingInvoice?.Id,
@@ -154,9 +158,10 @@ public class PharmacyComplianceController : ControllerBase
 
             var candidateDrugs = await _db.Drugs
                 .Include(d => d.Batches)
-                .Where(d => drugIds.Contains(d.Id)
-                    || medicineTexts.Contains(d.Name.ToLower())
-                    || genericNames.Contains(d.GenericName.ToLower()))
+                .Where(d => d.TenantId == tenantId
+                    && (drugIds.Contains(d.Id)
+                        || medicineTexts.Contains(d.Name.ToLower())
+                        || genericNames.Contains(d.GenericName.ToLower())))
                 .ToListAsync(ct);
 
             // 2. NDPS hard block. The prescription's own schedule is authoritative, so a line
@@ -187,7 +192,7 @@ public class PharmacyComplianceController : ControllerBase
                 if (itemSelection?.SubstitutedDrugId is { } substitutedId && substitutedId != targetDrug.Id)
                 {
                     var substitutedDrug = candidateDrugs.FirstOrDefault(d => d.Id == substitutedId)
-                        ?? await _db.Drugs.Include(d => d.Batches).FirstOrDefaultAsync(d => d.Id == substitutedId, ct);
+                        ?? await _db.Drugs.Include(d => d.Batches).FirstOrDefaultAsync(d => d.TenantId == tenantId && d.Id == substitutedId, ct);
 
                     if (substitutedDrug is null)
                         return BadRequest(new { error = "substitution_drug_not_found" });
@@ -522,7 +527,11 @@ public class PharmacyComplianceController : ControllerBase
             .Include(p => p.Consultation)
                 .ThenInclude(c => c!.Appointment)
                     .ThenInclude(a => a!.Patient)
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+            .FirstOrDefaultAsync(p => p.Id == id
+                && p.Consultation != null
+                && p.Consultation.Appointment != null
+                && p.Consultation.Appointment.Patient != null
+                && p.Consultation.Appointment.Patient.TenantId == tenantId, ct);
 
         if (prescription == null)
             return NotFound(new { error = "prescription_not_found" });
@@ -575,7 +584,10 @@ public class PharmacyComplianceController : ControllerBase
                     .ThenInclude(a => a!.Patient)
             .Where(p => p.Consultation != null &&
                         p.Consultation.Status != ConsultationStatus.Draft &&
-                        p.Items.Any(i => !i.IsDispensed))
+                        p.Items.Any(i => !i.IsDispensed) &&
+                        p.Consultation.Appointment != null &&
+                        p.Consultation.Appointment.Patient != null &&
+                        p.Consultation.Appointment.Patient.TenantId == tenantId)
             .OrderByDescending(p => p.CreatedAt)
             .Take(limit)
             .Select(p => new

@@ -398,4 +398,222 @@ public class Section5ServerPdfTests
 
         Assert.Equal("https://clinic.example.com/rx-verify/RX-CODE%201?v=2", url);
     }
+
+    [Fact]
+    public void InvoicePdf_OpdLineTotals_AreNetPlusTax()
+    {
+        var service = new PdfService();
+        var tenantId = Guid.NewGuid();
+        var clinic = new Clinic { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Test Clinic", Address = "123 Main St", Phone = "9876543210" };
+
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Series = "INV",
+            FinancialYear = "2026-27",
+            InvoiceNumber = 101,
+            Status = InvoiceStatus.Paid,
+            DocumentType = InvoiceDocumentType.TaxInvoice,
+            InvoiceType = InvoiceType.Consultation,
+            Subtotal = 1000m,
+            GstAmount = 180m,
+            Total = 1180m,
+            PaidAmount = 1180m,
+            BalanceDue = 0m,
+            WalkInCustomerName = "Suresh Patel",
+            LineItems = new List<InvoiceLineItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Description = "Consultation",
+                    HsnSacCode = "999312",
+                    Quantity = 1,
+                    UnitPrice = 1000m,
+                    Amount = 1180m, // OPD stores net+tax
+                    GstRate = 18m,
+                    TaxAmount = 180m
+                }
+            }
+        };
+
+        var pdfBytes = service.GenerateInvoicePdf(invoice, clinic, isDuplicate: false, supplierGstin: null);
+        var pdfText = Encoding.ASCII.GetString(pdfBytes);
+
+        // OPD line total should be 1180 (net+tax)
+        Assert.Contains("1180", pdfText);
+        // GST rate shown
+        Assert.Contains("18%", pdfText);
+    }
+
+    [Fact]
+    public void InvoicePdf_PharmacyLineTotals_AreMrpInclusive()
+    {
+        var service = new PdfService();
+        var tenantId = Guid.NewGuid();
+        var clinic = new Clinic { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Test Clinic", Address = "123 Main St", Phone = "9876543210" };
+
+        // Pharmacy: UnitPrice = MRP (120), Qty = 2, GST = 12%
+        // Gross = 240, Taxable = 240/1.12 = 214.29, Tax = 25.71
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Series = "PHARM",
+            FinancialYear = "2026-27",
+            InvoiceNumber = 201,
+            Status = InvoiceStatus.Paid,
+            DocumentType = InvoiceDocumentType.TaxInvoice,
+            InvoiceType = InvoiceType.Pharmacy,
+            Subtotal = 214.29m,
+            GstAmount = 25.71m,
+            Total = 240m,
+            PaidAmount = 240m,
+            BalanceDue = 0m,
+            WalkInCustomerName = "Walk-in Patient",
+            LineItems = new List<InvoiceLineItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Description = "Paracetamol 500mg (Batch: ABC123)",
+                    HsnSacCode = "300490",
+                    Quantity = 2,
+                    UnitPrice = 120m,
+                    Amount = 214.29m, // Pharmacy stores net only
+                    GstRate = 12m,
+                    TaxAmount = 25.71m
+                }
+            }
+        };
+
+        var pdfBytes = service.GenerateInvoicePdf(invoice, clinic, isDuplicate: false, supplierGstin: null);
+        var pdfText = Encoding.ASCII.GetString(pdfBytes);
+
+        // Pharmacy line total should be 240 (MRP * qty = gross)
+        Assert.Contains("240", pdfText);
+        // GST rate shown
+        Assert.Contains("12%", pdfText);
+    }
+
+    [Fact]
+    public void InvoicePdf_DispenseLinkedInvoice_ShowsPharmacyLineTotals()
+    {
+        var service = new PdfService();
+        var tenantId = Guid.NewGuid();
+        var clinic = new Clinic { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Test Clinic", Address = "123 Main St", Phone = "9876543210" };
+
+        // Dispense creates PHARM invoice with MRP-inclusive lines
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Series = "PHARM",
+            FinancialYear = "2026-27",
+            InvoiceNumber = 301,
+            Status = InvoiceStatus.Finalized,
+            DocumentType = InvoiceDocumentType.TaxInvoice,
+            InvoiceType = InvoiceType.Pharmacy,
+            Subtotal = 160.71m,
+            GstAmount = 19.29m,
+            Total = 180m,
+            PaidAmount = 0m,
+            BalanceDue = 180m,
+            WalkInCustomerName = "Walk-in Patient",
+            LineItems = new List<InvoiceLineItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Description = "Amoxicillin 500mg (Batch: AMX-1)",
+                    HsnSacCode = "300410",
+                    Quantity = 3,
+                    UnitPrice = 60m,
+                    Amount = 160.71m, // net
+                    GstRate = 12m,
+                    TaxAmount = 19.29m
+                }
+            }
+        };
+
+        var pdfBytes = service.GenerateInvoicePdf(invoice, clinic, isDuplicate: false, supplierGstin: "29ABCDE1234F1Z5");
+        var pdfText = Encoding.ASCII.GetString(pdfBytes);
+
+        // Pharmacy GSTIN shown (not clinic's)
+        Assert.Contains("29ABCDE1234F1Z5", pdfText);
+        // Line total = 180 (3 * 60)
+        Assert.Contains("180", pdfText);
+        // GST rate
+        Assert.Contains("12%", pdfText);
+    }
+
+    [Fact]
+    public void CreditNotePdf_ApprovedOnly_GeneratesValidPdf()
+    {
+        var service = new PdfService();
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var clinic = new Clinic { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Test Clinic", Address = "123 Main St", Phone = "9876543210" };
+
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Series = "INV",
+            FinancialYear = "2026-27",
+            InvoiceNumber = 42,
+            Status = InvoiceStatus.Paid,
+            Total = 500m,
+            Subtotal = 500m,
+            // Approval recalculates this; the PDF prints the invoice's own balance.
+            BalanceDue = 200m,
+            LineItems = new List<InvoiceLineItem>
+            {
+                new() { Id = Guid.NewGuid(), Description = "Test Item", Amount = 500m }
+            }
+        };
+        var pendingCn = new CreditNote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            Invoice = invoice,
+            Series = "CN",
+            FinancialYear = "2026-27",
+            CreditNoteNumber = "CN-2026-27-000001",
+            SequenceNumber = 1,
+            Amount = 200m,
+            Reason = "Procedure canceled",
+            Status = CreditNoteStatus.PendingApproval
+        };
+
+        var approvedCn = new CreditNote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            Invoice = invoice,
+            Series = "CN",
+            FinancialYear = "2026-27",
+            CreditNoteNumber = "CN-2026-27-000002",
+            SequenceNumber = 2,
+            Amount = 300m,
+            Reason = "Billing error adjusted",
+            Status = CreditNoteStatus.Approved,
+            SecondApprovedByUserId = userId,
+            IssuedAt = DateTimeOffset.UtcNow
+        };
+
+        // Approved credit note PDF
+        var pdfBytes = service.GenerateCreditNotePdf(approvedCn, invoice, clinic, null);
+        var pdfText = Encoding.ASCII.GetString(pdfBytes);
+
+        Assert.StartsWith("%PDF-1.4", Encoding.ASCII.GetString(pdfBytes, 0, 8));
+        Assert.Contains("CREDIT NOTE", pdfText);
+        Assert.Contains("CN-2026-27-000002", pdfText);
+        Assert.Contains("300.00", pdfText); // Amount
+        Assert.Contains("500.00", pdfText); // Original invoice total
+        Assert.Contains("200.00", pdfText); // Revised balance due (500 - 300)
+    }
 }

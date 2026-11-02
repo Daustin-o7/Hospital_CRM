@@ -243,10 +243,11 @@ export default function PharmacyPOS() {
     let schedH1 = false
 
     cart.forEach(item => {
+      // MRP is tax-inclusive (Indian pharmacy rule), so GST is backed out, not added.
       const lineTotal = item.unitPrice * item.quantity
-      const lineGst = Math.round(lineTotal * (item.gstRate / 100) * 100) / 100
-      sub += lineTotal
-      gst += lineGst
+      const lineTaxable = Math.round((lineTotal / (1 + item.gstRate / 100)) * 100) / 100
+      sub += lineTaxable
+      gst += Math.round((lineTotal - lineTaxable) * 100) / 100
 
       if (['ScheduleH1', 'NDPS', 'ScheduleX'].includes(item.scheduleClass)) {
         schedH1 = true
@@ -256,7 +257,7 @@ export default function PharmacyPOS() {
     return {
       subtotal: sub,
       totalGst: gst,
-      grandTotal: sub + gst,
+      grandTotal: Math.round((sub + gst) * 100) / 100,
       hasScheduleH1: schedH1
     }
   }, [cart])

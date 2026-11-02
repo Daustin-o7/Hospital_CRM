@@ -248,7 +248,7 @@ public class PdfService : IPdfService
             canvas.DrawRightAlignedText(line.UnitPrice.ToString("F2", CultureInfo.InvariantCulture), 390, y, 8, bold: false);
             canvas.DrawRightAlignedText($"{line.GstRate:F0}%", 440, y, 8, bold: false);
             canvas.DrawRightAlignedText(line.ResolvedTaxAmount().ToString("F2", CultureInfo.InvariantCulture), 495, y, 8, bold: false);
-            canvas.DrawRightAlignedText(line.GrossAmount().ToString("F2", CultureInfo.InvariantCulture), 550, y, 8, bold: true);
+            canvas.DrawRightAlignedText(line.GrossAmount(invoice.InvoiceType).ToString("F2", CultureInfo.InvariantCulture), 550, y, 8, bold: true);
 
             canvas.DrawLine(40, y - 4, 555, y - 4, 0.9f, 0.9f, 0.9f, 0.5f);
             y -= 16;

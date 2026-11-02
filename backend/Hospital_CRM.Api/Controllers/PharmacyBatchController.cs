@@ -385,6 +385,24 @@ public class PharmacyBatchController : ControllerBase
         if (items == null || items.Count == 0)
             return BadRequest(new { error = "no_items_in_purchase_order" });
 
+        var receivedItems = items
+            .Where(item => req.ReceivedQuantities.TryGetValue(item.DrugId, out var quantity) && quantity > 0)
+            .ToList();
+        if (receivedItems.Count == 0)
+            return BadRequest(new { error = "no_items_received" });
+
+        foreach (var item in receivedItems)
+        {
+            if (req.Mrps?.TryGetValue(item.DrugId, out var mrp) != true || mrp <= 0)
+                return BadRequest(new { error = "mrp_required", drugId = item.DrugId });
+
+            if (req.PurchaseRates?.TryGetValue(item.DrugId, out var purchaseRate) == true && purchaseRate <= 0)
+                return BadRequest(new { error = "invalid_purchase_rate", drugId = item.DrugId });
+
+            if (req.PurchaseRates?.ContainsKey(item.DrugId) != true && item.UnitPrice <= 0)
+                return BadRequest(new { error = "purchase_rate_required", drugId = item.DrugId });
+        }
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var tenantId = User.GetTenantId() ?? Guid.Empty;
         var currentUserId = User.GetUserId() ?? Guid.Empty;
@@ -418,13 +436,10 @@ public class PharmacyBatchController : ControllerBase
                     ? parsedMfg
                     : today.AddMonths(-1);
 
-                var mrp = req.Mrps?.TryGetValue(item.DrugId, out var mrpVal) == true && mrpVal > 0
-                    ? mrpVal
-                    : drug.IndicativeMrp > 0 ? drug.IndicativeMrp : 50m;
-
-                var purchaseRate = req.PurchaseRates?.TryGetValue(item.DrugId, out var prVal) == true && prVal > 0
+                var mrp = req.Mrps![item.DrugId];
+                var purchaseRate = req.PurchaseRates?.TryGetValue(item.DrugId, out var prVal) == true
                     ? prVal
-                    : Math.Round(mrp * 0.65m, 2);
+                    : item.UnitPrice;
 
                 var batch = new DrugBatch
                 {

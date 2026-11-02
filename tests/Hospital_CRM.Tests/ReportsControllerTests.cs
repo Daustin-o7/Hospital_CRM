@@ -451,7 +451,27 @@ public class ReportsControllerTests
             TaxCategory = TaxCategory.Exempt,
             TaxAmount = 0m,
             HsnCode = "30049099",
+            HsnSacCode = "30049099",
         });
+
+        // Dispense stores Amount as the taxable value AND fills TaxAmount.
+        db.InvoiceLineItems.Add(new InvoiceLineItem
+        {
+            InvoiceId = invoice.Id,
+            Description = "Amoxicillin (Batch: B2)",
+            Quantity = 2,
+            UnitPrice = 112m,
+            Amount = 200m,
+            GstRate = 12m,
+            TaxCategory = TaxCategory.Taxable,
+            TaxAmount = 24m,
+            HsnCode = "30041020",
+            HsnSacCode = "30041020",
+        });
+
+        invoice.Subtotal = 700m;
+        invoice.GstAmount = 84m;
+        invoice.Total = 784m;
         await db.SaveChangesAsync();
 
         var result = await controller.GSTR1(Month, CancellationToken.None);
@@ -460,10 +480,12 @@ public class ReportsControllerTests
         var b2cs = json.GetProperty("b2cs");
         Assert.Equal(1, b2cs.GetArrayLength());
         Assert.Equal(12m, b2cs[0].GetProperty("rate").GetDecimal());
-        Assert.Equal(500m, b2cs[0].GetProperty("taxableValue").GetDecimal());
-        Assert.Equal(30m, b2cs[0].GetProperty("cgstAmount").GetDecimal());
-        Assert.Equal(30m, b2cs[0].GetProperty("sgstAmount").GetDecimal());
+        Assert.Equal(700m, b2cs[0].GetProperty("taxableValue").GetDecimal());
+        Assert.Equal(42m, b2cs[0].GetProperty("cgstAmount").GetDecimal());
+        Assert.Equal(42m, b2cs[0].GetProperty("sgstAmount").GetDecimal());
         Assert.Equal(0, json.GetProperty("nilExempt").GetArrayLength());
+        Assert.Equal(84m, json.GetProperty("totalGst").GetDecimal());
+        Assert.Equal(84m, json.GetProperty("netTaxPayable").GetDecimal());
     }
 
     [Fact]

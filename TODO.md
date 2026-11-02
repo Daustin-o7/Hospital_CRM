@@ -227,4 +227,4 @@ Target: Operational hardening, monitoring, third-party audits, and CI/CD automat
 - [x] **A19 (#20) GSTR-1 correctness** before any real filing; then remaining money items, PDF/QR checks, docker/CI/backup gates, FRD evidence table.
 
 ### Phase 5 - Audit gaps (self-review)
-- [ ] **A20** Money paths in pharmacy/batch/compliance controllers, `PdfService`, `SubscriptionWebhooksController`, migration SQL, MobileApp.
+- [x] **A20** Money paths in pharmacy/batch/compliance controllers, `PdfService`, `SubscriptionWebhooksController`, migration SQL, MobileApp.

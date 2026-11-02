@@ -395,6 +395,62 @@ public class Section4PharmacyAuditFixesTests
     }
 
     [Fact]
+    public async Task Dispense_DoesNotReadAnotherTenantsPrescription()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        db.Clinics.Add(new Clinic
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, Name = "Licensed A", PharmacyLicenceNumber20 = "DL-A"
+        });
+        var visit = await SeedVisitAsync(db, otherTenantId);
+        var consultation = new Consultation
+        {
+            Id = Guid.NewGuid(), AppointmentId = visit.AppointmentId, DoctorId = visit.DoctorId,
+            Status = ConsultationStatus.Finalized
+        };
+        var drug = new Drug
+        {
+            Id = Guid.NewGuid(), TenantId = otherTenantId, Name = "Other Tenant Drug",
+            GenericName = "Paracetamol", Strength = "500mg", DosageForm = "Tablet", GstRate = 5m
+        };
+        var batch = new DrugBatch
+        {
+            Id = Guid.NewGuid(), TenantId = otherTenantId, DrugId = drug.Id, BatchNumber = "OTHER-1",
+            ExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(1)), QuantityReceived = 10,
+            QuantityRemaining = 10, Mrp = 100m, PurchaseRate = 60m
+        };
+        var prescription = new Prescription { Id = Guid.NewGuid(), ConsultationId = consultation.Id };
+        prescription.Items.Add(new PrescriptionItem
+        {
+            Id = Guid.NewGuid(), PrescriptionId = prescription.Id, DrugId = drug.Id,
+            GenericName = drug.GenericName, Strength = drug.Strength, DosageForm = drug.DosageForm,
+            MedicineText = drug.Name, TotalQuantity = 1
+        });
+        db.AddRange(consultation, drug, batch, prescription);
+        await db.SaveChangesAsync();
+
+        var controller = new PharmacyComplianceController(db, NullLogger<PharmacyComplianceController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = CreateUserPrincipal(userId, tenantId, "Pharmacist") }
+            }
+        };
+
+        var result = await controller.DispensePrescription(
+            new DispensePrescriptionRequest(prescription.Id, IdempotencyKey: "same-key"),
+            CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Empty(db.DispenseRecords);
+        Assert.Empty(db.Invoices);
+        Assert.Equal(10, batch.QuantityRemaining);
+    }
+
+    [Fact]
     public async Task Substitutes_AreSameGenericStrengthAndForm_AndInStock()
     {
         var db = CreateInMemoryDb();
@@ -522,5 +578,136 @@ public class Section4PharmacyAuditFixesTests
         Assert.Equal(4.76m, doc.GetProperty("gstAmount").GetDecimal());
         Assert.Equal(100.00m, doc.GetProperty("total").GetDecimal());
         Assert.Equal(5m, doc.GetProperty("items")[0].GetProperty("gstRate").GetDecimal());
+    }
+
+    [Fact]
+    public async Task PosReturn_ReversesPaymentLedger_AndRepaysTheInvoice()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        db.Clinics.Add(new Clinic { Id = Guid.NewGuid(), TenantId = tenantId, Name = "Licensed", PharmacyLicenceNumber20 = "DL-20" });
+        var drug = new Drug
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, Name = "Dolo 650",
+            GenericName = "Paracetamol", GstRate = 12m, HsnCode = "30049099"
+        };
+        db.Drugs.Add(drug);
+        var batch = new DrugBatch
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, DrugId = drug.Id,
+            BatchNumber = "DOLO-1", ExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(9)),
+            QuantityReceived = 20, QuantityRemaining = 20, Mrp = 112m, PurchaseRate = 70m
+        };
+        db.DrugBatches.Add(batch);
+        await db.SaveChangesAsync();
+
+        var controller = new PharmacyPosController(
+            db, NullLogger<PharmacyPosController>.Instance, new TimezoneService());
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUserPrincipal(userId, tenantId, "Pharmacist") }
+        };
+
+        var checkout = await controller.CheckoutPos(
+            new PosCheckoutRequest(
+                "Walk-in", "9876543210", null, null, null, null, null, "Cash", 224m, null,
+                new List<PosCheckoutItem> { new(drug.Id, batch.Id, 2, 112m, 12m, "3004") }),
+            CancellationToken.None);
+        var checkoutDoc = JsonSerializer.Deserialize<JsonElement>(
+            JsonSerializer.Serialize(Assert.IsType<ObjectResult>(checkout).Value));
+        var invoiceId = checkoutDoc.GetProperty("invoiceId").GetGuid();
+
+        // The counter sale is paid, and the payment row must belong to the tenant or the tenant
+        // filter hides it from every report and from the refund path.
+        var salePayment = await db.Payments.SingleAsync(p => p.InvoiceId == invoiceId);
+        Assert.Equal(tenantId, salePayment.TenantId);
+        var paidInvoice = await db.Invoices.FindAsync(invoiceId);
+        Assert.Equal(224m, paidInvoice!.PaidAmount);
+        Assert.Equal(0m, paidInvoice.BalanceDue);
+
+        var returned = await controller.ProcessReturn(
+            invoiceId, new ReturnRequest("Wrong strength", "Pharmacist", "ret-key-1"), CancellationToken.None);
+        Assert.IsType<ObjectResult>(returned);
+
+        var invoice = await db.Invoices.FindAsync(invoiceId);
+        Assert.Equal(InvoiceStatus.Refunded, invoice!.Status);
+        Assert.Equal(0m, invoice.PaidAmount);
+        // Same arithmetic as the OPD refund path: the money is back, so the receivable returns.
+        Assert.Equal(invoice.Total, invoice.BalanceDue);
+
+        var refund = await db.Payments.SingleAsync(p => p.InvoiceId == invoiceId && p.Status == PaymentStatus.Refunded);
+        Assert.Equal(tenantId, refund.TenantId);
+        Assert.Equal(-224m, refund.Amount);
+        Assert.Equal(PaymentVerificationStatus.Confirmed, refund.VerificationStatus);
+        Assert.Equal(userId, refund.ConfirmedByUserId);
+        Assert.Equal("Wrong strength", refund.RefundReason);
+        Assert.NotNull(refund.ConfirmedAt);
+
+        // Append-only reversal: credit the till, debit receivables.
+        var ledger = await db.FinanceLedgerEntries
+            .Where(e => e.EntryType == FinanceEntryType.RefundProcessed)
+            .ToListAsync();
+        Assert.Equal(2, ledger.Count);
+        Assert.Equal(224m, ledger.Single(e => e.AccountCategory == "Cash").CreditAmount);
+        Assert.Equal(224m, ledger.Single(e => e.AccountCategory == "AccountsReceivable").DebitAmount);
+        Assert.All(ledger, e => Assert.Equal(tenantId, e.TenantId));
+
+        var restored = await db.DrugBatches.FindAsync(batch.Id);
+        Assert.Equal(20, restored!.QuantityRemaining);
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrder_RequiresActualMrp_AndUsesOrderedUnitPriceAsPurchaseRate()
+    {
+        var db = CreateInMemoryDb();
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var drug = new Drug
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, Name = "Amoxicillin",
+            GenericName = "Amoxicillin", IndicativeMrp = 999m
+        };
+        var po = new PurchaseOrder
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, OrderNumber = "PO-1001",
+            DistributorName = "Test Distributor", CreatedBy = userId,
+            ItemsJson = JsonSerializer.Serialize(new[] { new PoReceiveItem(drug.Id, drug.Name, 10, 73.25m) })
+        };
+        db.AddRange(drug, po);
+        await db.SaveChangesAsync();
+
+        var controller = new PharmacyBatchController(db, NullLogger<PharmacyBatchController>.Instance)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = CreateUserPrincipal(userId, tenantId, "Pharmacist") }
+            }
+        };
+        var quantities = new Dictionary<Guid, int> { [drug.Id] = 10 };
+        var batchNumbers = new Dictionary<Guid, string> { [drug.Id] = "AMOX-1" };
+        var expiryDates = new Dictionary<Guid, string> { [drug.Id] = DateTime.UtcNow.AddYears(1).ToString("yyyy-MM-dd") };
+
+        var missingMrp = await controller.ReceivePurchaseOrder(
+            po.Id,
+            new ReceivePurchaseOrderRequest(quantities, batchNumbers, expiryDates, null, null, null),
+            CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(missingMrp);
+        Assert.Empty(db.DrugBatches);
+        Assert.Equal(PurchaseOrderStatus.Draft, po.Status);
+
+        var received = await controller.ReceivePurchaseOrder(
+            po.Id,
+            new ReceivePurchaseOrderRequest(
+                quantities, batchNumbers, expiryDates, null,
+                new Dictionary<Guid, decimal> { [drug.Id] = 120m }, null),
+            CancellationToken.None);
+
+        Assert.Equal(201, Assert.IsType<ObjectResult>(received).StatusCode);
+        var batch = await db.DrugBatches.SingleAsync();
+        Assert.Equal(120m, batch.Mrp);
+        Assert.Equal(73.25m, batch.PurchaseRate);
     }
 }
