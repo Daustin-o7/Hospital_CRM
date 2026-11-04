@@ -1,4 +1,4 @@
-using Hospital_CRM.Domain.Enums;
+﻿using Hospital_CRM.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace Hospital_CRM.Domain.Entities;
@@ -24,6 +24,9 @@ public class User
 
     [Required]
     public UserRole Role { get; set; }
+
+    [MaxLength(100)]
+    public string? Specialty { get; set; }
 
     public int FailedLoginCount { get; set; }
 

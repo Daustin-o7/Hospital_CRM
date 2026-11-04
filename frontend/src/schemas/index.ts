@@ -60,6 +60,17 @@ export const invoiceLineItemSchema = z.object({
 export const createInvoiceSchema = z.object({
   patientName: z.string().trim().min(2, 'Patient name must be at least 2 characters').max(100, 'Patient name cannot exceed 100 characters'),
   lineItems: z.array(invoiceLineItemSchema).min(1, 'At least one billing line item is required').max(50, 'Maximum 50 line items per invoice'),
+  discountAmount: z.number().min(0).optional(),
+  discountReason: z.string().optional(),
+  autoFinalize: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  if ((data.discountAmount ?? 0) > 0 && !data.discountReason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountReason'],
+      message: 'Discount reason is required when discount amount is greater than 0',
+    })
+  }
 })
 
 export type CreateInvoiceFormData = z.infer<typeof createInvoiceSchema>
@@ -89,6 +100,10 @@ export const consultationSoapSchema = z.object({
   observations: z.string().trim().max(2500, 'Observations cannot exceed 2500 characters').optional().or(z.literal('')),
   diagnosis: z.string().trim().min(2, 'Diagnosis must be at least 2 characters').max(500, 'Diagnosis cannot exceed 500 characters'),
   prescriptions: z.array(prescriptionItemSchema).max(30, 'Maximum 30 prescription items per consultation'),
+  advisedInvestigations: z.string().trim().max(2000, 'Advised investigations cannot exceed 2000 characters').optional().or(z.literal('')),
+  followUpDate: z.string().regex(ISO_DATE_REGEX, 'Follow-up date must be in YYYY-MM-DD format').optional().nullable(),
+  followUpNotes: z.string().trim().max(2000, 'Follow-up notes cannot exceed 2000 characters').optional().or(z.literal('')),
+  odontogramJson: z.string().optional().nullable(),
 })
 
 export type ConsultationSoapFormData = z.infer<typeof consultationSoapSchema>

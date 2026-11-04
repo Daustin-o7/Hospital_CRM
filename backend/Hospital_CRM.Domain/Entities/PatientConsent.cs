@@ -1,10 +1,11 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class PatientConsent
+public class PatientConsent : ITenantScoped
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
     public Guid PatientId { get; set; }
     
     [MaxLength(255)]

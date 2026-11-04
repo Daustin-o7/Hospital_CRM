@@ -542,10 +542,15 @@ public record PatientRegisterRequest(
     string? IdempotencyKey,
 
     bool WhatsAppOptIn = false,
+    [StringLength(100, ErrorMessage = "Guardian name cannot exceed 100 characters")]
     string? GuardianName = null,
+    [StringLength(50, ErrorMessage = "Guardian relationship cannot exceed 50 characters")]
     string? GuardianRelationship = null,
+    [StringLength(50, ErrorMessage = "Notice version cannot exceed 50 characters")]
     string? NoticeVersion = null,
+    [StringLength(10, ErrorMessage = "Language code cannot exceed 10 characters")]
     string? Language = null,
+    [StringLength(50, ErrorMessage = "Capture method cannot exceed 50 characters")]
     string? CaptureMethod = null,
     bool ConfirmDifferentPersonOnSamePhone = false);
 

@@ -149,6 +149,7 @@ public class LabOrdersController : ControllerBase
         var result = new LabResult
         {
             Id = Guid.NewGuid(),
+            TenantId = order.TenantId,
             LabOrderId = id,
             ResultText = resultText,
             FileUrl = fileUrl,

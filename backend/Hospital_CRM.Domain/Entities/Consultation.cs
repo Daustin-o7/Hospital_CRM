@@ -1,11 +1,12 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
 
-public class Consultation
+public class Consultation : ITenantScoped
 {
     public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
     public Guid AppointmentId { get; set; }
     public Guid DoctorId { get; set; }
     
@@ -55,6 +56,7 @@ public class Consultation
     public Guid? TemplateId { get; set; }
     public int? TemplateVersion { get; set; }
     public string? StructuredObservationsJson { get; set; }
+    public string? OdontogramJson { get; set; }
     
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Domain.Enums;
 
 namespace Hospital_CRM.Domain.Entities;
@@ -31,6 +31,9 @@ public class TenantMembership
 
     [MaxLength(200)]
     public string? Qualifications { get; set; }
+
+    [MaxLength(100)]
+    public string? Specialty { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

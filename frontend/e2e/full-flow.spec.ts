@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+﻿import { test, expect } from '@playwright/test'
 
 test.describe('Hospital_CRM Full E2E Test Suite', () => {
 
@@ -150,18 +150,19 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     const inwardBtn = page.getByRole('button', { name: '+ Inward Stock' }).first()
     await inwardBtn.click()
 
-    await expect(page.getByText('Inward Medicine Stock (GRN)')).toBeVisible()
+    await expect(page.getByText(/Stock-In Purchase Entry \(GRN\)|Inward Medicine Stock/i)).toBeVisible()
 
     // Fill new batch form
     await page.getByPlaceholder('e.g. BAT-2026-09').fill('BAT-TEST-999')
     await page.locator('input[type="date"]').first().fill('2028-12-31') // Expiry
     await page.getByPlaceholder('100').fill('250')
     await page.getByPlaceholder('120.00').fill('150.00')
+    await page.getByPlaceholder('85.00').fill('100.00')
 
-    await page.getByRole('button', { name: 'Save Batch Stock' }).click()
+    await page.getByRole('button', { name: /Record Stock-In|Save Batch Stock/i }).click()
 
     // Modal closes and new stock reflects
-    await expect(page.getByText('Inward Medicine Stock (GRN)')).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/Stock-In Purchase Entry \(GRN\)|Inward Medicine Stock/i)).not.toBeVisible({ timeout: 5000 })
   })
 
   test('6. Patient Registry: DPDP-Compliant Registration & Search', async ({ page }) => {
@@ -251,6 +252,25 @@ test.describe('Hospital_CRM Full E2E Test Suite', () => {
     const genericBtn = page.getByRole('button', { name: 'Substitutes' }).first()
     await genericBtn.click()
     await expect(page.getByText(/Generic Molecule Substitutes/i)).toBeVisible()
+  })
+
+  test('9. Settings & Clinic Profile: Persistence of Operating Rules & Defaults', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByRole('button', { name: 'Admin', exact: true }).click()
+    await page.getByRole('button', { name: /Sign in/i }).click()
+
+    await expect(page).toHaveURL(/.*dashboard/)
+    await page.getByRole('link', { name: /Settings/i }).click()
+    await expect(page).toHaveURL(/.*settings/)
+
+    // Fill settings inputs
+    await expect(page.getByRole('heading', { name: 'Clinic Profile' })).toBeVisible({ timeout: 10000 })
+
+    const saveBtn = page.getByRole('button', { name: /Save Clinic Profile/i })
+    await expect(saveBtn).toBeVisible()
+    await saveBtn.click()
+
+    await expect(page.getByText(/Clinic profile.*saved/i)).toBeVisible({ timeout: 8000 })
   })
 
 })

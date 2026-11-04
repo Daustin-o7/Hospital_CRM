@@ -1,0 +1,4402 @@
+[
+  {
+    "row": 8,
+    "sno": 1,
+    "brand_name": "IMILASTIN",
+    "generic_name": "IMIPENEM+CILASTATIN",
+    "strength": "500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 9,
+    "sno": 2,
+    "brand_name": "MAXIGARD",
+    "generic_name": "IMIPENEM+CILASTATIN",
+    "strength": "500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 10,
+    "sno": 3,
+    "brand_name": "ICUPEN",
+    "generic_name": "DORIPENAM",
+    "strength": "500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 11,
+    "sno": 4,
+    "brand_name": "MEROMAC",
+    "generic_name": "MEROPENAM",
+    "strength": "500MG,1000MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 12,
+    "sno": 6,
+    "brand_name": "MEROMAC PLUS",
+    "generic_name": "MEROPENAM+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 13,
+    "sno": 7,
+    "brand_name": "ZAXTER XP",
+    "generic_name": "MEROPENAM+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 14,
+    "sno": 8,
+    "brand_name": "BDOXY",
+    "generic_name": "DOXYCYCLINE",
+    "strength": "100MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 15,
+    "sno": 9,
+    "brand_name": "T PLANIN",
+    "generic_name": "TICOPLANINE",
+    "strength": "400MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 16,
+    "sno": 10,
+    "brand_name": "TICPLAT",
+    "generic_name": "TICOPLANINE",
+    "strength": "400MG,200MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 17,
+    "sno": 12,
+    "brand_name": "TICOJET",
+    "generic_name": "TICOPLANINE",
+    "strength": "400MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 18,
+    "sno": 13,
+    "brand_name": "BDCOLIST/COLIHUB/COLIST",
+    "generic_name": "COLISTIMETHATE",
+    "strength": "4.5MILL,2MILL",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 19,
+    "sno": 19,
+    "brand_name": "POLY B",
+    "generic_name": "POLYMYXIN",
+    "strength": "5MILL",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 20,
+    "sno": 20,
+    "brand_name": "XAVITAZ",
+    "generic_name": "CEFTRAZIDIME+AVIBACTUM",
+    "strength": "2.5GM",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 21,
+    "sno": 21,
+    "brand_name": "POLY B XP",
+    "generic_name": "POLYMYXIN",
+    "strength": "7.5MILL",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 22,
+    "sno": 22,
+    "brand_name": "STAFCURE SB",
+    "generic_name": "CEFUROXIME+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 23,
+    "sno": 23,
+    "brand_name": "TAPICEM /PEPAR",
+    "generic_name": "PIPERACILLINE+TAZOBACTUM",
+    "strength": "4.5GM",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 24,
+    "sno": 24,
+    "brand_name": "KABICEFECTM",
+    "generic_name": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 25,
+    "sno": 25,
+    "brand_name": "MONOCEF",
+    "generic_name": "CEFTRIAXONE",
+    "strength": "2GM,1GM,500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 26,
+    "sno": 28,
+    "brand_name": "CEPOFIC",
+    "generic_name": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 27,
+    "sno": 30,
+    "brand_name": "XATRONEM",
+    "generic_name": "AZTREONAM",
+    "strength": "2GM,1GM",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 28,
+    "sno": 31,
+    "brand_name": "DALOCEL",
+    "generic_name": "CLIDAMYCIN",
+    "strength": "600MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 29,
+    "sno": 32,
+    "brand_name": "AMIKMAC",
+    "generic_name": "AMIKACIN",
+    "strength": "500MG,250MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 30,
+    "sno": 33,
+    "brand_name": "AMIKMAC 100MG",
+    "generic_name": "AMIKMAC 100MG",
+    "strength": "",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 31,
+    "sno": 34,
+    "brand_name": "VANTOX CP 1G",
+    "generic_name": "VANTOX CP 1G",
+    "strength": "",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 32,
+    "sno": 35,
+    "brand_name": "VANTOX CP",
+    "generic_name": "VANCOMYCIN",
+    "strength": "1GM,500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 33,
+    "sno": 36,
+    "brand_name": "GENTAMYCIN",
+    "generic_name": "GENTAMYCIN",
+    "strength": "80MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 34,
+    "sno": 37,
+    "brand_name": "ZOSTUM",
+    "generic_name": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 35,
+    "sno": 38,
+    "brand_name": "TAXIM",
+    "generic_name": "CEFOTAXIME",
+    "strength": "125MG,250MG,500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 36,
+    "sno": 29,
+    "brand_name": "KLACID INJ",
+    "generic_name": "CLARITHROMYCIN",
+    "strength": "500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 37,
+    "sno": 41,
+    "brand_name": "TINIBA",
+    "generic_name": "TINIDAZOLE",
+    "strength": "400MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 38,
+    "sno": 42,
+    "brand_name": "LEVOFUXIN",
+    "generic_name": "LEVOFLOXACINE",
+    "strength": "500MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 39,
+    "sno": 43,
+    "brand_name": "MOXPLOR",
+    "generic_name": "MOXCIFLOXACINE",
+    "strength": "400MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 40,
+    "sno": 44,
+    "brand_name": "LINOPLUS",
+    "generic_name": "LINAZOLIDE",
+    "strength": "600MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 41,
+    "sno": 45,
+    "brand_name": "NIRMIT",
+    "generic_name": "METRONIDAZOLE",
+    "strength": "500MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 42,
+    "sno": 46,
+    "brand_name": "STAFCURE/CEROM",
+    "generic_name": "CEFUROXIME",
+    "strength": "500MG,250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 43,
+    "sno": 48,
+    "brand_name": "STAFCURE CV",
+    "generic_name": "CEFUROXIM+CLAVULANIC ACID",
+    "strength": "500MG/125MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 44,
+    "sno": 50,
+    "brand_name": "LIZOMAC/LINID",
+    "generic_name": "LINAZOLIDE",
+    "strength": "600MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 45,
+    "sno": 52,
+    "brand_name": "AZRO/AZEE",
+    "generic_name": "AZITHROMYCINE",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 46,
+    "sno": 53,
+    "brand_name": "AZEE 500MG",
+    "generic_name": "AZEE 500MG",
+    "strength": "",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 47,
+    "sno": 54,
+    "brand_name": "CLARIBID",
+    "generic_name": "CLARITHROMYCIN",
+    "strength": "500MG,250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 48,
+    "sno": 56,
+    "brand_name": "MOXIMAC 400MG",
+    "generic_name": "MOXCIFLOXACINE",
+    "strength": "400MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 49,
+    "sno": 57,
+    "brand_name": "LOXOF 750MG",
+    "generic_name": "LEVOFLOXACINE",
+    "strength": "750MG,500MG,250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 50,
+    "sno": 60,
+    "brand_name": "BACTRIM DS/SEPTRAN DS",
+    "generic_name": "SUFAMETHAXAZOLE+TRIMETHOPRIM",
+    "strength": "800MG/160MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 51,
+    "sno": 61,
+    "brand_name": "DOXYPAL DRL",
+    "generic_name": "DOXYCYCLINE",
+    "strength": "100MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 52,
+    "sno": 62,
+    "brand_name": "METROGYL",
+    "generic_name": "METRONIDAZOLE",
+    "strength": "400MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 53,
+    "sno": 63,
+    "brand_name": "MOX",
+    "generic_name": "AMOXACILLINE",
+    "strength": "500MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 54,
+    "sno": 64,
+    "brand_name": "CIPLOX",
+    "generic_name": "CIPROFLOXACIN",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 55,
+    "sno": 65,
+    "brand_name": "NORFLOX",
+    "generic_name": "NORFLOXACIN",
+    "strength": "400MG,200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 56,
+    "sno": 67,
+    "brand_name": "AGUMENTIN DUO",
+    "generic_name": "AMOXACILLINE+CLAVULANIC ACID",
+    "strength": "500MG/125MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 57,
+    "sno": 68,
+    "brand_name": "TAXIM O",
+    "generic_name": "CEFIXIME",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 58,
+    "sno": 69,
+    "brand_name": "MACPOD CV/DOXCEF CV",
+    "generic_name": "CEFPODOXIM+POTASSIUM CLAVINATE",
+    "strength": "200MG/125MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 59,
+    "sno": 71,
+    "brand_name": "FAROFENC ER/ORPENEM ER",
+    "generic_name": "FEROPENAM",
+    "strength": "300MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 60,
+    "sno": 73,
+    "brand_name": "FAROKAA",
+    "generic_name": "FEROPENAM",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 61,
+    "sno": 74,
+    "brand_name": "REZFURAN",
+    "generic_name": "NITROFURANTOIN",
+    "strength": "100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 62,
+    "sno": 75,
+    "brand_name": "DALACIN C/CLINDASURE",
+    "generic_name": "CLIDAMYCIN",
+    "strength": "300MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 63,
+    "sno": 77,
+    "brand_name": "ZENFLOX OZ",
+    "generic_name": "OFLOXACINE+ORINADAZOLE",
+    "strength": "500MG/200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 64,
+    "sno": 78,
+    "brand_name": "ZENFLOX 400MG",
+    "generic_name": "OFLOXACINE",
+    "strength": "400MG,200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 65,
+    "sno": 80,
+    "brand_name": "ZOSTUM O",
+    "generic_name": "CEFDITORNE",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 66,
+    "sno": 81,
+    "brand_name": "RIFORTE/RCIFEX/RIXMIN",
+    "generic_name": "RIFAXIMINE",
+    "strength": "400MG,550MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 67,
+    "sno": 83,
+    "brand_name": "PENTID",
+    "generic_name": "PENICILLINE",
+    "strength": "800MG,400MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 68,
+    "sno": 85,
+    "brand_name": "STARIZO",
+    "generic_name": "TIDIZOLIDE PHOSPATE",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 69,
+    "sno": 86,
+    "brand_name": "CETIL/CEFAKIND",
+    "generic_name": "CEFUROXIM",
+    "strength": "200MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 70,
+    "sno": 89,
+    "brand_name": "GUDCEF",
+    "generic_name": "CEPODOXIM",
+    "strength": "100MG,50MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 71,
+    "sno": 90,
+    "brand_name": "MOXCLAV BD",
+    "generic_name": "AMOXICILLINE+POTASSIUM CLAVINATE",
+    "strength": "200MG/28.5MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 72,
+    "sno": 91,
+    "brand_name": "ERYTOP",
+    "generic_name": "CLIDAMYCIN",
+    "strength": "1%W/W",
+    "dosage_form": "Topical Gel/Cream",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 73,
+    "sno": 92,
+    "brand_name": "NEOSPORIN",
+    "generic_name": "NEOMYCINE SULFATE+POLYMYXIN B",
+    "strength": "400IU/3400IU/5000IU",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 74,
+    "sno": 93,
+    "brand_name": "ZENFLOX",
+    "generic_name": "OFLOXACINE",
+    "strength": "",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 75,
+    "sno": 94,
+    "brand_name": "CIPLOX",
+    "generic_name": "CIPROFLOXACIN",
+    "strength": "",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 76,
+    "sno": 95,
+    "brand_name": "MILFLOX",
+    "generic_name": "MOXCIFLOXACINE",
+    "strength": "",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Antibiotics & Antimicrobials",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 81,
+    "sno": 96,
+    "brand_name": "DYNAPAR AQ 75MG",
+    "generic_name": "DICLOFENAC",
+    "strength": "75MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 82,
+    "sno": 97,
+    "brand_name": "FEBRINIL 150MG",
+    "generic_name": "PARACETAMOL",
+    "strength": "150MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 83,
+    "sno": 98,
+    "brand_name": "TRAMAZAC 100MG",
+    "generic_name": "TRAMADOL",
+    "strength": "100MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 84,
+    "sno": 99,
+    "brand_name": "BUPRIGESIC 0.3MG",
+    "generic_name": "BUPRENORPHINE",
+    "strength": "0.3MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 85,
+    "sno": 100,
+    "brand_name": "NUCOXIA 60",
+    "generic_name": "ETORICOXIB",
+    "strength": "60MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 86,
+    "sno": 101,
+    "brand_name": "KABIPARA 1G",
+    "generic_name": "PARACETAMOL",
+    "strength": "1000MG",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 87,
+    "sno": 102,
+    "brand_name": "HIFENAC P",
+    "generic_name": "ACECLOFENAC + PARACETAMOL",
+    "strength": "100MG/325MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 88,
+    "sno": 103,
+    "brand_name": "HIFENAC TA",
+    "generic_name": "ACECLOFENAC + PARACETAMOL+TRAMADOL",
+    "strength": "100MG/325MG/37.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 89,
+    "sno": 104,
+    "brand_name": "HIFENAC MR",
+    "generic_name": "ACECLOFENAC+PARACETAMOL+CHLORZOXAZONE",
+    "strength": "100MG/325MG/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 90,
+    "sno": 105,
+    "brand_name": "HIFENAC SP",
+    "generic_name": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 91,
+    "sno": 106,
+    "brand_name": "SIGNOFLAM",
+    "generic_name": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 92,
+    "sno": 107,
+    "brand_name": "DOLO 650",
+    "generic_name": "PARACETAMOL",
+    "strength": "650MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 93,
+    "sno": 108,
+    "brand_name": "CALPOL 650",
+    "generic_name": "PARACETAMOL",
+    "strength": "650MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 94,
+    "sno": 109,
+    "brand_name": "DOLONEX DT",
+    "generic_name": "PIROXICAM",
+    "strength": "20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 95,
+    "sno": 110,
+    "brand_name": "CHYMOCAD",
+    "generic_name": "ACECLOFENAC + PARACETAMOL+TRYPSIN CHYMOTRYPSIN",
+    "strength": "100MG/325MG/50000AU",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 96,
+    "sno": 111,
+    "brand_name": "CHYMORAL FORTE",
+    "generic_name": "TRYPSIN CHYMOTRYPSIN",
+    "strength": "100000AU",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 97,
+    "sno": 112,
+    "brand_name": "ETOSHINE MR",
+    "generic_name": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 98,
+    "sno": 113,
+    "brand_name": "ETOSHINE 90",
+    "generic_name": "ETORICOXIB",
+    "strength": "90MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 99,
+    "sno": 114,
+    "brand_name": "NUCOXIA P",
+    "generic_name": "ETORICOXIB+PARACTAMOL",
+    "strength": "60MG/325MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 100,
+    "sno": 115,
+    "brand_name": "NUCOXIA MR",
+    "generic_name": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 101,
+    "sno": 116,
+    "brand_name": "NUCOXIA 60",
+    "generic_name": "ETORICOXIB",
+    "strength": "60MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 102,
+    "sno": 117,
+    "brand_name": "NUCOXIA 90",
+    "generic_name": "ETORICOXIB",
+    "strength": "90MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 103,
+    "sno": 118,
+    "brand_name": "RETOZ MR",
+    "generic_name": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 104,
+    "sno": 119,
+    "brand_name": "ENZOMAC FAST",
+    "generic_name": "Trypsin+Bromelain+Rutoside",
+    "strength": "96MG/180MG/200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 105,
+    "sno": 120,
+    "brand_name": "ENZOMAC PLUS",
+    "generic_name": "Trypsin+Bromelain+Rutoside+Diclofenac",
+    "strength": "48MG/90MG/100MG/50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 106,
+    "sno": 121,
+    "brand_name": "ENZOMAC FORTE",
+    "generic_name": "Trypsin+Bromelain+Rutoside",
+    "strength": "96MG/180MG/200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 107,
+    "sno": 122,
+    "brand_name": "ENZOMAC",
+    "generic_name": "Trypsin+Bromelain+Rutoside",
+    "strength": "48MG/90MG/100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 108,
+    "sno": 123,
+    "brand_name": "ENZOFLAM MR",
+    "generic_name": "ACECLOFENAC + PARACETAMOL+THIOCOLCHICOSIDE",
+    "strength": "100MG/325MG/4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 109,
+    "sno": 124,
+    "brand_name": "PACIMOL ACTIVE",
+    "generic_name": "PARACETAMOL+CAFFEINE",
+    "strength": "650MG/50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 110,
+    "sno": 125,
+    "brand_name": "ZERODOL P",
+    "generic_name": "ACECLOFENAC + PARACETAMOL",
+    "strength": "100MG/325MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 111,
+    "sno": 126,
+    "brand_name": "ZERODOL SP",
+    "generic_name": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 112,
+    "sno": 127,
+    "brand_name": "PARASAFE 650",
+    "generic_name": "PARACETAMOL",
+    "strength": "650MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 113,
+    "sno": 128,
+    "brand_name": "PARASAFE 500",
+    "generic_name": "PARACETAMOL",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 114,
+    "sno": 129,
+    "brand_name": "CALPOL 250",
+    "generic_name": "PARACETAMOL",
+    "strength": "250MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 115,
+    "sno": 130,
+    "brand_name": "IBUGESIC",
+    "generic_name": "IBUPROFEN",
+    "strength": "100MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 116,
+    "sno": 131,
+    "brand_name": "IBUGESIC PLUS",
+    "generic_name": "IBUPROFEN+PARACETAMOL",
+    "strength": "100MG/162.5MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 117,
+    "sno": 132,
+    "brand_name": "PARASAFE",
+    "generic_name": "PARACETAMOL",
+    "strength": "250MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 118,
+    "sno": 133,
+    "brand_name": "IBUFROM",
+    "generic_name": "IBUPROFEN",
+    "strength": "100MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 119,
+    "sno": 134,
+    "brand_name": "CALPOL",
+    "generic_name": "PARACETAMOL",
+    "strength": "100MG",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 120,
+    "sno": 135,
+    "brand_name": "FLEXABENZ",
+    "generic_name": "DICLOFENAC",
+    "strength": "",
+    "dosage_form": "Topical Gel/Cream",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 121,
+    "sno": 136,
+    "brand_name": "MOOV",
+    "generic_name": "DICLOFENAC",
+    "strength": "",
+    "dosage_form": "Topical Gel/Cream",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 122,
+    "sno": 137,
+    "brand_name": "DFO",
+    "generic_name": "DICLOFENAC",
+    "strength": "",
+    "dosage_form": "Topical Gel/Cream",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 123,
+    "sno": 138,
+    "brand_name": "SENSOR",
+    "generic_name": "AYURVEDIC",
+    "strength": "",
+    "dosage_form": "Oil&Lotion",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 124,
+    "sno": 139,
+    "brand_name": "MACGESIA",
+    "generic_name": "AYURVEDIC",
+    "strength": "",
+    "dosage_form": "Oil",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 125,
+    "sno": 140,
+    "brand_name": "DYNAPAR QPS",
+    "generic_name": "DICLOFENAC",
+    "strength": "",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 126,
+    "sno": 141,
+    "brand_name": "TROIS",
+    "generic_name": "AYURVEDIC",
+    "strength": "",
+    "dosage_form": "Emulsion",
+    "therapeutic_category": "Analgesics, Antipyretics & NSAIDs",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 131,
+    "sno": 142,
+    "brand_name": "DILZEM",
+    "generic_name": "DITILAZEM",
+    "strength": "25MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 132,
+    "sno": 143,
+    "brand_name": "NIKORAN",
+    "generic_name": "NIKORANDIL",
+    "strength": "5MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 133,
+    "sno": 144,
+    "brand_name": "METOLAR",
+    "generic_name": "METOPROLOL TARTRATE",
+    "strength": "50MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 134,
+    "sno": 145,
+    "brand_name": "PROTA",
+    "generic_name": "PROTAMINE",
+    "strength": "50MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 135,
+    "sno": 146,
+    "brand_name": "DOMIN",
+    "generic_name": "DOPAMINE",
+    "strength": "200MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 136,
+    "sno": 147,
+    "brand_name": "NORAD/ADRENOR",
+    "generic_name": "NORADRENALINE",
+    "strength": "4MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 137,
+    "sno": 148,
+    "brand_name": "ATROPIN",
+    "generic_name": "ATROPIN",
+    "strength": "0.6MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 138,
+    "sno": 149,
+    "brand_name": "ADRENILINE",
+    "generic_name": "ADRENALINE",
+    "strength": "1MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 139,
+    "sno": 150,
+    "brand_name": "DURON",
+    "generic_name": "AMIODARONE",
+    "strength": "150MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 140,
+    "sno": 151,
+    "brand_name": "GUFINOX",
+    "generic_name": "ENOXAPARINE",
+    "strength": "40MG,60MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 141,
+    "sno": 153,
+    "brand_name": "HEPARIN",
+    "generic_name": "HEPARIN",
+    "strength": "5000IU,25000IU",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 142,
+    "sno": 155,
+    "brand_name": "MIREL",
+    "generic_name": "RETEPLASE",
+    "strength": "18MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 143,
+    "sno": 156,
+    "brand_name": "TSART/ARBITEL/TELSAR",
+    "generic_name": "TELMISARTAN",
+    "strength": "40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 144,
+    "sno": 157,
+    "brand_name": "TSART/ARBITEL/TELSAR H",
+    "generic_name": "TELMISARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "40MG+12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 145,
+    "sno": 158,
+    "brand_name": "TSART/ARBITEL AM",
+    "generic_name": "TELMISARTAN + AMLODIPINE",
+    "strength": "40MG+5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 146,
+    "sno": 159,
+    "brand_name": "TAZLOC /TELSAR",
+    "generic_name": "TELMISARTAN",
+    "strength": "20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 147,
+    "sno": 160,
+    "brand_name": "TAZLOC",
+    "generic_name": "TELMISARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "80MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 148,
+    "sno": 161,
+    "brand_name": "TAZLOC H",
+    "generic_name": "TELMISARTAN",
+    "strength": "80MG+12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 149,
+    "sno": 162,
+    "brand_name": "METXL",
+    "generic_name": "METOPROLOL SUCCINATE",
+    "strength": "12.5MG,25MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 150,
+    "sno": 163,
+    "brand_name": "METXL AM",
+    "generic_name": "METOPROLOL SUCCINATE + AMLODIPINE",
+    "strength": "25/5MG & 50/5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 151,
+    "sno": 164,
+    "brand_name": "METXL AM",
+    "generic_name": "METOPROLOL SUCCINATE + AMLODIPINE",
+    "strength": "25/2.5MG & 50/2.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 152,
+    "sno": 165,
+    "brand_name": "METXL 3D",
+    "generic_name": "METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN",
+    "strength": "25/12.5MG & 50/12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 153,
+    "sno": 166,
+    "brand_name": "METXL 3D",
+    "generic_name": "METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN",
+    "strength": "25/6.25MG & 50/6.25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 154,
+    "sno": 167,
+    "brand_name": "LOSAR",
+    "generic_name": "LOSARTAN",
+    "strength": "25MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 155,
+    "sno": 168,
+    "brand_name": "LOSAR H",
+    "generic_name": "LOSARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "50/12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 156,
+    "sno": 169,
+    "brand_name": "CIPLAR/BETACAP TR",
+    "generic_name": "PROPRANOLOL",
+    "strength": "10MG,40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 157,
+    "sno": 170,
+    "brand_name": "CIPLAR LA",
+    "generic_name": "PROPRANOLOL",
+    "strength": "20MG,40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 158,
+    "sno": 171,
+    "brand_name": "CILACAR",
+    "generic_name": "CILINIDIPINE",
+    "strength": "10MG,20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 159,
+    "sno": 172,
+    "brand_name": "CILACAR T",
+    "generic_name": "CILINIDIPINE + TELMISARTAN",
+    "strength": "10/40MG,20/40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 160,
+    "sno": 173,
+    "brand_name": "CARDACE",
+    "generic_name": "RAMIPRIL",
+    "strength": "1.25MG,2.5MG,5MG,10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 161,
+    "sno": 174,
+    "brand_name": "CARDACE H",
+    "generic_name": "RAMIPRIL + HYDROCHLOROTHIZIDE",
+    "strength": "2.5/12.5MG,5/12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 162,
+    "sno": 175,
+    "brand_name": "NEPTAZ",
+    "generic_name": "SACUBITRIL + VALSARTAN",
+    "strength": "100MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 163,
+    "sno": 176,
+    "brand_name": "CTD",
+    "generic_name": "CHLORTHALIDONE",
+    "strength": "12.5MG,6.25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 164,
+    "sno": 177,
+    "brand_name": "CILAMET XL",
+    "generic_name": "CILNIDIPINE + METOPROLOL",
+    "strength": "25/10MG,50/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 165,
+    "sno": 178,
+    "brand_name": "CORDARONE",
+    "generic_name": "AMIODARONE",
+    "strength": "100MG,200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 166,
+    "sno": 179,
+    "brand_name": "CARDIVAS",
+    "generic_name": "CARVEDILOL",
+    "strength": "12.5MG,6.25MG,3.125MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 167,
+    "sno": 180,
+    "brand_name": "CARDIVAS CR",
+    "generic_name": "CARVEDILOL",
+    "strength": "10MG,20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 168,
+    "sno": 181,
+    "brand_name": "PLANEP",
+    "generic_name": "EPLERENONE",
+    "strength": "25MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 169,
+    "sno": 182,
+    "brand_name": "PLANEP T",
+    "generic_name": "EPLERENONE + TORSEMIDE",
+    "strength": "25/10MG,50/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 170,
+    "sno": 183,
+    "brand_name": "AMLODAC",
+    "generic_name": "AMLODIPINE",
+    "strength": "5MG,10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 171,
+    "sno": 184,
+    "brand_name": "AMLOKIND AT",
+    "generic_name": "AMLODIPINE + ATENOLOL",
+    "strength": "50/5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 172,
+    "sno": 185,
+    "brand_name": "LANOXIN",
+    "generic_name": "DIGOXIN",
+    "strength": "0.25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 173,
+    "sno": 186,
+    "brand_name": "MOXOVAS",
+    "generic_name": "MOXONIDINE",
+    "strength": "0.2MG,0.3MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 174,
+    "sno": 187,
+    "brand_name": "ECOSPRIN",
+    "generic_name": "ASPRIN",
+    "strength": "75MG,150MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 175,
+    "sno": 188,
+    "brand_name": "ECOSPRIN AV",
+    "generic_name": "ATORVASTATINE + ASPRIN",
+    "strength": "75/10MG,75/20MG & 10/150MG,20/150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 176,
+    "sno": 189,
+    "brand_name": "ECOSPRIN GOLD",
+    "generic_name": "ATORVASTATINE + ASPRIN + CLOPIDOGREL",
+    "strength": "20/75/75MG & 10/75/75MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 177,
+    "sno": 190,
+    "brand_name": "ROSUFIT CV",
+    "generic_name": "ROSUVASTATIN + CLOPIDOGREL",
+    "strength": "10/75MG & 20/75MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 178,
+    "sno": 191,
+    "brand_name": "ROSEDAY",
+    "generic_name": "ROSUVASTATIN",
+    "strength": "5MG,10MG,20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 179,
+    "sno": 192,
+    "brand_name": "ROSEDAY GOLD",
+    "generic_name": "ATORVASTATINE + ASPRIN + CLOPIDOGREL",
+    "strength": "10/75/75MG & 20/75/75MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 180,
+    "sno": 165,
+    "brand_name": "ROSEDAY A",
+    "generic_name": "ROSUVASTATIN + ASPRIN",
+    "strength": "10/75MG & 20/75MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 181,
+    "sno": 166,
+    "brand_name": "TONACT TG",
+    "generic_name": "ATORVASTATINE + FENOFIBRATE",
+    "strength": "10MG/160MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 182,
+    "sno": 167,
+    "brand_name": "NITROLONG",
+    "generic_name": "NITROGLYCERIN",
+    "strength": "2.6MG,6.4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 183,
+    "sno": 168,
+    "brand_name": "CHOLTRAN",
+    "generic_name": "CHOLESTYRAMINE",
+    "strength": "4GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Cardiovascular & Antihypertensives",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 188,
+    "sno": 169,
+    "brand_name": "GLUGON",
+    "generic_name": "GLUCAGON",
+    "strength": "1MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 189,
+    "sno": 170,
+    "brand_name": "WOSULIN R",
+    "generic_name": "HUMAN INSULLIN",
+    "strength": "40IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 190,
+    "sno": 171,
+    "brand_name": "HUMAN MIXTARD",
+    "generic_name": "INSULLIN ISPOHANE+HUMAN INSULLIN",
+    "strength": "70%/30%",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 191,
+    "sno": 172,
+    "brand_name": "HUMAN ACTRAPID",
+    "generic_name": "HUMAN INSULLIN",
+    "strength": "40IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 192,
+    "sno": 173,
+    "brand_name": "LANTUS",
+    "generic_name": "INSULLIN GLARGINE",
+    "strength": "100IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 193,
+    "sno": 174,
+    "brand_name": "NOVOMIX",
+    "generic_name": "INSULLIN ASPART+INSULLIN ASPART PROTAMINE",
+    "strength": "30%/70%",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 194,
+    "sno": 175,
+    "brand_name": "NOVORAPID",
+    "generic_name": "INSULLIN ASPART",
+    "strength": "100IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 195,
+    "sno": 176,
+    "brand_name": "LUPISULLIN M",
+    "generic_name": "INSULLIN ISPOHANE+HUMAN INSULLIN",
+    "strength": "50%/50%",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 196,
+    "sno": 177,
+    "brand_name": "LUPISULLIN N",
+    "generic_name": "INSULLIN ISPOHANE",
+    "strength": "100IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 197,
+    "sno": 178,
+    "brand_name": "RYZODEG",
+    "generic_name": "INSULLIN DEGLUDEC + INSULLIN ASPART",
+    "strength": "2.56MG/1.05MG",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 198,
+    "sno": 179,
+    "brand_name": "HUMINSULLIN",
+    "generic_name": "INSULLIN ISPOHANE+HUMAN INSULLIN",
+    "strength": "70%/30%",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 199,
+    "sno": 180,
+    "brand_name": "HUMINSULLIN  R",
+    "generic_name": "HUMAN INSULLIN",
+    "strength": "100IU",
+    "dosage_form": "Insullin",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 200,
+    "sno": 193,
+    "brand_name": "GLYCOMET GP1",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "1/500 MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 201,
+    "sno": 194,
+    "brand_name": "GLYCOMET GP 2",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 202,
+    "sno": 195,
+    "brand_name": "GLYCOMET GP 3/850",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "3/850MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 203,
+    "sno": 196,
+    "brand_name": "GLYCOMET GP.05",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "0.5/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 204,
+    "sno": 197,
+    "brand_name": "GLYCIPHAGE 250",
+    "generic_name": "METFORMIN",
+    "strength": "250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 205,
+    "sno": 198,
+    "brand_name": "GLYCIPHAGE 500",
+    "generic_name": "METFORMIN",
+    "strength": "500 MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 206,
+    "sno": 199,
+    "brand_name": "GLYCOMET SR 500",
+    "generic_name": "METFORMIN SUSTAIN",
+    "strength": "500 MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 207,
+    "sno": 200,
+    "brand_name": "GLYCOMET GP 4 FORTE",
+    "generic_name": "METFORMIN + GLIMEPRIDE",
+    "strength": "4MG /1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 208,
+    "sno": 201,
+    "brand_name": "DIAPRIDE M1",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "1MG/500 MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 209,
+    "sno": 202,
+    "brand_name": "DIAPRIDE M2",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/500 MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 210,
+    "sno": 203,
+    "brand_name": "DIAPRIDE M 1 FORTE",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "1/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 211,
+    "sno": 204,
+    "brand_name": "DIAPRIDE M2 FORTE",
+    "generic_name": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 212,
+    "sno": 205,
+    "brand_name": "TENEPRIDE 20 MG",
+    "generic_name": "TENLIGLIPTIN",
+    "strength": "20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 213,
+    "sno": 206,
+    "brand_name": "TENEPRIDE M 500 MG",
+    "generic_name": "TENLIGLIPTIN + METFORMIN",
+    "strength": "20/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 214,
+    "sno": 207,
+    "brand_name": "DAPFEY 5MG",
+    "generic_name": "DAPAGLIFOZIN",
+    "strength": "5MG,10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 215,
+    "sno": 209,
+    "brand_name": "DAPFEY MXR 10/500",
+    "generic_name": "DAPAGLIFOZIN + METFORMIN",
+    "strength": "10/500MG,10/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 216,
+    "sno": 211,
+    "brand_name": "ZORYL MV 1",
+    "generic_name": "GLIMEPRIDE + METFORMIN + VOGLIBOSE",
+    "strength": "1/500/0.2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 217,
+    "sno": 212,
+    "brand_name": "ZORYL MV 2",
+    "generic_name": "GLIMEPRIDE + METFORMIN + VOGLIBOSE",
+    "strength": "2/500/0.2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 218,
+    "sno": 213,
+    "brand_name": "GLIMY 1",
+    "generic_name": "GLIMEPRIDE",
+    "strength": "1MG,2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 219,
+    "sno": 215,
+    "brand_name": "GP 0.5",
+    "generic_name": "GLIMEPRIDE",
+    "strength": "0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 220,
+    "sno": 216,
+    "brand_name": "RECLIDE XR 60",
+    "generic_name": "GLICLAZIDE",
+    "strength": "60MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 221,
+    "sno": 217,
+    "brand_name": "RECLIMET 80",
+    "generic_name": "GLICLAZIDE + METFORMIN",
+    "strength": "80MG/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 222,
+    "sno": 218,
+    "brand_name": "DAIMACRON 30MG",
+    "generic_name": "GLICLAZIDE",
+    "strength": "30MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 223,
+    "sno": 219,
+    "brand_name": "GALVAS/JALRA",
+    "generic_name": "VILDAGLIPTIN",
+    "strength": "50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 224,
+    "sno": 220,
+    "brand_name": "GALVAS MET",
+    "generic_name": "VILDAGLIPTIN + METFORMIN",
+    "strength": "50/500MG,50/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 225,
+    "sno": 221,
+    "brand_name": "ONDERO",
+    "generic_name": "LINAGLIPTIN",
+    "strength": "5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 226,
+    "sno": 222,
+    "brand_name": "ONDERO MET",
+    "generic_name": "LINAGLIPTIN + METFORMIN",
+    "strength": "2.5/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 227,
+    "sno": 223,
+    "brand_name": "SITAGLYN",
+    "generic_name": "SITAGLIPTIN",
+    "strength": "100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 228,
+    "sno": 224,
+    "brand_name": "SITAGLYN D",
+    "generic_name": "SITAGLIPTIN + DAPAGLIFLOZIN",
+    "strength": "10/100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 229,
+    "sno": 225,
+    "brand_name": "SITAGLYN DM",
+    "generic_name": "DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN",
+    "strength": "10/100/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 230,
+    "sno": 226,
+    "brand_name": "SITAGLYN DM",
+    "generic_name": "DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN",
+    "strength": "10/100/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 231,
+    "sno": 227,
+    "brand_name": "SITAGLYN M",
+    "generic_name": "SITAGLIPTIN + METFORMIN",
+    "strength": "50/1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 232,
+    "sno": 228,
+    "brand_name": "SITAGLYN M",
+    "generic_name": "SITAGLIPTIN + METFORMIN",
+    "strength": "50/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 233,
+    "sno": 229,
+    "brand_name": "XENIA ST",
+    "generic_name": "EMPAGLIFLOZIN+SITAGLIPTIN",
+    "strength": "25/100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 234,
+    "sno": 230,
+    "brand_name": "EUREPA 1",
+    "generic_name": "REPAGLINIDE",
+    "strength": "1MG,2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 235,
+    "sno": 231,
+    "brand_name": "EUREPA MF",
+    "generic_name": "REPAGLINIDE+ METFORMIN",
+    "strength": "2/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 236,
+    "sno": 232,
+    "brand_name": "VOLIX",
+    "generic_name": "VOGLIBOSE",
+    "strength": "0.2MG,0.3MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 237,
+    "sno": 233,
+    "brand_name": "VOZUCA M ACTIVE",
+    "generic_name": "VOGLIBOSE+METFORMIN",
+    "strength": "0.2/500MG,0.3/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Antidiabetics & Endocrine",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 242,
+    "sno": 238,
+    "brand_name": "",
+    "generic_name": "CNS & NRX & SEDATIVES",
+    "strength": "",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 244,
+    "sno": 240,
+    "brand_name": "CEHAM",
+    "generic_name": "CITICOLINE",
+    "strength": "250MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 245,
+    "sno": 241,
+    "brand_name": "EDASTAR",
+    "generic_name": "EDARAVONE",
+    "strength": "1.5MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 246,
+    "sno": 242,
+    "brand_name": "LEVILEX",
+    "generic_name": "LEVETIRACETAM",
+    "strength": "100MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 247,
+    "sno": 243,
+    "brand_name": "EPSOLIN",
+    "generic_name": "PHENYTOIN",
+    "strength": "500MG/ML",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 248,
+    "sno": 244,
+    "brand_name": "FENOBARB",
+    "generic_name": "PHENOBARBITONE",
+    "strength": "200MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 249,
+    "sno": 245,
+    "brand_name": "MANNITOL",
+    "generic_name": "MANNITOL",
+    "strength": "20%W/V",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 250,
+    "sno": 246,
+    "brand_name": "NEUROTOL",
+    "generic_name": "GLYCERIN + MANNITOL",
+    "strength": "10%W/V+10%W/V",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 251,
+    "sno": 247,
+    "brand_name": "BUTRUM",
+    "generic_name": "BUTORPHANOL",
+    "strength": "2MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 252,
+    "sno": 237,
+    "brand_name": "LOPEZ",
+    "generic_name": "LORAZEPAM",
+    "strength": "2MG/ML",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 253,
+    "sno": 238,
+    "brand_name": "BRIVAHENZ",
+    "generic_name": "BRIVARACETAM",
+    "strength": "50MG/5ML",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 254,
+    "sno": 239,
+    "brand_name": "CEREBROGEN",
+    "generic_name": "CEREBROPROTIN",
+    "strength": "60MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 255,
+    "sno": 231,
+    "brand_name": "MEZOLAM",
+    "generic_name": "MEDAZOLAM",
+    "strength": "10MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 256,
+    "sno": 240,
+    "brand_name": "CEHAM",
+    "generic_name": "CITICOLINE",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 257,
+    "sno": 241,
+    "brand_name": "CEHAM P",
+    "generic_name": "CITICOLINE + PIRACETAM",
+    "strength": "500MG/800MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 258,
+    "sno": 242,
+    "brand_name": "LEVESAM",
+    "generic_name": "LEVETIRACETAM",
+    "strength": "250MG,500MG,750MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 259,
+    "sno": 243,
+    "brand_name": "EPTOIN",
+    "generic_name": "PHENYTOIN",
+    "strength": "100MG,300MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 260,
+    "sno": 236,
+    "brand_name": "BREVIPIL",
+    "generic_name": "BRIVARACETAM",
+    "strength": "100MG,75MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 261,
+    "sno": 237,
+    "brand_name": "SYNDOPA 110",
+    "generic_name": "LEVODOPA + CARBIDOPA",
+    "strength": "100MG/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 262,
+    "sno": 238,
+    "brand_name": "SYNDOPA PLUS",
+    "generic_name": "LEVODOPA + CARBIDOPA",
+    "strength": "100MG/125MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 263,
+    "sno": 239,
+    "brand_name": "SYNDOPA CR",
+    "generic_name": "LEVODOPA + CARBIDOPA",
+    "strength": "200MG/50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 264,
+    "sno": 240,
+    "brand_name": "SYNDOPA 275",
+    "generic_name": "LEVODOPA + CARBIDOPA",
+    "strength": "250MG/25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 265,
+    "sno": 241,
+    "brand_name": "PARI CR",
+    "generic_name": "PAROXETINE",
+    "strength": "12.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 266,
+    "sno": 242,
+    "brand_name": "PACITAN",
+    "generic_name": "TRIHEXPHENIDYL",
+    "strength": "2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 267,
+    "sno": 243,
+    "brand_name": "DONEP M",
+    "generic_name": "DONEPEZIL + MEMANTINE",
+    "strength": "5MG/5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 268,
+    "sno": 244,
+    "brand_name": "NOOTROPIL",
+    "generic_name": "PIRACETAM",
+    "strength": "800MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 269,
+    "sno": 245,
+    "brand_name": "TRANXIETY",
+    "generic_name": "ETIFOXINE",
+    "strength": "50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 270,
+    "sno": 244,
+    "brand_name": "GARDENAL",
+    "generic_name": "PHENOBARBITONE",
+    "strength": "30MG,60MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 271,
+    "sno": 240,
+    "brand_name": "LOPEZ MD",
+    "generic_name": "LORAZEPAM",
+    "strength": "1MG,2MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 272,
+    "sno": 241,
+    "brand_name": "ZOLFRESH",
+    "generic_name": "ZOLPIDEM",
+    "strength": "5MG,10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 273,
+    "sno": 242,
+    "brand_name": "NEWCITA PLUS",
+    "generic_name": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 274,
+    "sno": 243,
+    "brand_name": "NEXITO",
+    "generic_name": "ESCITALOPRAM",
+    "strength": "10MG,5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 275,
+    "sno": 244,
+    "brand_name": "NEXITO PLUS",
+    "generic_name": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "5MG/0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 276,
+    "sno": 245,
+    "brand_name": "NEXITO FORTE",
+    "generic_name": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 277,
+    "sno": 246,
+    "brand_name": "NEXITO LS",
+    "generic_name": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 278,
+    "sno": 247,
+    "brand_name": "FRISIUM",
+    "generic_name": "CLOBAZAM",
+    "strength": "10MG,5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 279,
+    "sno": 248,
+    "brand_name": "LIBRIUM",
+    "generic_name": "CHLORDIAZEPOXIDE",
+    "strength": "10MG,25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 280,
+    "sno": 249,
+    "brand_name": "ALPREX",
+    "generic_name": "ALPRAZOLAM",
+    "strength": "0.25MG,0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 281,
+    "sno": 250,
+    "brand_name": "RIVOTRIL",
+    "generic_name": "CLONAZEPAM",
+    "strength": "0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 282,
+    "sno": 251,
+    "brand_name": "CLONOTRIL",
+    "generic_name": "CLONAZEPAM",
+    "strength": "0.25MG,0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "CNS, Neurology & Psychotropic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 287,
+    "sno": 256,
+    "brand_name": "PANTOCID",
+    "generic_name": "PENTOPRAZOLE",
+    "strength": "40MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 288,
+    "sno": 257,
+    "brand_name": "RAPEED",
+    "generic_name": "RABEPRAZOLE",
+    "strength": "20MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 289,
+    "sno": 258,
+    "brand_name": "ESOMAC",
+    "generic_name": "ESOMEPRAZOLE",
+    "strength": "40MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 290,
+    "sno": 259,
+    "brand_name": "DROTIN",
+    "generic_name": "DROTAVERINE",
+    "strength": "40MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 291,
+    "sno": 260,
+    "brand_name": "LESURIDE",
+    "generic_name": "LEVOSULPIRIDE",
+    "strength": "25MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 292,
+    "sno": 261,
+    "brand_name": "ACILOC",
+    "generic_name": "RANITIDINE",
+    "strength": "150MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 293,
+    "sno": 265,
+    "brand_name": "GTLIVE",
+    "generic_name": "GLUTATHIONE",
+    "strength": "600MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 294,
+    "sno": 266,
+    "brand_name": "SAMLOL/LORNIT",
+    "generic_name": "L-ORNITHINE L-ASPARTATE",
+    "strength": "5MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 295,
+    "sno": 262,
+    "brand_name": "PANSEC",
+    "generic_name": "PENTOPRAZOLE",
+    "strength": "40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 296,
+    "sno": 263,
+    "brand_name": "PANSEC DSR",
+    "generic_name": "PENTOPRAZOLE + DOMPERIDONE",
+    "strength": "40MG/30MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 297,
+    "sno": 264,
+    "brand_name": "RABICIP",
+    "generic_name": "RABEPRAZOLE",
+    "strength": "20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 298,
+    "sno": 265,
+    "brand_name": "RABICIP D/ RABELOC RD",
+    "generic_name": "RABEPRAZOLE + DOMPERIDONE",
+    "strength": "20MG/30MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 299,
+    "sno": 266,
+    "brand_name": "RABICIP L",
+    "generic_name": "RABEPRAZOLE + LEVOSULPIRIDE",
+    "strength": "20MG/75MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 300,
+    "sno": 267,
+    "brand_name": "RABELOC IT",
+    "generic_name": "RABEPRAZOLE + ITOPRIDE",
+    "strength": "20MG/150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 301,
+    "sno": 268,
+    "brand_name": "ACILOC/RANTEC",
+    "generic_name": "RANITIDINE",
+    "strength": "150MG,300MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 302,
+    "sno": 269,
+    "brand_name": "VACILOC/VONZAI/KABVIE",
+    "generic_name": "VONOPRAZAN",
+    "strength": "10MG,20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 303,
+    "sno": 275,
+    "brand_name": "OMEZ",
+    "generic_name": "OMEPRAZOLE",
+    "strength": "20MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 304,
+    "sno": 276,
+    "brand_name": "OMEZ D/ESOMAC D/ESOKEM",
+    "generic_name": "ESOMEPRAZOLE + DOMPERIDONE",
+    "strength": "40MG/30MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 305,
+    "sno": 277,
+    "brand_name": "OMEZ IT",
+    "generic_name": "ESOMEPRAZOLE + ITOPRIDE",
+    "strength": "40MG/150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 306,
+    "sno": 278,
+    "brand_name": "OMEZ REFLEX",
+    "generic_name": "ALGINIC ACID + POTASSIUM HYDROGEN CARBONATE",
+    "strength": "100MG/500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 307,
+    "sno": 279,
+    "brand_name": "ESOMAC",
+    "generic_name": "ESOMEPRAZOLE",
+    "strength": "40MG,80MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 308,
+    "sno": 280,
+    "brand_name": "ESOMER L",
+    "generic_name": "LEVOSULPIRIDE + ESOMEPRAZOLE",
+    "strength": "75MG/40MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 309,
+    "sno": 270,
+    "brand_name": "CINTODAC",
+    "generic_name": "CINITAPRIDE + PENTOPRAZOLE",
+    "strength": "3MG/40MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 310,
+    "sno": 271,
+    "brand_name": "ILADAC",
+    "generic_name": "ILAPRAZOLE",
+    "strength": "10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 311,
+    "sno": 272,
+    "brand_name": "PCAB",
+    "generic_name": "TEGOPRAZAN",
+    "strength": "50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 312,
+    "sno": 284,
+    "brand_name": "GANATON",
+    "generic_name": "ITOPRIDE",
+    "strength": "50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 313,
+    "sno": 285,
+    "brand_name": "GANATON OD",
+    "generic_name": "ITOPRIDE",
+    "strength": "150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 314,
+    "sno": 286,
+    "brand_name": "GANATON TOTAL",
+    "generic_name": "PENTAPRAZOLE + ITOPRIDE",
+    "strength": "40MG/150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 315,
+    "sno": 273,
+    "brand_name": "LESURIDE",
+    "generic_name": "LEVOSULPIRIDE",
+    "strength": "25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 316,
+    "sno": 274,
+    "brand_name": "DROTIN DS",
+    "generic_name": "DROTAVERINE",
+    "strength": "80MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 317,
+    "sno": 275,
+    "brand_name": "DROTIN M",
+    "generic_name": "DROTAVERINE + MEFENAMIC ACID",
+    "strength": "80MG/250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 318,
+    "sno": 276,
+    "brand_name": "MEFTAL-SPAS",
+    "generic_name": "DICYCLOMINE + MEFENAMIC ACID",
+    "strength": "10MG/250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 319,
+    "sno": 277,
+    "brand_name": "CIZASPA SR/MEBIZ SR",
+    "generic_name": "MEBEVERINE",
+    "strength": "200MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 320,
+    "sno": 278,
+    "brand_name": "CIZASPA X/MEBIZ CX",
+    "generic_name": "MEBEVERINE + CHLORDIAZEPOXIDE",
+    "strength": "135MG/5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 321,
+    "sno": 279,
+    "brand_name": "COLOSPA RETARD",
+    "generic_name": "MEREVERINE",
+    "strength": "200MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 322,
+    "sno": 280,
+    "brand_name": "NORMAXIN",
+    "generic_name": "CLIDINIUM + CHLORDIAZEPOXIDE + DICYCLOMINE",
+    "strength": "2.5MG/5MG/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 323,
+    "sno": 281,
+    "brand_name": "CREON /PANLIPASE/CADPAN",
+    "generic_name": "PANCREATIN",
+    "strength": "300MG,150MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 324,
+    "sno": 282,
+    "brand_name": "PANLIPASE UC",
+    "generic_name": "PANCREATIN",
+    "strength": "200MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 325,
+    "sno": 283,
+    "brand_name": "HEPKART/NUSAM/ZELADENO",
+    "generic_name": "ADEMETIONINE",
+    "strength": "400MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 326,
+    "sno": 284,
+    "brand_name": "LIPAGLYN",
+    "generic_name": "SAROGLITAZAR",
+    "strength": "4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 327,
+    "sno": 285,
+    "brand_name": "URSOCOL/UCLICK",
+    "generic_name": "URSODEOXYCHOLIC ACID",
+    "strength": "150MG,300MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 328,
+    "sno": 286,
+    "brand_name": "GASVENZ",
+    "generic_name": "ACTIVATED CHARCOAL + SIMETHICONE",
+    "strength": "250MG/80MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 329,
+    "sno": 287,
+    "brand_name": "MAXILIV",
+    "generic_name": "GLUTATHIONE",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 330,
+    "sno": 288,
+    "brand_name": "MESAGRAN OD/VEGAZ OD",
+    "generic_name": "MESALAZINE",
+    "strength": "1.2GM",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 331,
+    "sno": 289,
+    "brand_name": "MESACOL",
+    "generic_name": "MESALAZINE",
+    "strength": "400MG,800MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 332,
+    "sno": 290,
+    "brand_name": "MESAGRAN LB/VEGAZ OD",
+    "generic_name": "MESALAZINE",
+    "strength": "2GM,1GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 333,
+    "sno": 291,
+    "brand_name": "LAMINO BCCA",
+    "generic_name": "ELEMENTAL ZINC+L-ISOLEUCINE+L-LEUCIN+L-VALINE",
+    "strength": "13.2MG/1.25GM/2.5GM/1.25GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 334,
+    "sno": 292,
+    "brand_name": "LAMINO HEPA",
+    "generic_name": "L-LYSINE+L-ISOLEUCINE+L-LEUCIN+L-VALINE",
+    "strength": "700MG/480MG/830MG/490MG",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 335,
+    "sno": 293,
+    "brand_name": "LAMINO HP",
+    "generic_name": "ALPHA LIOPIC ACID + L-CARNITINE ETC",
+    "strength": "30GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 336,
+    "sno": 294,
+    "brand_name": "HEPAGARD/SAMLOL",
+    "generic_name": "L-ORNITHINE L-ASPARTATE",
+    "strength": "3GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 337,
+    "sno": 295,
+    "brand_name": "PENTASURE CREPITIC",
+    "generic_name": "HYDROLYSED WHEY PEPTIDE",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 338,
+    "sno": 296,
+    "brand_name": "EFEZAC",
+    "generic_name": "WHEY PROTIN ISOLATE+LEUCINE+ISOLUCINE+VALINE",
+    "strength": "10GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 339,
+    "sno": 297,
+    "brand_name": "PROHENCE LIV",
+    "generic_name": "WHEY PROTIN CONCENTRATE+BCAAs ETC",
+    "strength": "18GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 340,
+    "sno": 298,
+    "brand_name": "SUCRAFIL/MACRALFATE",
+    "generic_name": "SUCRALFATE",
+    "strength": "500MG/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 341,
+    "sno": 299,
+    "brand_name": "SUCRAFIL O /MACRALFATE O",
+    "generic_name": "SUCRALFATE + OXETACAINE",
+    "strength": "500MG/5ML+10MG/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 342,
+    "sno": 300,
+    "brand_name": "MACRAFT/ALGISOD",
+    "generic_name": "CALCIUM CARBONATE+SODIUM BICARBONATE+SODIUM ALGINATE",
+    "strength": "80MG/133.5MG/250MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 343,
+    "sno": 301,
+    "brand_name": "LOOZ PEG",
+    "generic_name": "POLYETHYLENE GLYCOL",
+    "strength": "13.125GM",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 344,
+    "sno": 303,
+    "brand_name": "LACTIHEP PLUS/PICLIN PLUS",
+    "generic_name": "SODIUM PICOSULFATE+LIQUID PARAFFIN+MILK OF MAGNESIA",
+    "strength": "33.33MG+1.25ML+3.75ML/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 345,
+    "sno": 304,
+    "brand_name": "CADILOSE/LAXITOL/LACTIHEP",
+    "generic_name": "LAXITOL",
+    "strength": "10GM/15ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 346,
+    "sno": 305,
+    "brand_name": "MUCAIN GEL",
+    "generic_name": "OXETACAINE+ALUMINIUM HYDROXIDE+MILK OF MAGNESIA",
+    "strength": "10MG+0.291GM+98MG/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 347,
+    "sno": 306,
+    "brand_name": "LACTIFIBER/LIVOLUK",
+    "generic_name": "LAXITOL + ISPAGHULA",
+    "strength": "10GM/3.5GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 348,
+    "sno": 307,
+    "brand_name": "PEGFIBER",
+    "generic_name": "POLYETHYLENE GLYCOL + ISPAGHULA",
+    "strength": "17GM/3.5GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 349,
+    "sno": 308,
+    "brand_name": "PEGMOVE",
+    "generic_name": "POLYETHYLENE GLYCOL",
+    "strength": "17GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 350,
+    "sno": 310,
+    "brand_name": "PEGLAC",
+    "generic_name": "POLYETHYLENE GLYCOL+SODIUM CHLORIDE+POTASSIUM CHLORIDE",
+    "strength": "137.15GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 351,
+    "sno": 311,
+    "brand_name": "EXELYTE",
+    "generic_name": "ORAL SALINE LAXATIVE",
+    "strength": "45ML",
+    "dosage_form": "Solution",
+    "therapeutic_category": "Gastrointestinal, Hepatic & Antispasmodic",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 356,
+    "sno": 316,
+    "brand_name": "SILDOO/SILODAL/SILOCAP",
+    "generic_name": "SILODOSIN",
+    "strength": "8MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 357,
+    "sno": 317,
+    "brand_name": "SILDOO/SILODAL/SILOCAP D",
+    "generic_name": "SILODOSIN + DUTASTERIDE",
+    "strength": "8MG/0.5MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 358,
+    "sno": 318,
+    "brand_name": "RAPLIF/MAXVOID",
+    "generic_name": "SILODOSIN",
+    "strength": "8MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 359,
+    "sno": 319,
+    "brand_name": "RAPLIF T/SILDOO T",
+    "generic_name": "SILODOSIN + TADALAFIL",
+    "strength": "80MG/5MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 360,
+    "sno": 320,
+    "brand_name": "MAXVOID M/SILODAL M",
+    "generic_name": "SILODOSIN + MIRABEGRON",
+    "strength": "8MG/25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 361,
+    "sno": 321,
+    "brand_name": "MAXVOID PLUS/GERIPOD D",
+    "generic_name": "SILODOSIN + DUTASTERIDE",
+    "strength": "8MG/0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 362,
+    "sno": 322,
+    "brand_name": "MIRAGO/MIRBEG/EXENA",
+    "generic_name": "MIRABEGRON",
+    "strength": "50MG,25MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 363,
+    "sno": 323,
+    "brand_name": "PYRIDIUM",
+    "generic_name": "PHENAZOPYRIDINE HYDROCHLORIDE",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 364,
+    "sno": 324,
+    "brand_name": "TEDUP/MODULA",
+    "generic_name": "TADALAFIL",
+    "strength": "5MG,10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 365,
+    "sno": 325,
+    "brand_name": "UROTONE",
+    "generic_name": "BETHANECHOL CHLORIDE",
+    "strength": "25MG,50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 366,
+    "sno": 326,
+    "brand_name": "TRACFREE",
+    "generic_name": "CRANBERRY EXTRACT + D-MANNOSE",
+    "strength": "600MG/300MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 367,
+    "sno": 327,
+    "brand_name": "DARIF",
+    "generic_name": "DARIFENACIN",
+    "strength": "7.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 368,
+    "sno": 336,
+    "brand_name": "GERISTART/URIMAX/TASULIN",
+    "generic_name": "TAMSULOSIN",
+    "strength": "0.4MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 369,
+    "sno": 337,
+    "brand_name": "URIMAX D",
+    "generic_name": "TAMSULOSIN + DUTASTERIDE",
+    "strength": "0.4MG/0.5MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 370,
+    "sno": 328,
+    "brand_name": "KCIT",
+    "generic_name": "CITRIC ACID + POTASSIUM CITRATE",
+    "strength": "334MG+1100MG/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 371,
+    "sno": 329,
+    "brand_name": "URIVOLT/CRANPAC KM",
+    "generic_name": "CRANBERRY EXTRACT + D-MANNOSE+POTASSIUM+MAGNESIUM",
+    "strength": "200MG/300MG/978MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 372,
+    "sno": 330,
+    "brand_name": "ALKASOL",
+    "generic_name": "DISODIUM HYDROGEN CITRATE",
+    "strength": "1.4GM/5ML",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 373,
+    "sno": 332,
+    "brand_name": "K MAC ACTIVE",
+    "generic_name": "POTASSIUM CITRATE+MAGNESIUM CITRATE+PYRIDOXAL",
+    "strength": "1100MG/375MG/1.5MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 374,
+    "sno": 333,
+    "brand_name": "POTKLOR",
+    "generic_name": "POTASSIUM CHLORIDE",
+    "strength": "1.5GM",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 375,
+    "sno": 334,
+    "brand_name": "FOSIROL",
+    "generic_name": "FOSFOMYCIN",
+    "strength": "3GM",
+    "dosage_form": "Sachets",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 376,
+    "sno": 335,
+    "brand_name": "PULMOCLEAR/MUCOMIX ACE",
+    "generic_name": "ACEBROPHYLLINE + ACETYLCYSTEINE",
+    "strength": "100MG/600MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 377,
+    "sno": 336,
+    "brand_name": "EFETIL",
+    "generic_name": "ACETYLCYSTEINE",
+    "strength": "600MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 378,
+    "sno": 337,
+    "brand_name": "MONTEK AB",
+    "generic_name": "MONTELUKAST + ACEBROPHYLLINE",
+    "strength": "10MG/200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 379,
+    "sno": 338,
+    "brand_name": "GLEMONT F",
+    "generic_name": "MONTELUKAST + FEXOFENADINE",
+    "strength": "10MG/120MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 380,
+    "sno": 339,
+    "brand_name": "MONTICOPE",
+    "generic_name": "LEVOCETIRIZINE + MONTELUKAST",
+    "strength": "5MG/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 381,
+    "sno": 340,
+    "brand_name": "MONDESLOR",
+    "generic_name": "DESLORATADINE + MONTELUKAST",
+    "strength": "5MG/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 382,
+    "sno": 341,
+    "brand_name": "HISTAFREE",
+    "generic_name": "FEXOFENADINE",
+    "strength": "120MG,180MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 383,
+    "sno": 342,
+    "brand_name": "AB PHYLLINE SR",
+    "generic_name": "ACEBROPHYLLINE",
+    "strength": "200MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 384,
+    "sno": 343,
+    "brand_name": "DERIPHYLLINE R",
+    "generic_name": "ETOFYLLINE + THEOPHYLLINE",
+    "strength": "115MG/35MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 385,
+    "sno": 344,
+    "brand_name": "CETIRIZ",
+    "generic_name": "CETIRIZINE",
+    "strength": "10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 386,
+    "sno": 345,
+    "brand_name": "DOXOLIN",
+    "generic_name": "DOXYPHYLLINE",
+    "strength": "400MG,650MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 387,
+    "sno": 346,
+    "brand_name": "BILASURE",
+    "generic_name": "BILASTINE",
+    "strength": "40MG,20MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 388,
+    "sno": 347,
+    "brand_name": "BILASURE M",
+    "generic_name": "BILASTINE + MONTELUKAST",
+    "strength": "40MG/10MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 389,
+    "sno": 348,
+    "brand_name": "ALEX",
+    "generic_name": "DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "5MG",
+    "dosage_form": "Lozenges",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 390,
+    "sno": 349,
+    "brand_name": "BENZ PEARL",
+    "generic_name": "BENZONATATE",
+    "strength": "100MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 391,
+    "sno": 350,
+    "brand_name": "ALLERBIO",
+    "generic_name": "LACTOBASILLUS PARACASEI + LACTOBASILLUS FERMENTUM",
+    "strength": "4 BILLION CELL",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 392,
+    "sno": 351,
+    "brand_name": "SOVENTUS D",
+    "generic_name": "AMBROXOL+CHLORPHENIRAMINE MALEATE",
+    "strength": "20MG/2MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 393,
+    "sno": 352,
+    "brand_name": "LUPITUSS / ALEX L",
+    "generic_name": "LEVOCLOPREASTINE",
+    "strength": "20MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 394,
+    "sno": 353,
+    "brand_name": "BROZEDEX SF",
+    "generic_name": "GUAIFENESIN+TERBUTALINE+BROMHEXINE",
+    "strength": "50MG/1.25MG/4MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 395,
+    "sno": 354,
+    "brand_name": "BROZEDEX LS",
+    "generic_name": "LEVOSALBUTAMOL+AMBROXOL+GUAIFENESIN",
+    "strength": "1MG/30MG/50MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 396,
+    "sno": 355,
+    "brand_name": "ALEX SF",
+    "generic_name": "PHENYLEPHRINE+CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "5MG/2MG/10MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 397,
+    "sno": 356,
+    "brand_name": "CHERICOF 12",
+    "generic_name": "CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "4MG/30MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 398,
+    "sno": 357,
+    "brand_name": "COREX DX",
+    "generic_name": "CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "4MG/10MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 399,
+    "sno": 358,
+    "brand_name": "FORMONIDE/FORACORT",
+    "generic_name": "FORMOTEROL FUMARATE+BUDESONIDE",
+    "strength": "200MG,400MG",
+    "dosage_form": "Inhaler",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 400,
+    "sno": 359,
+    "brand_name": "TIOVA",
+    "generic_name": "TIOTROPIUM BROMIDE",
+    "strength": "9MG",
+    "dosage_form": "Inhaler",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 401,
+    "sno": 360,
+    "brand_name": "DUONASE/FLUBLOCK AZ",
+    "generic_name": "FLUTICASONE PROPIONATE+AZELASTINE",
+    "strength": "50MCG/140MCG",
+    "dosage_form": "Nasal Spray",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 402,
+    "sno": 361,
+    "brand_name": "FLOMIST/FLUBLOCK",
+    "generic_name": "FLUTICASONE PROPIONATE",
+    "strength": "50MCG",
+    "dosage_form": "Nasal Spray",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 403,
+    "sno": 362,
+    "brand_name": "INSED",
+    "generic_name": "MIDAZOLAM",
+    "strength": "0.5MG",
+    "dosage_form": "Nasal Spray",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 404,
+    "sno": 363,
+    "brand_name": "MOMEFLO",
+    "generic_name": "MOMETASONE",
+    "strength": "50MCG",
+    "dosage_form": "Nasal Spray",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 405,
+    "sno": 364,
+    "brand_name": "NASOCLEAR",
+    "generic_name": "SODIUM CHLORIDE",
+    "strength": "0.0065",
+    "dosage_form": "Nasal Spray",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Device"
+  },
+  {
+    "row": 406,
+    "sno": 365,
+    "brand_name": "FORMONIDE/FORACORT",
+    "generic_name": "FORMOTEROL FUMARATE+BUDESONIDE",
+    "strength": "20MCG/0.5MG,20MCG/1MG",
+    "dosage_form": "Nebulizer Solution",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 407,
+    "sno": 366,
+    "brand_name": "BUDAMATE",
+    "generic_name": "FORMOTEROL+BUDESONIDE",
+    "strength": "20MCG/0.5MG,20MCG/1MG",
+    "dosage_form": "Nebulizer Solution",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 408,
+    "sno": 367,
+    "brand_name": "IPRAZEST",
+    "generic_name": "LEVOSALBUTAMOL+IPRATROPIUM",
+    "strength": "1.25MG/500MCG",
+    "dosage_form": "Nebulizer Solution",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 409,
+    "sno": 368,
+    "brand_name": "BUNASE",
+    "generic_name": "BUDESONIDE",
+    "strength": "0.5MG",
+    "dosage_form": "Nebulizer Solution",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 410,
+    "sno": 369,
+    "brand_name": "GLYCOFLO/GLYCOHALE",
+    "generic_name": "GLYCOPYRROLATE",
+    "strength": "25MCG",
+    "dosage_form": "Nebulizer Solution",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 411,
+    "sno": 370,
+    "brand_name": "TOBAMIST",
+    "generic_name": "TOBRAMYCIN",
+    "strength": "300MG INJ-80MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Respiratory, Pulmonology & Urological",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 416,
+    "sno": 375,
+    "brand_name": "NUROKIND PLUS/MYLAMIN",
+    "generic_name": "METHYLCOBALAMIN + NIACINAMIDE + VIT B6",
+    "strength": "1500MCG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 417,
+    "sno": 381,
+    "brand_name": "RENERVE PLUS",
+    "generic_name": "METHYLCOBALAMIN + NIACINAMIDE + VIT B6",
+    "strength": "1000MCG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 418,
+    "sno": 382,
+    "brand_name": "MVI/POLYBION",
+    "generic_name": "VIT A+VIT B1+VITB2+VIT D3+VIT B5",
+    "strength": "1000IU",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 419,
+    "sno": 383,
+    "brand_name": "RUBIRED",
+    "generic_name": "IRON SUCROSE",
+    "strength": "20MG/ML",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 420,
+    "sno": 384,
+    "brand_name": "AMINTOZ",
+    "generic_name": "VIT B1",
+    "strength": "100MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 421,
+    "sno": 385,
+    "brand_name": "JILAZO",
+    "generic_name": "IRON SUCROSE",
+    "strength": "500MG",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 422,
+    "sno": 386,
+    "brand_name": "ALAMIN SN",
+    "generic_name": "AMINO ACID",
+    "strength": "10.641%GM",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 423,
+    "sno": 387,
+    "brand_name": "ALBUREL",
+    "generic_name": "ALBUMIN",
+    "strength": "20%W/V",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 424,
+    "sno": 388,
+    "brand_name": "NEPHROSTERIL",
+    "generic_name": "L-Lysine + L-Threonine + L-Isoleucine + L-Methionine + L-Histidine Hydrochloride",
+    "strength": "70GM",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 425,
+    "sno": 389,
+    "brand_name": "AMINOVEN",
+    "generic_name": "AMINO ACID",
+    "strength": "0.1",
+    "dosage_form": "IV Infusion",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 426,
+    "sno": 390,
+    "brand_name": "ALCOFIX GOLD",
+    "generic_name": "VIT B1+VITB2+VIT B6",
+    "strength": "250/4/50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 427,
+    "sno": 376,
+    "brand_name": "MELCOVIT/SURBEX GOLD",
+    "generic_name": "OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC",
+    "strength": "250MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 428,
+    "sno": 377,
+    "brand_name": "SUPRACTIVE",
+    "generic_name": "OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC",
+    "strength": "250MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 429,
+    "sno": 378,
+    "brand_name": "ZINCOVIT",
+    "generic_name": "MULTIVIT+MULTIMINERAL+GRAPE SEED EXTRACT",
+    "strength": "50MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 430,
+    "sno": 379,
+    "brand_name": "MENOPASE ISO",
+    "generic_name": "Soya Isoflavones, Magnesium Hydroxide, Vitamin C",
+    "strength": "100MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 431,
+    "sno": 380,
+    "brand_name": "OXYVOLT",
+    "generic_name": "GRAPE SEED EXTRACT+LYCOPENE+LUTEIN",
+    "strength": "100MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 432,
+    "sno": 381,
+    "brand_name": "GEN D3 NANO",
+    "generic_name": "VIT D3",
+    "strength": "60000IU",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 433,
+    "sno": 382,
+    "brand_name": "FOLIZORB",
+    "generic_name": "L-Methyl Folate + Methylcobalamin + Omega-3 fatty acid + Pyridoxal-5-phosphate",
+    "strength": "1500MCG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 434,
+    "sno": 383,
+    "brand_name": "NEUROBION FORT",
+    "generic_name": "Thiamine Mononitrate,Riboflavin,Pyridoxine Hydrochloride,Cyanocobalamin ,Nicotinamide",
+    "strength": "1500MCG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 435,
+    "sno": 384,
+    "brand_name": "NEUROLYK CD3",
+    "generic_name": "Alpha Lipoic Acid+Benfotiamine+Chromium Methylcobalamin+Pyridoxine",
+    "strength": "1000MCG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 436,
+    "sno": 385,
+    "brand_name": "NUROKIND LC",
+    "generic_name": "Levo-carnitine + Methylcobalamin + Folic Acid",
+    "strength": "500MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 437,
+    "sno": 386,
+    "brand_name": "NUROKIND NEXT",
+    "generic_name": "Benfothiamine, Mecobalamin, Alpha Lipoic Acid, Pyridoxine, Folic acid, Biotin + Chromium.",
+    "strength": "1500MCG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 438,
+    "sno": 387,
+    "brand_name": "LYCORED",
+    "generic_name": "LYCOPENE",
+    "strength": "100MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 439,
+    "sno": 388,
+    "brand_name": "RUBIRED",
+    "generic_name": "IRON SUCROSE",
+    "strength": "200MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 440,
+    "sno": 389,
+    "brand_name": "NEUROLYK GOLD",
+    "generic_name": "MULTIVIT+MULTIMINERAL",
+    "strength": "200MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 441,
+    "sno": 390,
+    "brand_name": "POLYBION LC",
+    "generic_name": "Pyridoxine Hydrochloride+Nicotinamide+Cyanocobalamin+Cyanocobalamin",
+    "strength": "375MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 442,
+    "sno": 391,
+    "brand_name": "POLYBION ACTIVE",
+    "generic_name": "VIT B COMPLEX+LYSINE",
+    "strength": "375MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 443,
+    "sno": 392,
+    "brand_name": "BEVON",
+    "generic_name": "MULTIVIT+MULTIMINERAL",
+    "strength": "200MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 444,
+    "sno": 393,
+    "brand_name": "AMPIMUST",
+    "generic_name": "Cyproheptadine + Tricholine Citrate + Sorbitol",
+    "strength": "275MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 445,
+    "sno": 394,
+    "brand_name": "APTIVATE",
+    "generic_name": "AYURVEDIC",
+    "strength": "75MG",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 446,
+    "sno": 395,
+    "brand_name": "NEOGADINE SG",
+    "generic_name": "Cyanocobalamin,Iodised Peptone,Magnesium Chloride,Manganese Sulphate,Nicotinamide",
+    "strength": "",
+    "dosage_form": "Syrup",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 447,
+    "sno": 396,
+    "brand_name": "A TO Z",
+    "generic_name": "MULTIVIT+MULTIMINERAL",
+    "strength": "50MG",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 448,
+    "sno": 397,
+    "brand_name": "ULTRA D3/KIDRICH D3",
+    "generic_name": "VIT D3",
+    "strength": "400IU",
+    "dosage_form": "Drops",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Bottle"
+  },
+  {
+    "row": 449,
+    "sno": 398,
+    "brand_name": "BIO D3 PLUS",
+    "generic_name": "CALCIUM + VIT D3",
+    "strength": "200MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 450,
+    "sno": 399,
+    "brand_name": "BIO D3 MAX",
+    "generic_name": "Calcitriol+Calcium Carbonate+Omega-3 fatty acid+Methylcobalamin+Folic Acid",
+    "strength": "1500MCG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 451,
+    "sno": 400,
+    "brand_name": "BIO D3 XT/SHELCAL XT",
+    "generic_name": "Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium",
+    "strength": "1500MCG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 452,
+    "sno": 401,
+    "brand_name": "BIO D3 DS",
+    "generic_name": "Calcitriol + Calcium Carbonate + Vitamin K2-7 + Zinc + Potassium Citrate",
+    "strength": "1250MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 453,
+    "sno": 402,
+    "brand_name": "BIO D3 JOINT/SHELCAL JOINT",
+    "generic_name": "CALCIUM+BOSCURIN+VITC TYPE II COLLOGEN",
+    "strength": "500MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 454,
+    "sno": 403,
+    "brand_name": "EZORB JOINT",
+    "generic_name": "Rosehip extract,fructoborate, Devil's claw extract, Boswellia extract, collagen type II",
+    "strength": "275MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 455,
+    "sno": 404,
+    "brand_name": "SHELCAL",
+    "generic_name": "CALCIUM CARBONATE",
+    "strength": "500MG,1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 456,
+    "sno": 406,
+    "brand_name": "TRICIUM ACTIVE",
+    "generic_name": "Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium",
+    "strength": "1500MCG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 457,
+    "sno": 407,
+    "brand_name": "CENTRUM JOINT",
+    "generic_name": "UC-II, undenatured collagen type II,Vitamin D3,Vitamin K2",
+    "strength": "40MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 458,
+    "sno": 408,
+    "brand_name": "HARJOD",
+    "generic_name": "AYURVEDIC",
+    "strength": "250MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 459,
+    "sno": 409,
+    "brand_name": "JOINTEC C2",
+    "generic_name": "Glucosamine sulphate potassium chloride,Collagen Type II,Chondroitin sulphate",
+    "strength": "750MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 460,
+    "sno": 410,
+    "brand_name": "THEAL",
+    "generic_name": "Mucopolysaccharides + Collagen Type I + VIT C",
+    "strength": "220MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 461,
+    "sno": 411,
+    "brand_name": "TENDOFIRM",
+    "generic_name": "Chondroitin, Mucopolysaccharide & Hyaluronic Acid",
+    "strength": "200MG",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 462,
+    "sno": 412,
+    "brand_name": "PROHENCE HP/PENTASURE HP",
+    "generic_name": "Soy protein isolate, Skimmed milk powder, Whey protein concentrate, Maltodextrin, Fructose,",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 463,
+    "sno": 413,
+    "brand_name": "PROHENCE D/PENTASURE DM",
+    "generic_name": "Dietary Fiber,Whep Protein,cocoa Solids,calcium,vitamins and minerals",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 464,
+    "sno": 414,
+    "brand_name": "PENTASURE RENAL",
+    "generic_name": "Encapsulated corn oil,Maltodextrin,Whey protein concentrate,Fructooligosaccharides",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 465,
+    "sno": 415,
+    "brand_name": "PENTASURE DLS",
+    "generic_name": "Encapsulated Vegetable oil+Choline Hydrogen Tara Vanins L-Camiline, L-Taurine, Inositol",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 466,
+    "sno": 416,
+    "brand_name": "PENTASURE/PROHENCE",
+    "generic_name": "Whey Protein Concentrate, Maltodextrin",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 467,
+    "sno": 417,
+    "brand_name": "NAN 1 PRO",
+    "generic_name": "Milk solids, Demineralised whey",
+    "strength": "400GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 468,
+    "sno": 418,
+    "brand_name": "LACTAOGEN",
+    "generic_name": "Milk solids, Demineralised whey",
+    "strength": "200GM",
+    "dosage_form": "Powder",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Sachet"
+  },
+  {
+    "row": 469,
+    "sno": 433,
+    "brand_name": "REE",
+    "generic_name": "LEVOCARNITINE",
+    "strength": "1GM",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 470,
+    "sno": 434,
+    "brand_name": "RENOCEL",
+    "generic_name": "Recombinant Human Erythropoietin",
+    "strength": "4000IU",
+    "dosage_form": "Injection",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "1 Vial"
+  },
+  {
+    "row": 471,
+    "sno": 419,
+    "brand_name": "RENADYL",
+    "generic_name": "PRE PRO",
+    "strength": "4 BILLION CELL",
+    "dosage_form": "Capsule",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Capsules"
+  },
+  {
+    "row": 472,
+    "sno": 420,
+    "brand_name": "RENOSAVE/NAFROSAVE",
+    "generic_name": "Taurine + Acetylcysteine",
+    "strength": "500MG+150MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 473,
+    "sno": 421,
+    "brand_name": "NUCARNIT",
+    "generic_name": "LEVOCARNITINE",
+    "strength": "500MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 474,
+    "sno": 422,
+    "brand_name": "SOBISIS",
+    "generic_name": "SODIUM BICARBONATE",
+    "strength": "500MG,1000MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 475,
+    "sno": 423,
+    "brand_name": "SOIHENZ",
+    "generic_name": "Taurine + Acetylcysteine",
+    "strength": "500MG+150MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  },
+  {
+    "row": 476,
+    "sno": 424,
+    "brand_name": "REVELMAR",
+    "generic_name": "SEVELAMER",
+    "strength": "800MG",
+    "dosage_form": "Tablet",
+    "therapeutic_category": "Vitamins, Minerals, Nutrients & Nephrology",
+    "standard_pack_size": "10 Tablets"
+  }
+]

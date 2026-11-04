@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Hospital_CRM.Tests;
@@ -397,5 +398,39 @@ public class Section3ClinicalHardeningTests
 
         Assert.NotNull(result);
         Assert.Equal("no_result_to_review", ToJson(result.Value).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Vitals_Overwrite_IsAuditedWithThePriorValues()
+    {
+        var db = CreateInMemoryDb();
+        var (doctor, patient, appointment, tenantId, _) = SetupClinic(db);
+        var controller = new VitalsController(db, NullLogger<VitalsController>.Instance);
+        SetCaller(controller, doctor.Id, "Nurse", tenantId);
+
+        await controller.RecordVitals(appointment.Id,
+            new RecordVitalsRequest(120, 80, 72, 98.6m, 16, 98, 70m, 170m, 95m, null, null), CancellationToken.None);
+        await controller.RecordVitals(appointment.Id,
+            new RecordVitalsRequest(150, 95, 88, 100.4m, 20, 96, 70m, 170m, 95m, null, null), CancellationToken.None);
+
+        var audit = await db.PatientAuditLogs.SingleAsync(a => a.FieldName == "VITALS_AMENDED");
+        Assert.Equal(patient.Id, audit.PatientId);
+        Assert.Contains("BP 120/80", audit.OldValue);
+        Assert.Contains("BP 150/95", audit.NewValue);
+    }
+
+    [Fact]
+    public async Task Vitals_UnchangedResubmit_DoesNotWriteAnAmendment()
+    {
+        var db = CreateInMemoryDb();
+        var (doctor, _, appointment, tenantId, _) = SetupClinic(db);
+        var controller = new VitalsController(db, NullLogger<VitalsController>.Instance);
+        SetCaller(controller, doctor.Id, "Nurse", tenantId);
+
+        var request = new RecordVitalsRequest(120, 80, 72, 98.6m, 16, 98, 70m, 170m, 95m, null, null);
+        await controller.RecordVitals(appointment.Id, request, CancellationToken.None);
+        await controller.RecordVitals(appointment.Id, request, CancellationToken.None);
+
+        Assert.Equal(0, await db.PatientAuditLogs.CountAsync(a => a.FieldName == "VITALS_AMENDED"));
     }
 }

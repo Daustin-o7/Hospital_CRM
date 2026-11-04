@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -137,18 +137,6 @@ function getInitials(name: string) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-// Development-only demo roster. Kept out of production builds: the literal is the true
-// branch of a condition that compiles to `false`, so the bundler drops it entirely.
-const DEMO_STAFF: StaffMember[] = import.meta.env.DEV
-  ? [
-      { id: 'st-1', name: 'Dr. Sarah Jenkins', email: 'sarah.jenkins@hospital.org', role: 'Doctor', specialty: 'dental', status: 'Active', joinedAt: '2025-01-15T09:00:00Z' },
-      { id: 'st-2', name: 'Dr. Rajiv Mehta', email: 'rajiv.mehta@hospital.org', role: 'Doctor', specialty: 'physiotherapy', status: 'Active', joinedAt: '2025-02-01T09:00:00Z' },
-      { id: 'st-3', name: 'Dr. Aisha Khan', email: 'aisha.khan@hospital.org', role: 'Doctor', specialty: 'general', status: 'Active', joinedAt: '2025-02-15T09:00:00Z' },
-      { id: 'st-4', name: 'Pooja Verma', email: 'reception@hospital.org', role: 'Receptionist', status: 'Active', joinedAt: '2025-01-10T08:00:00Z' },
-      { id: 'st-5', name: 'Anil Kumar', email: 'pharmacy@hospital.org', role: 'Pharmacist', status: 'Active', joinedAt: '2025-01-12T08:00:00Z' },
-    ]
-  : []
-
 export default function Staff() {
   const [staff, setStaff]             = useState<StaffMember[]>([])
   const [loading, setLoading]         = useState(true)
@@ -302,21 +290,49 @@ export default function Staff() {
   const fetchStaff = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/staff')
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setStaff(res.data.map((s: any) => ({
-          ...s,
-          specialty: s.specialty || (s.role === 'Doctor' ? getDoctorSpecialty(s.name).id : undefined)
-        })))
-      } else {
-        setStaff(DEMO_STAFF)
-      }
+      const [res, invitesRes] = await Promise.all([
+        api.get('/staff'),
+        api.get('/staff/invites').catch(() => ({ data: [] }))
+      ])
+      const activeMembers: StaffMember[] = Array.isArray(res.data)
+        ? res.data.map((s: any) => ({
+            ...s,
+            specialty: s.specialty || (s.role === 'Doctor' ? 'general' : undefined)
+          }))
+        : []
+
+      const pendingInvites: StaffMember[] = Array.isArray(invitesRes?.data)
+        ? invitesRes.data.map((i: any) => ({
+            id: i.id,
+            name: i.name,
+            email: i.email,
+            role: i.role ? i.role.charAt(0).toUpperCase() + i.role.slice(1) : 'Staff',
+            specialty: i.specialty || (i.role === 'Doctor' ? 'general' : undefined),
+            status: 'Invited',
+            joinedAt: i.expiresAt || new Date().toISOString()
+          }))
+        : []
+
+      const activeEmails = new Set(activeMembers.map(m => m.email.toLowerCase()))
+      const uniqueInvites = pendingInvites.filter(i => !activeEmails.has(i.email.toLowerCase()))
+
+      setStaff([...uniqueInvites, ...activeMembers])
     } catch {
-      setStaff(DEMO_STAFF)
+      setStaff([])
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const handleRevokeInvite = async (inviteId: string, email: string) => {
+    try {
+      await api.delete(`/staff/invites/${inviteId}`)
+      showToast(`Invitation for ${email} has been revoked`)
+      fetchStaff()
+    } catch (err) {
+      showToast(friendlyError(err) || 'Failed to revoke invite')
+    }
+  }
 
   const onSubmit = useCallback(async (data: StaffForm) => {
     setSubmitError('')
@@ -622,12 +638,21 @@ export default function Staff() {
                       <td className="text-[var(--color-text-muted)]">{fmtDate(s.joinedAt)}</td>
                       <td className="text-right">
                         {s.status === 'Invited' ? (
-                          <button
-                            onClick={() => copyInviteLink(s.email)}
-                            className="btn btn-secondary btn-sm cursor-pointer"
-                          >
-                            Copy Invite Link
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleRevokeInvite(s.id, s.email)}
+                              className="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              title="Revoke and invalidate this invitation"
+                            >
+                              Revoke
+                            </button>
+                            <button
+                              onClick={() => copyInviteLink(s.email)}
+                              className="btn btn-secondary btn-xs cursor-pointer"
+                            >
+                              Copy Link
+                            </button>
+                          </div>
                         ) : s.role === 'Nurse' ? (
                           <button
                             onClick={() => openNurse(s)}

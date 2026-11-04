@@ -462,7 +462,7 @@ export default function NurseRoster() {
       const res = await api.post(`/staff/leave-requests/${leaveId}/review`, { status, note: reviewNote || null })
       const conflicts = res.data.rosterConflicts?.length || (res.data.hasRosterConflict ? 1 : 0)
       showToast(status === 'Approved' && conflicts > 0
-        ? `Leave approved — ${conflicts} conflicting shift(s) released to open-shift board`
+        ? `Leave approved — ${conflicts} roster shift(s) clash, released to open-shift board`
         : `Leave ${status.toLowerCase()}`)
       setReviewNote('')
       load()
@@ -718,7 +718,7 @@ export default function NurseRoster() {
                                 <button className="btn btn-ghost btn-sm" onClick={() => withdrawShift(s)}>Withdraw</button>
                               </span>
                             ) : (
-                              <button className="btn btn-primary btn-sm" onClick={() => applyForShift(s)}>Claim</button>
+                              <button className="btn btn-primary btn-sm" onClick={() => applyForShift(s)}>Apply</button>
                             )
                           )}
                           {isAdmin && s.status !== 'Cancelled' && (
@@ -730,6 +730,44 @@ export default function NurseRoster() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {isAdmin && pendingLeaves.length > 0 && (
+            <div className="card p-5 space-y-4">
+              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
+                <h2 className="text-sm font-bold font-heading text-[var(--color-text)]">
+                  Awaiting Clinical Leave Review ({pendingLeaves.length})
+                </h2>
+                <span className="badge badge-warning">Needs Approval</span>
+              </div>
+              <div className="space-y-3">
+                {pendingLeaves.map(l => (
+                  <div key={l.id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="text-sm font-semibold text-[var(--color-text)]">{l.nurseName}</div>
+                      <div className="text-xs text-[var(--color-text-muted)]">
+                        {fmtDate(l.startDate)} → {fmtDate(l.endDate)} · {l.type}
+                        {l.isHalfDay ? ' (Half-Day)' : ''}
+                        {l.reason ? ` · ${l.reason}` : ''}
+                      </div>
+                    </div>
+                    <input
+                      className="form-input !w-44 text-xs"
+                      placeholder="Review note (optional)"
+                      value={reviewNote}
+                      onChange={e => setReviewNote(e.target.value)}
+                      aria-label="Review note"
+                    />
+                    <button className="btn btn-primary btn-sm font-semibold" disabled={saving} onClick={() => reviewLeave(l.id, 'Approved')}>
+                      Approve
+                    </button>
+                    <button className="btn btn-secondary btn-sm" disabled={saving} onClick={() => reviewLeave(l.id, 'Rejected')}>
+                      Reject
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1120,7 +1158,7 @@ export default function NurseRoster() {
           <>
             <button className="btn btn-secondary" onClick={() => setShowLeave(false)} disabled={saving}>Cancel</button>
             <button className="btn btn-primary font-semibold" onClick={requestLeave} disabled={saving || !leaveStart || !leaveEnd}>
-              {saving ? 'Submitting…' : 'Submit Leave'}
+              {saving ? 'Submitting…' : 'Submit Request'}
             </button>
           </>
         }

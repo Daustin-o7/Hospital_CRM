@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -342,6 +342,10 @@ export default function Consultations() {
         if (parsed.chiefComplaint && !chiefComplaint) setChiefComplaint(parsed.chiefComplaint)
         if (parsed.observations && !observations) setObservations(parsed.observations)
         if (parsed.diagnosis && !diagnosis) setDiagnosis(parsed.diagnosis)
+        if (parsed.advisedInvestigations && !advisedInvestigations) setAdvisedInvestigations(parsed.advisedInvestigations)
+        if (parsed.followUpDate && !followUpDate) setFollowUpDate(parsed.followUpDate)
+        if (parsed.followUpNotes && !followUpNotes) setFollowUpNotes(parsed.followUpNotes)
+        if (parsed.teeth && Array.isArray(parsed.teeth) && parsed.teeth.length > 0) setTeeth(parsed.teeth)
         if (parsed.prescriptions && prescriptions.length === 0) setPrescriptions(parsed.prescriptions)
       } catch {
         // Ignore JSON error
@@ -360,6 +364,10 @@ export default function Consultations() {
         chiefComplaint,
         observations,
         diagnosis,
+        advisedInvestigations,
+        followUpDate,
+        followUpNotes,
+        teeth,
         prescriptions,
         savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }))
@@ -559,6 +567,9 @@ export default function Consultations() {
           observations,
           diagnosis,
           advisedInvestigations,
+          followUpDate: followUpDate || null,
+          followUpNotes: followUpNotes || null,
+          odontogramJson: JSON.stringify(teeth),
           prescriptionItems: prescriptions.map(p => ({
             genericName: p.genericName || p.medicine,
             brandName: p.brandName,
@@ -582,7 +593,7 @@ export default function Consultations() {
     } finally {
       setSubmitting(false)
     }
-  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, prescriptions, showToast])
+  }, [selectedAppointment, chiefComplaint, observations, diagnosis, advisedInvestigations, followUpDate, followUpNotes, prescriptions, teeth, showToast])
 
   // ── Finalize & Sign (Single Atomic Transaction) ──
   const handleFinalizeConsultation = useCallback(async () => {
@@ -648,6 +659,7 @@ export default function Consultations() {
         advisedInvestigations,
         followUpDate: followUpDate || null,
         followUpNotes: followUpNotes || null,
+        odontogramJson: JSON.stringify(teeth),
         prescriptionItems: prescriptions.map(p => ({
           genericName: p.genericName || p.medicine,
           brandName: p.brandName,
@@ -713,6 +725,9 @@ export default function Consultations() {
       observations,
       diagnosis,
       advisedInvestigations,
+      followUpDate: followUpDate || null,
+      followUpNotes: followUpNotes || null,
+      odontogramJson: JSON.stringify(teeth),
       prescriptionItems: prescriptions.map(p => ({
         genericName: p.genericName || p.medicine,
         brandName: p.brandName,
@@ -733,7 +748,7 @@ export default function Consultations() {
     setVersionNumber(res.data.version)
     setConsultationStatus('amended')
     showToast(`Consultation amended successfully (Version ${res.data.version}). Prior version preserved.`)
-  }, [activeConsultationId, chiefComplaint, observations, diagnosis, advisedInvestigations, prescriptions, versionNumber, showToast])
+  }, [activeConsultationId, chiefComplaint, observations, diagnosis, advisedInvestigations, followUpDate, followUpNotes, prescriptions, teeth, versionNumber, showToast])
 
   // ── Copy Previous Prescription into Current Draft ──
   const handleCopyPreviousRx = useCallback((previousItems: any[]) => {
@@ -874,6 +889,33 @@ export default function Consultations() {
           )}
 
           {/* Finalize & Sign (Atomic Lock) OR Amend Button */}
+          {consultationStatus === 'finalized' && activeConsultationId && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await api.get(`/consultations/${activeConsultationId}/prescription/pdf`, { responseType: 'blob' });
+                  const blob = new Blob([res.data], { type: 'application/pdf' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Prescription_${selectedAppointment?.patientName || 'Patient'}_v${versionNumber}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch {
+                  window.open(`/api/v1/consultations/${activeConsultationId}/prescription/pdf`, '_blank');
+                }
+              }}
+              className="btn btn-secondary btn-sm flex items-center gap-1.5"
+              title="Download official signed prescription PDF"
+            >
+              <span>📄</span>
+              <span>Download PDF</span>
+            </button>
+          )}
+
           {consultationStatus === 'finalized' || activeConsultationId ? (
             <button
               type="button"
@@ -1289,6 +1331,7 @@ export default function Consultations() {
         onClose={() => setIsFinalizeModalOpen(false)}
         data={finalizeData}
         patientName={selectedAppointment?.patientName}
+        patientPhone={selectedAppointment?.patientPhone}
       />
 
       <AmendmentModal

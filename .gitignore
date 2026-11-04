@@ -49,3 +49,11 @@ logs/
 test-results/
 .claude/
 .opencode/agentrouter-proxy/
+# Office temporary lock files
+~$*
+
+# Agent external skills (cloned sub-repos)
+.agents/skills/diagram-design/
+.agents/skills/hallmark/
+.agents/skills/impeccable/
+.agents/skills/ui-ux-pro-max-skill/

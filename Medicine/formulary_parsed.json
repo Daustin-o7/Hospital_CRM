@@ -1,0 +1,2725 @@
+[
+  {
+    "sno": 1,
+    "brand_name": "IMILASTIN",
+    "composition": "IMIPENEM+CILASTATIN",
+    "strength": "500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 2,
+    "brand_name": "MAXIGARD",
+    "composition": "IMIPENEM+CILASTATIN",
+    "strength": "500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 3,
+    "brand_name": "ICUPEN",
+    "composition": "DORIPENAM",
+    "strength": "500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 4,
+    "brand_name": "MEROMAC",
+    "composition": "MEROPENAM",
+    "strength": "500MG,1000MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 6,
+    "brand_name": "MEROMAC PLUS",
+    "composition": "MEROPENAM+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 7,
+    "brand_name": "ZAXTER XP",
+    "composition": "MEROPENAM+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 8,
+    "brand_name": "BDOXY",
+    "composition": "DOXYCYCLINE",
+    "strength": "100MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 9,
+    "brand_name": "T PLANIN",
+    "composition": "TICOPLANINE",
+    "strength": "400MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 10,
+    "brand_name": "TICPLAT",
+    "composition": "TICOPLANINE",
+    "strength": "400MG,200MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 12,
+    "brand_name": "TICOJET",
+    "composition": "TICOPLANINE",
+    "strength": "400MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 13,
+    "brand_name": "BDCOLIST/COLIHUB/COLIST",
+    "composition": "COLISTIMETHATE",
+    "strength": "4.5MILL,2MILL",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 19,
+    "brand_name": "POLY B",
+    "composition": "POLYMYXIN",
+    "strength": "5MILL",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 20,
+    "brand_name": "XAVITAZ",
+    "composition": "CEFTRAZIDIME+AVIBACTUM",
+    "strength": "2.5GM",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 21,
+    "brand_name": "POLY B XP",
+    "composition": "POLYMYXIN",
+    "strength": "7.5MILL",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 22,
+    "brand_name": "STAFCURE SB",
+    "composition": "CEFUROXIME+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 23,
+    "brand_name": "TAPICEM /PEPAR",
+    "composition": "PIPERACILLINE+TAZOBACTUM",
+    "strength": "4.5GM",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 24,
+    "brand_name": "KABICEFECTM",
+    "composition": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 25,
+    "brand_name": "MONOCEF",
+    "composition": "CEFTRIAXONE",
+    "strength": "2GM,1GM,500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 28,
+    "brand_name": "CEPOFIC",
+    "composition": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 30,
+    "brand_name": "XATRONEM",
+    "composition": "AZTREONAM",
+    "strength": "2GM,1GM",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 31,
+    "brand_name": "DALOCEL",
+    "composition": "CLIDAMYCIN",
+    "strength": "600MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 32,
+    "brand_name": "AMIKMAC",
+    "composition": "AMIKACIN",
+    "strength": "500MG,250MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 33,
+    "brand_name": "AMIKMAC 100MG",
+    "composition": null,
+    "strength": null,
+    "type": "INJECTION"
+  },
+  {
+    "sno": 34,
+    "brand_name": "VANTOX CP 1G",
+    "composition": null,
+    "strength": null,
+    "type": "INJECTION"
+  },
+  {
+    "sno": 35,
+    "brand_name": "VANTOX CP",
+    "composition": "VANCOMYCIN",
+    "strength": "1GM,500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 36,
+    "brand_name": "GENTAMYCIN",
+    "composition": "GENTAMYCIN",
+    "strength": "80MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 37,
+    "brand_name": "ZOSTUM",
+    "composition": "CEFOPERAZONE+SULBACTAM",
+    "strength": "1500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 38,
+    "brand_name": "TAXIM",
+    "composition": "CEFOTAXIME",
+    "strength": "125MG,250MG,500MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 41,
+    "brand_name": "TINIBA",
+    "composition": "TINIDAZOLE",
+    "strength": "400MG",
+    "type": "IV"
+  },
+  {
+    "sno": 42,
+    "brand_name": "LEVOFUXIN",
+    "composition": "LEVOFLOXACINE",
+    "strength": "500MG",
+    "type": "IV"
+  },
+  {
+    "sno": 43,
+    "brand_name": "MOXPLOR",
+    "composition": "MOXCIFLOXACINE",
+    "strength": "400MG",
+    "type": "IV"
+  },
+  {
+    "sno": 44,
+    "brand_name": "LINOPLUS",
+    "composition": "LINAZOLIDE",
+    "strength": "600MG",
+    "type": "IV"
+  },
+  {
+    "sno": 45,
+    "brand_name": "NIRMIT",
+    "composition": "METRONIDAZOLE",
+    "strength": "500MG",
+    "type": "IV"
+  },
+  {
+    "sno": 46,
+    "brand_name": "STAFCURE/CEROM",
+    "composition": "CEFUROXIME",
+    "strength": "500MG,250MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 48,
+    "brand_name": "STAFCURE CV",
+    "composition": "CEFUROXIM+CLAVULANIC ACID",
+    "strength": "500MG/125MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 50,
+    "brand_name": "LIZOMAC/LINID",
+    "composition": "LINAZOLIDE",
+    "strength": "600MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 52,
+    "brand_name": "AZRO/AZEE",
+    "composition": "AZITHROMYCINE",
+    "strength": "500MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 53,
+    "brand_name": "AZEE 500MG",
+    "composition": null,
+    "strength": null,
+    "type": "TABLETS"
+  },
+  {
+    "sno": 54,
+    "brand_name": "CLARIBID",
+    "composition": "CLARITHROMYCIN",
+    "strength": "500MG,250MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 56,
+    "brand_name": "MOXIMAC 400MG",
+    "composition": "MOXCIFLOXACINE",
+    "strength": "400MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 57,
+    "brand_name": "LOXOF 750MG",
+    "composition": "LEVOFLOXACINE",
+    "strength": "750MG,500MG,250MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 60,
+    "brand_name": "BACTRIM DS/SEPTRAN DS",
+    "composition": "SUFAMETHAXAZOLE+TRIMETHOPRIM",
+    "strength": "800MG/160MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 61,
+    "brand_name": "DOXYPAL DRL",
+    "composition": "DOXYCYCLINE",
+    "strength": "100MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 62,
+    "brand_name": "METROGYL",
+    "composition": "METRONIDAZOLE",
+    "strength": "400MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 63,
+    "brand_name": "MOX",
+    "composition": "AMOXACILLINE",
+    "strength": "500MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 64,
+    "brand_name": "CIPLOX",
+    "composition": "CIPROFLOXACIN",
+    "strength": "500MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 65,
+    "brand_name": "NORFLOX",
+    "composition": "NORFLOXACIN",
+    "strength": "400MG,200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 67,
+    "brand_name": "AGUMENTIN DUO",
+    "composition": "AMOXACILLINE+CLAVULANIC ACID",
+    "strength": "500MG/125MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 68,
+    "brand_name": "TAXIM O",
+    "composition": "CEFIXIME",
+    "strength": "200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 69,
+    "brand_name": "MACPOD CV/DOXCEF CV",
+    "composition": "CEFPODOXIM+POTASSIUM CLAVINATE",
+    "strength": "200MG/125MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 71,
+    "brand_name": "FAROFENC ER/ORPENEM ER",
+    "composition": "FEROPENAM",
+    "strength": "300MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 73,
+    "brand_name": "FAROKAA",
+    "composition": "FEROPENAM",
+    "strength": "200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 74,
+    "brand_name": "REZFURAN",
+    "composition": "NITROFURANTOIN",
+    "strength": "100MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 75,
+    "brand_name": "DALACIN C/CLINDASURE",
+    "composition": "CLIDAMYCIN",
+    "strength": "300MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 77,
+    "brand_name": "ZENFLOX OZ",
+    "composition": "OFLOXACINE+ORINADAZOLE",
+    "strength": "500MG/200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 78,
+    "brand_name": "ZENFLOX 400MG",
+    "composition": "OFLOXACINE",
+    "strength": "400MG,200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 80,
+    "brand_name": "ZOSTUM O",
+    "composition": "CEFDITORNE",
+    "strength": "200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 81,
+    "brand_name": "RIFORTE/RCIFEX/RIXMIN",
+    "composition": "RIFAXIMINE",
+    "strength": "400MG,550MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 83,
+    "brand_name": "PENTID",
+    "composition": "PENICILLINE",
+    "strength": "800MG,400MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 85,
+    "brand_name": "STARIZO",
+    "composition": "TIDIZOLIDE PHOSPATE",
+    "strength": "200MG",
+    "type": "TABLETS"
+  },
+  {
+    "sno": 86,
+    "brand_name": "CETIL/CEFAKIND",
+    "composition": "CEFUROXIM",
+    "strength": "200MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 89,
+    "brand_name": "GUDCEF",
+    "composition": "CEPODOXIM",
+    "strength": "100MG,50MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 90,
+    "brand_name": "MOXCLAV BD",
+    "composition": "AMOXICILLINE+POTASSIUM CLAVINATE",
+    "strength": "200MG/28.5MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 91,
+    "brand_name": "ERYTOP",
+    "composition": "CLIDAMYCIN",
+    "strength": "1%W/W",
+    "type": "CREAM"
+  },
+  {
+    "sno": 92,
+    "brand_name": "NEOSPORIN",
+    "composition": "NEOMYCINE SULFATE+POLYMYXIN B",
+    "strength": "400IU/3400IU/5000IU",
+    "type": "POWDER"
+  },
+  {
+    "sno": 93,
+    "brand_name": "ZENFLOX",
+    "composition": "OFLOXACINE",
+    "strength": null,
+    "type": "DROP"
+  },
+  {
+    "sno": 94,
+    "brand_name": "CIPLOX",
+    "composition": "CIPROFLOXACIN",
+    "strength": null,
+    "type": "DROP"
+  },
+  {
+    "sno": 95,
+    "brand_name": "MILFLOX",
+    "composition": "MOXCIFLOXACINE",
+    "strength": null,
+    "type": "DROP"
+  },
+  {
+    "sno": 96,
+    "brand_name": "DYNAPAR AQ 75MG",
+    "composition": "DICLOFENAC",
+    "strength": "75MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 97,
+    "brand_name": "FEBRINIL 150MG",
+    "composition": "PARACETAMOL",
+    "strength": "150MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 98,
+    "brand_name": "TRAMAZAC 100MG",
+    "composition": "TRAMADOL",
+    "strength": "100MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 99,
+    "brand_name": "BUPRIGESIC 0.3MG",
+    "composition": "BUPRENORPHINE",
+    "strength": "0.3MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 100,
+    "brand_name": "NUCOXIA 60",
+    "composition": "ETORICOXIB",
+    "strength": "60MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 101,
+    "brand_name": "KABIPARA 1G",
+    "composition": "PARACETAMOL",
+    "strength": "1000MG",
+    "type": "IV"
+  },
+  {
+    "sno": 102,
+    "brand_name": "HIFENAC P",
+    "composition": "ACECLOFENAC + PARACETAMOL",
+    "strength": "100MG/325MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 103,
+    "brand_name": "HIFENAC TA",
+    "composition": "ACECLOFENAC + PARACETAMOL+TRAMADOL",
+    "strength": "100MG/325MG/37.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 104,
+    "brand_name": "HIFENAC MR",
+    "composition": "ACECLOFENAC+PARACETAMOL+CHLORZOXAZONE",
+    "strength": "100MG/325MG/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 105,
+    "brand_name": "HIFENAC SP",
+    "composition": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 106,
+    "brand_name": "SIGNOFLAM",
+    "composition": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 107,
+    "brand_name": "DOLO 650",
+    "composition": "PARACETAMOL",
+    "strength": "650MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 108,
+    "brand_name": "CALPOL 650",
+    "composition": "PARACETAMOL",
+    "strength": "650MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 109,
+    "brand_name": "DOLONEX DT",
+    "composition": "PIROXICAM",
+    "strength": "20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 110,
+    "brand_name": "CHYMOCAD",
+    "composition": "ACECLOFENAC + PARACETAMOL+TRYPSIN CHYMOTRYPSIN",
+    "strength": "100MG/325MG/50000AU",
+    "type": "TABLET"
+  },
+  {
+    "sno": 111,
+    "brand_name": "CHYMORAL FORTE",
+    "composition": "TRYPSIN CHYMOTRYPSIN",
+    "strength": "100000AU",
+    "type": "TABLET"
+  },
+  {
+    "sno": 112,
+    "brand_name": "ETOSHINE MR",
+    "composition": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 113,
+    "brand_name": "ETOSHINE 90",
+    "composition": "ETORICOXIB",
+    "strength": "90MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 114,
+    "brand_name": "NUCOXIA P",
+    "composition": "ETORICOXIB+PARACTAMOL",
+    "strength": "60MG/325MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 115,
+    "brand_name": "NUCOXIA MR",
+    "composition": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 116,
+    "brand_name": "NUCOXIA 60",
+    "composition": "ETORICOXIB",
+    "strength": "60MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 117,
+    "brand_name": "NUCOXIA 90",
+    "composition": "ETORICOXIB",
+    "strength": "90MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 118,
+    "brand_name": "RETOZ MR",
+    "composition": "ETORICOXIB+THIOCOLCHICOSIDE",
+    "strength": "60MG/4MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 119,
+    "brand_name": "ENZOMAC FAST",
+    "composition": "Trypsin+Bromelain+Rutoside",
+    "strength": "96MG/180MG/200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 120,
+    "brand_name": "ENZOMAC PLUS",
+    "composition": "Trypsin+Bromelain+Rutoside+Diclofenac",
+    "strength": "48MG/90MG/100MG/50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 121,
+    "brand_name": "ENZOMAC FORTE",
+    "composition": "Trypsin+Bromelain+Rutoside",
+    "strength": "96MG/180MG/200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 122,
+    "brand_name": "ENZOMAC",
+    "composition": "Trypsin+Bromelain+Rutoside",
+    "strength": "48MG/90MG/100MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 123,
+    "brand_name": "ENZOFLAM MR",
+    "composition": "ACECLOFENAC + PARACETAMOL+THIOCOLCHICOSIDE",
+    "strength": "100MG/325MG/4MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 124,
+    "brand_name": "PACIMOL ACTIVE",
+    "composition": "PARACETAMOL+CAFFEINE",
+    "strength": "650MG/50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 125,
+    "brand_name": "ZERODOL P",
+    "composition": "ACECLOFENAC + PARACETAMOL",
+    "strength": "100MG/325MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 126,
+    "brand_name": "ZERODOL SP",
+    "composition": "ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE",
+    "strength": "100MG/325MG/15MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 127,
+    "brand_name": "PARASAFE 650",
+    "composition": "PARACETAMOL",
+    "strength": "650MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 128,
+    "brand_name": "PARASAFE 500",
+    "composition": "PARACETAMOL",
+    "strength": "500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 129,
+    "brand_name": "CALPOL 250",
+    "composition": "PARACETAMOL",
+    "strength": "250MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 130,
+    "brand_name": "IBUGESIC",
+    "composition": "IBUPROFEN",
+    "strength": "100MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 131,
+    "brand_name": "IBUGESIC PLUS",
+    "composition": "IBUPROFEN+PARACETAMOL",
+    "strength": "100MG/162.5MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 132,
+    "brand_name": "PARASAFE",
+    "composition": "PARACETAMOL",
+    "strength": "250MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 133,
+    "brand_name": "IBUFROM",
+    "composition": "IBUPROFEN",
+    "strength": "100MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 134,
+    "brand_name": "CALPOL",
+    "composition": "PARACETAMOL",
+    "strength": "100MG",
+    "type": "DROP"
+  },
+  {
+    "sno": 135,
+    "brand_name": "FLEXABENZ",
+    "composition": "DICLOFENAC",
+    "strength": null,
+    "type": "GEL&SPREY"
+  },
+  {
+    "sno": 136,
+    "brand_name": "MOOV",
+    "composition": "DICLOFENAC",
+    "strength": null,
+    "type": "GEL&SPREY"
+  },
+  {
+    "sno": 137,
+    "brand_name": "DFO",
+    "composition": "DICLOFENAC",
+    "strength": null,
+    "type": "GEL"
+  },
+  {
+    "sno": 138,
+    "brand_name": "SENSOR",
+    "composition": "AYURVEDIC",
+    "strength": null,
+    "type": "OIL&LOTION"
+  },
+  {
+    "sno": 139,
+    "brand_name": "MACGESIA",
+    "composition": "AYURVEDIC",
+    "strength": null,
+    "type": "OIL"
+  },
+  {
+    "sno": 140,
+    "brand_name": "DYNAPAR QPS",
+    "composition": "DICLOFENAC",
+    "strength": null,
+    "type": "SYRUP"
+  },
+  {
+    "sno": 141,
+    "brand_name": "TROIS",
+    "composition": "AYURVEDIC",
+    "strength": null,
+    "type": "EMULSION"
+  },
+  {
+    "sno": 142,
+    "brand_name": "DILZEM",
+    "composition": "DITILAZEM",
+    "strength": "25MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 143,
+    "brand_name": "NIKORAN",
+    "composition": "NIKORANDIL",
+    "strength": "5MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 144,
+    "brand_name": "METOLAR",
+    "composition": "METOPROLOL TARTRATE",
+    "strength": "50MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 145,
+    "brand_name": "PROTA",
+    "composition": "PROTAMINE",
+    "strength": "50MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 146,
+    "brand_name": "DOMIN",
+    "composition": "DOPAMINE",
+    "strength": "200MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 147,
+    "brand_name": "NORAD/ADRENOR",
+    "composition": "NORADRENALINE",
+    "strength": "4MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 148,
+    "brand_name": "ATROPIN",
+    "composition": "ATROPIN",
+    "strength": "0.6MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 149,
+    "brand_name": "ADRENILINE",
+    "composition": "ADRENALINE",
+    "strength": "1MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 150,
+    "brand_name": "DURON",
+    "composition": "AMIODARONE",
+    "strength": "150MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 151,
+    "brand_name": "GUFINOX",
+    "composition": "ENOXAPARINE",
+    "strength": "40MG,60MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 153,
+    "brand_name": "HEPARIN",
+    "composition": "HEPARIN",
+    "strength": "5000IU,25000IU",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 155,
+    "brand_name": "MIREL",
+    "composition": "RETEPLASE",
+    "strength": "18MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 156,
+    "brand_name": "TSART/ARBITEL/TELSAR",
+    "composition": "TELMISARTAN",
+    "strength": "40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 157,
+    "brand_name": "TSART/ARBITEL/TELSAR H",
+    "composition": "TELMISARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "40MG+12.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 158,
+    "brand_name": "TSART/ARBITEL AM",
+    "composition": "TELMISARTAN + AMLODIPINE",
+    "strength": "40MG+5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 159,
+    "brand_name": "TAZLOC /TELSAR",
+    "composition": "TELMISARTAN",
+    "strength": "20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 160,
+    "brand_name": "TAZLOC",
+    "composition": "TELMISARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "80MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 161,
+    "brand_name": "TAZLOC H",
+    "composition": "TELMISARTAN",
+    "strength": "80MG+12.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 162,
+    "brand_name": "METXL",
+    "composition": "METOPROLOL SUCCINATE",
+    "strength": "12.5MG,25MG,50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 163,
+    "brand_name": "METXL AM",
+    "composition": "METOPROLOL SUCCINATE + AMLODIPINE",
+    "strength": "25/5MG & 50/5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 164,
+    "brand_name": "METXL AM",
+    "composition": "METOPROLOL SUCCINATE + AMLODIPINE",
+    "strength": "25/2.5MG & 50/2.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 165,
+    "brand_name": "METXL 3D",
+    "composition": "METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN",
+    "strength": "25/12.5MG & 50/12.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 166,
+    "brand_name": "METXL 3D",
+    "composition": "METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN",
+    "strength": "25/6.25MG & 50/6.25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 167,
+    "brand_name": "LOSAR",
+    "composition": "LOSARTAN",
+    "strength": "25MG,50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 168,
+    "brand_name": "LOSAR H",
+    "composition": "LOSARTAN + HYDROCHLOROTHIAZIDE",
+    "strength": "50/12.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 169,
+    "brand_name": "CIPLAR/BETACAP TR",
+    "composition": "PROPRANOLOL",
+    "strength": "10MG,40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 170,
+    "brand_name": "CIPLAR LA",
+    "composition": "PROPRANOLOL",
+    "strength": "20MG,40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 171,
+    "brand_name": "CILACAR",
+    "composition": "CILINIDIPINE",
+    "strength": "10MG,20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 172,
+    "brand_name": "CILACAR T",
+    "composition": "CILINIDIPINE + TELMISARTAN",
+    "strength": "10/40MG,20/40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 173,
+    "brand_name": "CARDACE",
+    "composition": "RAMIPRIL",
+    "strength": "1.25MG,2.5MG,5MG,10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 174,
+    "brand_name": "CARDACE H",
+    "composition": "RAMIPRIL + HYDROCHLOROTHIZIDE",
+    "strength": "2.5/12.5MG,5/12.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 175,
+    "brand_name": "NEPTAZ",
+    "composition": "SACUBITRIL + VALSARTAN",
+    "strength": "100MG,50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 176,
+    "brand_name": "CTD",
+    "composition": "CHLORTHALIDONE",
+    "strength": "12.5MG,6.25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 177,
+    "brand_name": "CILAMET XL",
+    "composition": "CILNIDIPINE + METOPROLOL",
+    "strength": "25/10MG,50/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 178,
+    "brand_name": "CORDARONE",
+    "composition": "AMIODARONE",
+    "strength": "100MG,200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 179,
+    "brand_name": "CARDIVAS",
+    "composition": "CARVEDILOL",
+    "strength": "12.5MG,6.25MG,3.125MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 180,
+    "brand_name": "CARDIVAS CR",
+    "composition": "CARVEDILOL",
+    "strength": "10MG,20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 181,
+    "brand_name": "PLANEP",
+    "composition": "EPLERENONE",
+    "strength": "25MG,50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 182,
+    "brand_name": "PLANEP T",
+    "composition": "EPLERENONE + TORSEMIDE",
+    "strength": "25/10MG,50/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 183,
+    "brand_name": "AMLODAC",
+    "composition": "AMLODIPINE",
+    "strength": "5MG,10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 184,
+    "brand_name": "AMLOKIND AT",
+    "composition": "AMLODIPINE + ATENOLOL",
+    "strength": "50/5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 185,
+    "brand_name": "LANOXIN",
+    "composition": "DIGOXIN",
+    "strength": "0.25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 186,
+    "brand_name": "MOXOVAS",
+    "composition": "MOXONIDINE",
+    "strength": "0.2MG,0.3MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 187,
+    "brand_name": "ECOSPRIN",
+    "composition": "ASPRIN",
+    "strength": "75MG,150MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 188,
+    "brand_name": "ECOSPRIN AV",
+    "composition": "ATORVASTATINE + ASPRIN",
+    "strength": "75/10MG,75/20MG & 10/150MG,20/150MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 189,
+    "brand_name": "ECOSPRIN GOLD",
+    "composition": "ATORVASTATINE + ASPRIN + CLOPIDOGREL",
+    "strength": "20/75/75MG & 10/75/75MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 190,
+    "brand_name": "ROSUFIT CV",
+    "composition": "ROSUVASTATIN + CLOPIDOGREL",
+    "strength": "10/75MG & 20/75MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 191,
+    "brand_name": "ROSEDAY",
+    "composition": "ROSUVASTATIN",
+    "strength": "5MG,10MG,20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 192,
+    "brand_name": "ROSEDAY GOLD",
+    "composition": "ATORVASTATINE + ASPRIN + CLOPIDOGREL",
+    "strength": "10/75/75MG & 20/75/75MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 193,
+    "brand_name": "GLYCOMET GP1",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "1/500 MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 194,
+    "brand_name": "GLYCOMET GP 2",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 195,
+    "brand_name": "GLYCOMET GP 3/850",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "3/850MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 196,
+    "brand_name": "GLYCOMET GP.05",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "0.5/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 197,
+    "brand_name": "GLYCIPHAGE 250",
+    "composition": "METFORMIN",
+    "strength": "250MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 198,
+    "brand_name": "GLYCIPHAGE 500",
+    "composition": "METFORMIN",
+    "strength": "500 MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 199,
+    "brand_name": "GLYCOMET SR 500",
+    "composition": "METFORMIN SUSTAIN",
+    "strength": "500 MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 200,
+    "brand_name": "GLYCOMET GP 4 FORTE",
+    "composition": "METFORMIN + GLIMEPRIDE",
+    "strength": "4MG /1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 201,
+    "brand_name": "DIAPRIDE M1",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "1MG/500 MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 202,
+    "brand_name": "DIAPRIDE M2",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/500 MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 203,
+    "brand_name": "DIAPRIDE M 1 FORTE",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "1/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 204,
+    "brand_name": "DIAPRIDE M2 FORTE",
+    "composition": "GLIMEPRIDE + METFORMIN",
+    "strength": "2/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 205,
+    "brand_name": "TENEPRIDE 20 MG",
+    "composition": "TENLIGLIPTIN",
+    "strength": "20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 206,
+    "brand_name": "TENEPRIDE M 500 MG",
+    "composition": "TENLIGLIPTIN + METFORMIN",
+    "strength": "20/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 207,
+    "brand_name": "DAPFEY 5MG",
+    "composition": "DAPAGLIFOZIN",
+    "strength": "5MG,10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 209,
+    "brand_name": "DAPFEY MXR 10/500",
+    "composition": "DAPAGLIFOZIN + METFORMIN",
+    "strength": "10/500MG,10/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 211,
+    "brand_name": "ZORYL MV 1",
+    "composition": "GLIMEPRIDE + METFORMIN + VOGLIBOSE",
+    "strength": "1/500/0.2MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 212,
+    "brand_name": "ZORYL MV 2",
+    "composition": "GLIMEPRIDE + METFORMIN + VOGLIBOSE",
+    "strength": "2/500/0.2MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 213,
+    "brand_name": "GLIMY 1",
+    "composition": "GLIMEPRIDE",
+    "strength": "1MG,2MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 215,
+    "brand_name": "GP 0.5",
+    "composition": "GLIMEPRIDE",
+    "strength": "0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 216,
+    "brand_name": "RECLIDE XR 60",
+    "composition": "GLICLAZIDE",
+    "strength": "60MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 217,
+    "brand_name": "RECLIMET 80",
+    "composition": "GLICLAZIDE + METFORMIN",
+    "strength": "80MG/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 218,
+    "brand_name": "DAIMACRON 30MG",
+    "composition": "GLICLAZIDE",
+    "strength": "30MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 219,
+    "brand_name": "GALVAS/JALRA",
+    "composition": "VILDAGLIPTIN",
+    "strength": "50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 220,
+    "brand_name": "GALVAS MET",
+    "composition": "VILDAGLIPTIN + METFORMIN",
+    "strength": "50/500MG,50/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 221,
+    "brand_name": "ONDERO",
+    "composition": "LINAGLIPTIN",
+    "strength": "5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 222,
+    "brand_name": "ONDERO MET",
+    "composition": "LINAGLIPTIN + METFORMIN",
+    "strength": "2.5/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 223,
+    "brand_name": "SITAGLYN",
+    "composition": "SITAGLIPTIN",
+    "strength": "100MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 224,
+    "brand_name": "SITAGLYN D",
+    "composition": "SITAGLIPTIN + DAPAGLIFLOZIN",
+    "strength": "10/100MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 225,
+    "brand_name": "SITAGLYN DM",
+    "composition": "DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN",
+    "strength": "10/100/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 226,
+    "brand_name": "SITAGLYN DM",
+    "composition": "DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN",
+    "strength": "10/100/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 227,
+    "brand_name": "SITAGLYN M",
+    "composition": "SITAGLIPTIN + METFORMIN",
+    "strength": "50/1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 228,
+    "brand_name": "SITAGLYN M",
+    "composition": "SITAGLIPTIN + METFORMIN",
+    "strength": "50/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 229,
+    "brand_name": "XENIA ST",
+    "composition": "EMPAGLIFLOZIN+SITAGLIPTIN",
+    "strength": "25/100MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 230,
+    "brand_name": "EUREPA 1",
+    "composition": "REPAGLINIDE",
+    "strength": "1MG,2MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 231,
+    "brand_name": "EUREPA MF",
+    "composition": "REPAGLINIDE+ METFORMIN",
+    "strength": "2/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 232,
+    "brand_name": "VOLIX",
+    "composition": "VOGLIBOSE",
+    "strength": "0.2MG,0.3MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 233,
+    "brand_name": "VOZUCA M ACTIVE",
+    "composition": "VOGLIBOSE+METFORMIN",
+    "strength": "0.2/500MG,0.3/500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 240,
+    "brand_name": "CEHAM",
+    "composition": "CITICOLINE",
+    "strength": "250MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 241,
+    "brand_name": "EDASTAR",
+    "composition": "EDARAVONE",
+    "strength": "1.5MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 242,
+    "brand_name": "LEVILEX",
+    "composition": "LEVETIRACETAM",
+    "strength": "100MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 243,
+    "brand_name": "EPSOLIN",
+    "composition": "PHENYTOIN",
+    "strength": "500MG/ML",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 244,
+    "brand_name": "FENOBARB",
+    "composition": "PHENOBARBITONE",
+    "strength": "200MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 245,
+    "brand_name": "MANNITOL",
+    "composition": "MANNITOL",
+    "strength": "20%W/V",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 246,
+    "brand_name": "NEUROTOL",
+    "composition": "GLYCERIN + MANNITOL",
+    "strength": "10%W/V+10%W/V",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 247,
+    "brand_name": "BUTRUM",
+    "composition": "BUTORPHANOL",
+    "strength": "2MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 237,
+    "brand_name": "LOPEZ",
+    "composition": "LORAZEPAM",
+    "strength": "2MG/ML",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 238,
+    "brand_name": "BRIVAHENZ",
+    "composition": "BRIVARACETAM",
+    "strength": "50MG/5ML",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 239,
+    "brand_name": "CEREBROGEN",
+    "composition": "CEREBROPROTIN",
+    "strength": "60MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 240,
+    "brand_name": "CEHAM",
+    "composition": "CITICOLINE",
+    "strength": "500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 241,
+    "brand_name": "CEHAM P",
+    "composition": "CITICOLINE + PIRACETAM",
+    "strength": "500MG/800MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 242,
+    "brand_name": "LEVESAM",
+    "composition": "LEVETIRACETAM",
+    "strength": "250MG,500MG,750MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 243,
+    "brand_name": "EPTOIN",
+    "composition": "PHENYTOIN",
+    "strength": "100MG,300MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 244,
+    "brand_name": "GARDENAL",
+    "composition": "PHENOBARBITONE",
+    "strength": "30MG,60MG",
+    "type": "TABLET,SYRUP"
+  },
+  {
+    "sno": 240,
+    "brand_name": "LOPEZ MD",
+    "composition": "LORAZEPAM",
+    "strength": "1MG,2MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 241,
+    "brand_name": "ZOLFRESH",
+    "composition": "ZOLPIDEM",
+    "strength": "5MG,10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 242,
+    "brand_name": "NEWCITA PLUS",
+    "composition": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 243,
+    "brand_name": "NEXITO",
+    "composition": "ESCITALOPRAM",
+    "strength": "10MG,5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 244,
+    "brand_name": "NEXITO PLUS",
+    "composition": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "5MG/0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 245,
+    "brand_name": "NEXITO FORTE",
+    "composition": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 246,
+    "brand_name": "NEXITO LS",
+    "composition": "ESCITALOPRAM + CLONAZEPAM",
+    "strength": "10MG/0.25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 247,
+    "brand_name": "FRISIUM",
+    "composition": "CLOBAZAM",
+    "strength": "10MG,5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 248,
+    "brand_name": "LIBRIUM",
+    "composition": "CHLORDIAZEPOXIDE",
+    "strength": "10MG,25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 249,
+    "brand_name": "ALPREX",
+    "composition": "ALPRAZOLAM",
+    "strength": "0.25MG,0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 250,
+    "brand_name": "RIVOTRIL",
+    "composition": "CLONAZEPAM",
+    "strength": "0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 251,
+    "brand_name": "CLONOTRIL",
+    "composition": "CLONAZEPAM",
+    "strength": "0.25MG,0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 254,
+    "brand_name": "ANTACIDS & HEPATIC DRUG & ANTISPASMODIC",
+    "composition": null,
+    "strength": null,
+    "type": null
+  },
+  {
+    "sno": 256,
+    "brand_name": "PANTOCID",
+    "composition": "PENTOPRAZOLE",
+    "strength": "40MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 257,
+    "brand_name": "RAPEED",
+    "composition": "RABEPRAZOLE",
+    "strength": "20MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 258,
+    "brand_name": "ESOMAC",
+    "composition": "ESOMEPRAZOLE",
+    "strength": "40MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 259,
+    "brand_name": "DROTIN",
+    "composition": "DROTAVERINE",
+    "strength": "40MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 260,
+    "brand_name": "LESURIDE",
+    "composition": "LEVOSULPIRIDE",
+    "strength": "25MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 261,
+    "brand_name": "ACILOC",
+    "composition": "RANITIDINE",
+    "strength": "150MG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 262,
+    "brand_name": "PANSEC",
+    "composition": "PENTOPRAZOLE",
+    "strength": "40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 263,
+    "brand_name": "PANSEC DSR",
+    "composition": "PENTOPRAZOLE + DOMPERIDONE",
+    "strength": "40MG/30MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 264,
+    "brand_name": "RABICIP",
+    "composition": "RABEPRAZOLE",
+    "strength": "20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 265,
+    "brand_name": "RABICIP D/ RABELOC RD",
+    "composition": "RABEPRAZOLE + DOMPERIDONE",
+    "strength": "20MG/30MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 266,
+    "brand_name": "RABICIP L",
+    "composition": "RABEPRAZOLE + LEVOSULPIRIDE",
+    "strength": "20MG/75MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 267,
+    "brand_name": "RABELOC IT",
+    "composition": "RABEPRAZOLE + ITOPRIDE",
+    "strength": "20MG/150MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 268,
+    "brand_name": "ACILOC/RANTEC",
+    "composition": "RANITIDINE",
+    "strength": "150MG,300MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 269,
+    "brand_name": "VACILOC/VONZAI/KABVIE",
+    "composition": "VONOPRAZAN",
+    "strength": "10MG,20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 270,
+    "brand_name": "CINTODAC",
+    "composition": "CINITAPRIDE + PENTOPRAZOLE",
+    "strength": "3MG/40MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 271,
+    "brand_name": "ILADAC",
+    "composition": "ILAPRAZOLE",
+    "strength": "10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 272,
+    "brand_name": "PCAB",
+    "composition": "TEGOPRAZAN",
+    "strength": "50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 273,
+    "brand_name": "LESURIDE",
+    "composition": "LEVOSULPIRIDE",
+    "strength": "25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 274,
+    "brand_name": "DROTIN DS",
+    "composition": "DROTAVERINE",
+    "strength": "80MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 275,
+    "brand_name": "DROTIN M",
+    "composition": "DROTAVERINE + MEFENAMIC ACID",
+    "strength": "80MG/250MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 276,
+    "brand_name": "MEFTAL-SPAS",
+    "composition": "DICYCLOMINE + MEFENAMIC ACID",
+    "strength": "10MG/250MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 277,
+    "brand_name": "CIZASPA SR/MEBIZ SR",
+    "composition": "MEBEVERINE",
+    "strength": "200MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 278,
+    "brand_name": "CIZASPA X/MEBIZ CX",
+    "composition": "MEBEVERINE + CHLORDIAZEPOXIDE",
+    "strength": "135MG/5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 279,
+    "brand_name": "COLOSPA RETARD",
+    "composition": "MEREVERINE",
+    "strength": "200MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 280,
+    "brand_name": "NORMAXIN",
+    "composition": "CLIDINIUM + CHLORDIAZEPOXIDE + DICYCLOMINE",
+    "strength": "2.5MG/5MG/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 281,
+    "brand_name": "CREON /PANLIPASE/CADPAN",
+    "composition": "PANCREATIN",
+    "strength": "300MG,150MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 282,
+    "brand_name": "PANLIPASE UC",
+    "composition": "PANCREATIN",
+    "strength": "200MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 283,
+    "brand_name": "HEPKART/NUSAM/ZELADENO",
+    "composition": "ADEMETIONINE",
+    "strength": "400MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 284,
+    "brand_name": "LIPAGLYN",
+    "composition": "SAROGLITAZAR",
+    "strength": "4MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 285,
+    "brand_name": "URSOCOL/UCLICK",
+    "composition": "URSODEOXYCHOLIC ACID",
+    "strength": "150MG,300MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 286,
+    "brand_name": "GASVENZ",
+    "composition": "ACTIVATED CHARCOAL + SIMETHICONE",
+    "strength": "250MG/80MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 287,
+    "brand_name": "MAXILIV",
+    "composition": "GLUTATHIONE",
+    "strength": "500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 288,
+    "brand_name": "MESAGRAN OD/VEGAZ OD",
+    "composition": "MESALAZINE",
+    "strength": "1.2GM",
+    "type": "TABLET"
+  },
+  {
+    "sno": 289,
+    "brand_name": "MESACOL",
+    "composition": "MESALAZINE",
+    "strength": "400MG,800MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 290,
+    "brand_name": "MESAGRAN LB/VEGAZ OD",
+    "composition": "MESALAZINE",
+    "strength": "2GM,1GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 291,
+    "brand_name": "LAMINO BCCA",
+    "composition": "ELEMENTAL ZINC+L-ISOLEUCINE+L-LEUCIN+L-VALINE",
+    "strength": "13.2MG/1.25GM/2.5GM/1.25GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 292,
+    "brand_name": "LAMINO HEPA",
+    "composition": "L-LYSINE+L-ISOLEUCINE+L-LEUCIN+L-VALINE",
+    "strength": "700MG/480MG/830MG/490MG",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 293,
+    "brand_name": "LAMINO HP",
+    "composition": "ALPHA LIOPIC ACID + L-CARNITINE ETC",
+    "strength": "30GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 294,
+    "brand_name": "HEPAGARD/SAMLOL",
+    "composition": "L-ORNITHINE L-ASPARTATE",
+    "strength": "3GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 295,
+    "brand_name": "PENTASURE CREPITIC",
+    "composition": "HYDROLYSED WHEY PEPTIDE",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 296,
+    "brand_name": "EFEZAC",
+    "composition": "WHEY PROTIN ISOLATE+LEUCINE+ISOLUCINE+VALINE",
+    "strength": "10GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 297,
+    "brand_name": "PROHENCE LIV",
+    "composition": "WHEY PROTIN CONCENTRATE+BCAAs ETC",
+    "strength": "18GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 298,
+    "brand_name": "SUCRAFIL/MACRALFATE",
+    "composition": "SUCRALFATE",
+    "strength": "500MG/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 299,
+    "brand_name": "SUCRAFIL O /MACRALFATE O",
+    "composition": "SUCRALFATE + OXETACAINE",
+    "strength": "500MG/5ML+10MG/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 300,
+    "brand_name": "MACRAFT/ALGISOD",
+    "composition": "CALCIUM CARBONATE+SODIUM BICARBONATE+SODIUM ALGINATE",
+    "strength": "80MG/133.5MG/250MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 301,
+    "brand_name": "LOOZ PEG",
+    "composition": "POLYETHYLENE GLYCOL",
+    "strength": "13.125GM",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 303,
+    "brand_name": "LACTIHEP PLUS/PICLIN PLUS",
+    "composition": "SODIUM PICOSULFATE+LIQUID PARAFFIN+MILK OF MAGNESIA",
+    "strength": "33.33MG+1.25ML+3.75ML/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 304,
+    "brand_name": "CADILOSE/LAXITOL/LACTIHEP",
+    "composition": "LAXITOL",
+    "strength": "10GM/15ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 305,
+    "brand_name": "MUCAIN GEL",
+    "composition": "OXETACAINE+ALUMINIUM HYDROXIDE+MILK OF MAGNESIA",
+    "strength": "10MG+0.291GM+98MG/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 306,
+    "brand_name": "LACTIFIBER/LIVOLUK",
+    "composition": "LAXITOL + ISPAGHULA",
+    "strength": "10GM/3.5GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 307,
+    "brand_name": "PEGFIBER",
+    "composition": "POLYETHYLENE GLYCOL + ISPAGHULA",
+    "strength": "17GM/3.5GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 308,
+    "brand_name": "PEGMOVE",
+    "composition": "POLYETHYLENE GLYCOL",
+    "strength": "17GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 310,
+    "brand_name": "PEGLAC",
+    "composition": "POLYETHYLENE GLYCOL+SODIUM CHLORIDE+POTASSIUM CHLORIDE",
+    "strength": "137.15GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 311,
+    "brand_name": "EXELYTE",
+    "composition": "ORAL SALINE LAXATIVE",
+    "strength": "45ML",
+    "type": "SOLUTION"
+  },
+  {
+    "sno": 314,
+    "brand_name": "UTI & PULMONARY",
+    "composition": null,
+    "strength": null,
+    "type": null
+  },
+  {
+    "sno": 316,
+    "brand_name": "SILDOO/SILODAL/SILOCAP",
+    "composition": "SILODOSIN",
+    "strength": "8MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 317,
+    "brand_name": "SILDOO/SILODAL/SILOCAP D",
+    "composition": "SILODOSIN + DUTASTERIDE",
+    "strength": "8MG/0.5MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 318,
+    "brand_name": "RAPLIF/MAXVOID",
+    "composition": "SILODOSIN",
+    "strength": "8MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 319,
+    "brand_name": "RAPLIF T/SILDOO T",
+    "composition": "SILODOSIN + TADALAFIL",
+    "strength": "80MG/5MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 320,
+    "brand_name": "MAXVOID M/SILODAL M",
+    "composition": "SILODOSIN + MIRABEGRON",
+    "strength": "8MG/25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 321,
+    "brand_name": "MAXVOID PLUS/GERIPOD D",
+    "composition": "SILODOSIN + DUTASTERIDE",
+    "strength": "8MG/0.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 322,
+    "brand_name": "MIRAGO/MIRBEG/EXENA",
+    "composition": "MIRABEGRON",
+    "strength": "50MG,25MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 323,
+    "brand_name": "PYRIDIUM",
+    "composition": "PHENAZOPYRIDINE HYDROCHLORIDE",
+    "strength": "200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 324,
+    "brand_name": "TEDUP/MODULA",
+    "composition": "TADALAFIL",
+    "strength": "5MG,10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 325,
+    "brand_name": "UROTONE",
+    "composition": "BETHANECHOL CHLORIDE",
+    "strength": "25MG,50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 326,
+    "brand_name": "TRACFREE",
+    "composition": "CRANBERRY EXTRACT + D-MANNOSE",
+    "strength": "600MG/300MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 327,
+    "brand_name": "DARIF",
+    "composition": "DARIFENACIN",
+    "strength": "7.5MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 328,
+    "brand_name": "KCIT",
+    "composition": "CITRIC ACID + POTASSIUM CITRATE",
+    "strength": "334MG+1100MG/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 329,
+    "brand_name": "URIVOLT/CRANPAC KM",
+    "composition": "CRANBERRY EXTRACT + D-MANNOSE+POTASSIUM+MAGNESIUM",
+    "strength": "200MG/300MG/978MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 330,
+    "brand_name": "ALKASOL",
+    "composition": "DISODIUM HYDROGEN CITRATE",
+    "strength": "1.4GM/5ML",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 332,
+    "brand_name": "K MAC ACTIVE",
+    "composition": "POTASSIUM CITRATE+MAGNESIUM CITRATE+PYRIDOXAL",
+    "strength": "1100MG/375MG/1.5MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 333,
+    "brand_name": "POTKLOR",
+    "composition": "POTASSIUM CHLORIDE",
+    "strength": "1.5GM",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 334,
+    "brand_name": "FOSIROL",
+    "composition": "FOSFOMYCIN",
+    "strength": "3GM",
+    "type": "SACHETS"
+  },
+  {
+    "sno": 335,
+    "brand_name": "PULMOCLEAR/MUCOMIX ACE",
+    "composition": "ACEBROPHYLLINE + ACETYLCYSTEINE",
+    "strength": "100MG/600MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 336,
+    "brand_name": "EFETIL",
+    "composition": "ACETYLCYSTEINE",
+    "strength": "600MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 337,
+    "brand_name": "MONTEK AB",
+    "composition": "MONTELUKAST + ACEBROPHYLLINE",
+    "strength": "10MG/200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 338,
+    "brand_name": "GLEMONT F",
+    "composition": "MONTELUKAST + FEXOFENADINE",
+    "strength": "10MG/120MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 339,
+    "brand_name": "MONTICOPE",
+    "composition": "LEVOCETIRIZINE + MONTELUKAST",
+    "strength": "5MG/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 340,
+    "brand_name": "MONDESLOR",
+    "composition": "DESLORATADINE + MONTELUKAST",
+    "strength": "5MG/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 341,
+    "brand_name": "HISTAFREE",
+    "composition": "FEXOFENADINE",
+    "strength": "120MG,180MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 342,
+    "brand_name": "AB PHYLLINE SR",
+    "composition": "ACEBROPHYLLINE",
+    "strength": "200MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 343,
+    "brand_name": "DERIPHYLLINE R",
+    "composition": "ETOFYLLINE + THEOPHYLLINE",
+    "strength": "115MG/35MG",
+    "type": "TABLET & INJECTION"
+  },
+  {
+    "sno": 344,
+    "brand_name": "CETIRIZ",
+    "composition": "CETIRIZINE",
+    "strength": "10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 345,
+    "brand_name": "DOXOLIN",
+    "composition": "DOXYPHYLLINE",
+    "strength": "400MG,650MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 346,
+    "brand_name": "BILASURE",
+    "composition": "BILASTINE",
+    "strength": "40MG,20MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 347,
+    "brand_name": "BILASURE M",
+    "composition": "BILASTINE + MONTELUKAST",
+    "strength": "40MG/10MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 348,
+    "brand_name": "ALEX",
+    "composition": "DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "5MG",
+    "type": "LOZENGES"
+  },
+  {
+    "sno": 349,
+    "brand_name": "BENZ PEARL",
+    "composition": "BENZONATATE",
+    "strength": "100MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 350,
+    "brand_name": "ALLERBIO",
+    "composition": "LACTOBASILLUS PARACASEI + LACTOBASILLUS FERMENTUM",
+    "strength": "4 BILLION CELL",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 351,
+    "brand_name": "SOVENTUS D",
+    "composition": "AMBROXOL+CHLORPHENIRAMINE MALEATE",
+    "strength": "20MG/2MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 352,
+    "brand_name": "LUPITUSS / ALEX L",
+    "composition": "LEVOCLOPREASTINE",
+    "strength": "20MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 353,
+    "brand_name": "BROZEDEX SF",
+    "composition": "GUAIFENESIN+TERBUTALINE+BROMHEXINE",
+    "strength": "50MG/1.25MG/4MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 354,
+    "brand_name": "BROZEDEX LS",
+    "composition": "LEVOSALBUTAMOL+AMBROXOL+GUAIFENESIN",
+    "strength": "1MG/30MG/50MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 355,
+    "brand_name": "ALEX SF",
+    "composition": "PHENYLEPHRINE+CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "5MG/2MG/10MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 356,
+    "brand_name": "CHERICOF 12",
+    "composition": "CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "4MG/30MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 357,
+    "brand_name": "COREX DX",
+    "composition": "CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE",
+    "strength": "4MG/10MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 358,
+    "brand_name": "FORMONIDE/FORACORT",
+    "composition": "FORMOTEROL FUMARATE+BUDESONIDE",
+    "strength": "200MG,400MG",
+    "type": "INHALER"
+  },
+  {
+    "sno": 359,
+    "brand_name": "TIOVA",
+    "composition": "TIOTROPIUM BROMIDE",
+    "strength": "9MG",
+    "type": "INHALER"
+  },
+  {
+    "sno": 360,
+    "brand_name": "DUONASE/FLUBLOCK AZ",
+    "composition": "FLUTICASONE PROPIONATE+AZELASTINE",
+    "strength": "50MCG/140MCG",
+    "type": "NASAL SPRAY"
+  },
+  {
+    "sno": 361,
+    "brand_name": "FLOMIST/FLUBLOCK",
+    "composition": "FLUTICASONE PROPIONATE",
+    "strength": "50MCG",
+    "type": "NASAL SPRAY"
+  },
+  {
+    "sno": 362,
+    "brand_name": "INSED",
+    "composition": "MIDAZOLAM",
+    "strength": "0.5MG",
+    "type": "NASAL SPRAY"
+  },
+  {
+    "sno": 363,
+    "brand_name": "MOMEFLO",
+    "composition": "MOMETASONE",
+    "strength": "50MCG",
+    "type": "NASAL SPRAY"
+  },
+  {
+    "sno": 364,
+    "brand_name": "NASOCLEAR",
+    "composition": "SODIUM CHLORIDE",
+    "strength": "0.0065",
+    "type": "NASAL SPRAY"
+  },
+  {
+    "sno": 365,
+    "brand_name": "FORMONIDE/FORACORT",
+    "composition": "FORMOTEROL FUMARATE+BUDESONIDE",
+    "strength": "20MCG/0.5MG,20MCG/1MG",
+    "type": "NEBULISATION LIQUID"
+  },
+  {
+    "sno": 366,
+    "brand_name": "BUDAMATE",
+    "composition": "FORMOTEROL+BUDESONIDE",
+    "strength": "20MCG/0.5MG,20MCG/1MG",
+    "type": "NEBULISATION LIQUID"
+  },
+  {
+    "sno": 367,
+    "brand_name": "IPRAZEST",
+    "composition": "LEVOSALBUTAMOL+IPRATROPIUM",
+    "strength": "1.25MG/500MCG",
+    "type": "NEBULISATION LIQUID"
+  },
+  {
+    "sno": 368,
+    "brand_name": "BUNASE",
+    "composition": "BUDESONIDE",
+    "strength": "0.5MG",
+    "type": "NEBULISATION LIQUID"
+  },
+  {
+    "sno": 369,
+    "brand_name": "GLYCOFLO/GLYCOHALE",
+    "composition": "GLYCOPYRROLATE",
+    "strength": "25MCG",
+    "type": "NEBULISATION LIQUID"
+  },
+  {
+    "sno": 370,
+    "brand_name": "TOBAMIST",
+    "composition": "TOBRAMYCIN",
+    "strength": "300MG INJ-80MG",
+    "type": "NEBULISATION LIQUID/INJ"
+  },
+  {
+    "sno": 373,
+    "brand_name": "MULTIVIT & ORTHO & PROTINES & RENAL",
+    "composition": null,
+    "strength": null,
+    "type": null
+  },
+  {
+    "sno": 375,
+    "brand_name": "NUROKIND PLUS/MYLAMIN",
+    "composition": "METHYLCOBALAMIN + NIACINAMIDE + VIT B6",
+    "strength": "1500MCG",
+    "type": "INJECTION"
+  },
+  {
+    "sno": 376,
+    "brand_name": "MELCOVIT/SURBEX GOLD",
+    "composition": "OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC",
+    "strength": "250MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 377,
+    "brand_name": "SUPRACTIVE",
+    "composition": "OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC",
+    "strength": "250MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 378,
+    "brand_name": "ZINCOVIT",
+    "composition": "MULTIVIT+MULTIMINERAL+GRAPE SEED EXTRACT",
+    "strength": "50MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 379,
+    "brand_name": "MENOPASE ISO",
+    "composition": "Soya Isoflavones, Magnesium Hydroxide, Vitamin C",
+    "strength": "100MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 380,
+    "brand_name": "OXYVOLT",
+    "composition": "GRAPE SEED EXTRACT+LYCOPENE+LUTEIN",
+    "strength": "100MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 381,
+    "brand_name": "GEN D3 NANO",
+    "composition": "VIT D3",
+    "strength": "60000IU",
+    "type": "TABLET"
+  },
+  {
+    "sno": 382,
+    "brand_name": "FOLIZORB",
+    "composition": "L-Methyl Folate + Methylcobalamin + Omega-3 fatty acid + Pyridoxal-5-phosphate",
+    "strength": "1500MCG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 383,
+    "brand_name": "NEUROBION FORT",
+    "composition": "Thiamine Mononitrate,Riboflavin,Pyridoxine Hydrochloride,Cyanocobalamin ,Nicotinamide",
+    "strength": "1500MCG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 384,
+    "brand_name": "NEUROLYK CD3",
+    "composition": "Alpha Lipoic Acid+Benfotiamine+Chromium Methylcobalamin+Pyridoxine",
+    "strength": "1000MCG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 385,
+    "brand_name": "NUROKIND LC",
+    "composition": "Levo-carnitine + Methylcobalamin + Folic Acid",
+    "strength": "500MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 386,
+    "brand_name": "NUROKIND NEXT",
+    "composition": "Benfothiamine, Mecobalamin, Alpha Lipoic Acid, Pyridoxine, Folic acid, Biotin + Chromium.",
+    "strength": "1500MCG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 387,
+    "brand_name": "LYCORED",
+    "composition": "LYCOPENE",
+    "strength": "100MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 388,
+    "brand_name": "RUBIRED",
+    "composition": "IRON SUCROSE",
+    "strength": "200MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 389,
+    "brand_name": "NEUROLYK GOLD",
+    "composition": "MULTIVIT+MULTIMINERAL",
+    "strength": "200MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 390,
+    "brand_name": "POLYBION LC",
+    "composition": "Pyridoxine Hydrochloride+Nicotinamide+Cyanocobalamin+Cyanocobalamin",
+    "strength": "375MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 391,
+    "brand_name": "POLYBION ACTIVE",
+    "composition": "VIT B COMPLEX+LYSINE",
+    "strength": "375MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 392,
+    "brand_name": "BEVON",
+    "composition": "MULTIVIT+MULTIMINERAL",
+    "strength": "200MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 393,
+    "brand_name": "AMPIMUST",
+    "composition": "Cyproheptadine + Tricholine Citrate + Sorbitol",
+    "strength": "275MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 394,
+    "brand_name": "APTIVATE",
+    "composition": "AYURVEDIC",
+    "strength": "75MG",
+    "type": "SYRUP"
+  },
+  {
+    "sno": 395,
+    "brand_name": "NEOGADINE SG",
+    "composition": "Cyanocobalamin,Iodised Peptone,Magnesium Chloride,Manganese Sulphate,Nicotinamide",
+    "strength": null,
+    "type": "SYRUP"
+  },
+  {
+    "sno": 396,
+    "brand_name": "A TO Z",
+    "composition": "MULTIVIT+MULTIMINERAL",
+    "strength": "50MG",
+    "type": "DROP"
+  },
+  {
+    "sno": 397,
+    "brand_name": "ULTRA D3/KIDRICH D3",
+    "composition": "VIT D3",
+    "strength": "400IU",
+    "type": "DROP"
+  },
+  {
+    "sno": 398,
+    "brand_name": "BIO D3 PLUS",
+    "composition": "CALCIUM + VIT D3",
+    "strength": "200MG",
+    "type": "CAPSULES/SYRUP"
+  },
+  {
+    "sno": 399,
+    "brand_name": "BIO D3 MAX",
+    "composition": "Calcitriol+Calcium Carbonate+Omega-3 fatty acid+Methylcobalamin+Folic Acid",
+    "strength": "1500MCG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 400,
+    "brand_name": "BIO D3 XT/SHELCAL XT",
+    "composition": "Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium",
+    "strength": "1500MCG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 401,
+    "brand_name": "BIO D3 DS",
+    "composition": "Calcitriol + Calcium Carbonate + Vitamin K2-7 + Zinc + Potassium Citrate",
+    "strength": "1250MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 402,
+    "brand_name": "BIO D3 JOINT/SHELCAL JOINT",
+    "composition": "CALCIUM+BOSCURIN+VITC TYPE II COLLOGEN",
+    "strength": "500MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 403,
+    "brand_name": "EZORB JOINT",
+    "composition": "Rosehip extract,fructoborate, Devil's claw extract, Boswellia extract, collagen type II",
+    "strength": "275MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 404,
+    "brand_name": "SHELCAL",
+    "composition": "CALCIUM CARBONATE",
+    "strength": "500MG,1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 406,
+    "brand_name": "TRICIUM ACTIVE",
+    "composition": "Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium",
+    "strength": "1500MCG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 407,
+    "brand_name": "CENTRUM JOINT",
+    "composition": "UC-II, undenatured collagen type II,Vitamin D3,Vitamin K2",
+    "strength": "40MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 408,
+    "brand_name": "HARJOD",
+    "composition": "AYURVEDIC",
+    "strength": "250MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 409,
+    "brand_name": "JOINTEC C2",
+    "composition": "Glucosamine sulphate potassium chloride,Collagen Type II,Chondroitin sulphate",
+    "strength": "750MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 410,
+    "brand_name": "THEAL",
+    "composition": "Mucopolysaccharides + Collagen Type I + VIT C",
+    "strength": "220MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 411,
+    "brand_name": "TENDOFIRM",
+    "composition": "Chondroitin, Mucopolysaccharide & Hyaluronic Acid",
+    "strength": "200MG",
+    "type": "CAPSULES"
+  },
+  {
+    "sno": 412,
+    "brand_name": "PROHENCE HP/PENTASURE HP",
+    "composition": "Soy protein isolate, Skimmed milk powder, Whey protein concentrate, Maltodextrin, Fructose,",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 413,
+    "brand_name": "PROHENCE D/PENTASURE DM",
+    "composition": "Dietary Fiber,Whep Protein,cocoa Solids,calcium,vitamins and minerals",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 414,
+    "brand_name": "PENTASURE RENAL",
+    "composition": "Encapsulated corn oil,Maltodextrin,Whey protein concentrate,Fructooligosaccharides",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 415,
+    "brand_name": "PENTASURE DLS",
+    "composition": "Encapsulated Vegetable oil+Choline Hydrogen Tara Vanins L-Camiline, L-Taurine, Inositol",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 416,
+    "brand_name": "PENTASURE/PROHENCE",
+    "composition": "Whey Protein Concentrate, Maltodextrin",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 417,
+    "brand_name": "NAN 1 PRO",
+    "composition": "Milk solids, Demineralised whey",
+    "strength": "400GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 418,
+    "brand_name": "LACTAOGEN",
+    "composition": "Milk solids, Demineralised whey",
+    "strength": "200GM",
+    "type": "POWDER"
+  },
+  {
+    "sno": 419,
+    "brand_name": "RENADYL",
+    "composition": "PRE PRO",
+    "strength": "4 BILLION CELL",
+    "type": "CAPSULE"
+  },
+  {
+    "sno": 420,
+    "brand_name": "RENOSAVE/NAFROSAVE",
+    "composition": "Taurine + Acetylcysteine",
+    "strength": "500MG+150MG",
+    "type": "TABLET/CAPSULES"
+  },
+  {
+    "sno": 421,
+    "brand_name": "NUCARNIT",
+    "composition": "LEVOCARNITINE",
+    "strength": "500MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 422,
+    "brand_name": "SOBISIS",
+    "composition": "SODIUM BICARBONATE",
+    "strength": "500MG,1000MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 423,
+    "brand_name": "SOIHENZ",
+    "composition": "Taurine + Acetylcysteine",
+    "strength": "500MG+150MG",
+    "type": "TABLET"
+  },
+  {
+    "sno": 424,
+    "brand_name": "REVELMAR",
+    "composition": "SEVELAMER",
+    "strength": "800MG",
+    "type": "TABLET"
+  }
+]

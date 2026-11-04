@@ -397,6 +397,7 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Phone); // Non-unique: Indian family members often share one phone number
+            e.HasIndex(x => new { x.TenantId, x.Phone }); // tenant-scoped lookup used by registration
             e.HasIndex(x => new { x.TenantId, x.Uhid }).IsUnique().HasFilter("\"Uhid\" IS NOT NULL");
             e.HasIndex(x => x.Name); // trigram GIN index added via migration separately
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
@@ -421,6 +422,10 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<PatientConsent>(e =>
         {
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TenantId);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
+            e.HasIndex(x => x.TenantId);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.Purpose).HasMaxLength(255);
             e.Property(x => x.NoticeVersion).HasMaxLength(50).HasDefaultValue("v1.0");
             e.Property(x => x.Language).HasMaxLength(10).HasDefaultValue("en");
@@ -451,6 +456,7 @@ public class HospitalCrmDbContext : DbContext
             // Public tracker lookup by token hash / random token
             e.HasIndex(x => x.QueueTrackingToken).IsUnique().HasFilter("\"QueueTrackingToken\" IS NOT NULL");
             e.HasIndex(x => new { x.PatientId, x.Date });
+            e.HasIndex(x => new { x.TenantId, x.DoctorId, x.Date, x.Status }); // doctor day-view by status
             e.Property(x => x.TimeSlot).HasMaxLength(10);
             e.Property(x => x.QueueTrackingToken).HasMaxLength(128);
             e.Property(x => x.TriageReasonCode).HasMaxLength(50);
@@ -479,6 +485,9 @@ public class HospitalCrmDbContext : DbContext
             e.HasIndex(x => new { x.AppointmentId, x.Version }).IsUnique();
             e.HasIndex(x => new { x.DoctorId, x.CreatedAt });
             e.HasIndex(x => x.Status);
+            // Patient history path is Consultation -> Appointment.PatientId; Consultation carries no PatientId.
+            e.HasIndex(x => new { x.TenantId, x.AppointmentId, x.CreatedAt });
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Appointment).WithMany(a => a.Consultations).HasForeignKey(x => x.AppointmentId);
             e.HasOne(x => x.Doctor).WithMany(u => u.Consultations).HasForeignKey(x => x.DoctorId);
@@ -488,7 +497,9 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<Prescription>(e =>
         {
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TenantId);
             e.HasIndex(x => x.ConsultationId);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Consultation).WithMany(c => c.Prescriptions).HasForeignKey(x => x.ConsultationId);
         });
@@ -511,6 +522,7 @@ public class HospitalCrmDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.Status, x.CreatedAt });
             e.HasIndex(x => x.AppointmentId);
+            e.HasIndex(x => new { x.TenantId, x.PatientId, x.Status });
             e.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
             e.HasIndex(x => new { x.TenantId, x.FinancialYear, x.Series, x.InvoiceNumber })
                 .IsUnique()
@@ -672,6 +684,8 @@ public class HospitalCrmDbContext : DbContext
         modelBuilder.Entity<LabResult>(e =>
         {
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TenantId);
+            e.Property(x => x.TenantId).HasDefaultValue(Guid.Empty);
             e.HasIndex(x => new { x.LabOrderId, x.Version });
             e.Property(x => x.ResultText).HasMaxLength(5000);
             e.Property(x => x.FileUrl).HasMaxLength(500);
@@ -735,6 +749,7 @@ public class HospitalCrmDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.DrugId, x.ExpiryDate });
+            e.HasIndex(x => new { x.DrugId, x.ExpiryDate, x.QuantityRemaining }); // FEFO dispense lookup
             e.HasIndex(x => x.BatchNumber);
             e.Property(x => x.BatchNumber).HasMaxLength(100).IsRequired();
             e.Property(x => x.Mrp).HasColumnType("decimal(18,2)");
@@ -1022,6 +1037,7 @@ public class HospitalCrmDbContext : DbContext
                          (e.Entity is ImpersonationLog && !IsPermittedImpersonationLogEnd(e)) ||
                          e.Entity is ControlledSubstanceRegister ||
                          e.Entity is DrugStockMovement ||
+                         e.Entity is StockMovement ||
                          e.Entity is PrescriptionPrintLog ||
                          e.Entity is MedicineSearchMissLog ||
                          e.Entity is FinanceLedgerEntry ||

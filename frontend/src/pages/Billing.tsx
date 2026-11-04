@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,20 +9,30 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { Modal } from '../components/ui/Modal'
 import { fmtDate } from '../utils/format'
 
+const invoiceLineItemSchema = z.object({
+  description: z.string().min(1, 'Description required'),
+  quantity: z.number().min(1),
+  unitPrice: z.number().min(0.01, 'Unit price required'),
+  taxCategory: z.enum(['Exempt', 'Nil', 'Taxable']),
+  hsnSacCode: z.string(),
+  gstRate: z.number().min(0),
+})
+
 const invoiceSchema = z.object({
   patientId: z.string().min(1, 'Select a patient'),
   appointmentId: z.string().min(1, 'Select the appointment this invoice belongs to'),
   discountAmount: z.number().min(0),
   discountReason: z.string().optional(),
   autoFinalize: z.boolean(),
-  lineItems: z.array(z.object({
-    description: z.string().min(1, 'Description required'),
-    quantity: z.number().min(1),
-    unitPrice: z.number().min(0.01, 'Unit price required'),
-    taxCategory: z.enum(['Exempt', 'Nil', 'Taxable']),
-    hsnSacCode: z.string(),
-    gstRate: z.number().min(0),
-  })).min(1, 'At least one line item is required'),
+  lineItems: z.array(invoiceLineItemSchema).min(1, 'At least one line item is required'),
+}).superRefine((data, ctx) => {
+  if ((data.discountAmount ?? 0) > 0 && !data.discountReason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountReason'],
+      message: 'Discount reason is required when discount amount is greater than ₹0',
+    })
+  }
 })
 
 type InvoiceForm = z.infer<typeof invoiceSchema>
@@ -277,6 +287,20 @@ export default function Billing() {
   const [expenseMonth, setExpenseMonth] = useState(todayISO.slice(0, 7))
   const [expenses, setExpenses] = useState<ExpenseRow[]>([])
   const [monthSummary, setMonthSummary] = useState<MonthSummary | null>(null)
+  const [journalEntries, setJournalEntries] = useState<any[]>([])
+  const [loadingJournal, setLoadingJournal] = useState(false)
+
+  const loadJournal = async () => {
+    setLoadingJournal(true)
+    try {
+      const res = await api.get('/ledger/journal')
+      setJournalEntries(Array.isArray(res.data) ? res.data : [])
+    } catch (err: any) {
+      showToast(friendlyError(err) || 'Failed to load ledger journal', 'err')
+    } finally {
+      setLoadingJournal(false)
+    }
+  }
   const [expenseCategory, setExpenseCategory] = useState('rent')
   const [expenseAmount, setExpenseAmount] = useState<number>(0)
   const [expenseDate, setExpenseDate] = useState(todayISO)
@@ -855,12 +879,20 @@ export default function Billing() {
           Advance Deposits
         </button>
         {isClinicAdmin && (
-          <button
-            onClick={() => { setActiveTab('expenses'); void loadExpenses(expenseMonth) }}
-            className={`btn btn-sm ${activeTab === 'expenses' ? 'btn-primary' : 'btn-ghost'}`}
-          >
-            Expenses &amp; Month-End
-          </button>
+          <>
+            <button
+              onClick={() => { setActiveTab('expenses'); void loadExpenses(expenseMonth) }}
+              className={`btn btn-sm ${activeTab === 'expenses' ? 'btn-primary' : 'btn-ghost'}`}
+            >
+              Expenses &amp; Month-End
+            </button>
+            <button
+              onClick={() => { setActiveTab('ledger'); void loadJournal() }}
+              className={`btn btn-sm ${activeTab === 'ledger' ? 'btn-primary' : 'btn-ghost'}`}
+            >
+              Audit Journal Ledger
+            </button>
+          </>
         )}
       </div>
 
@@ -1311,6 +1343,65 @@ export default function Billing() {
                       ₹{expenses.reduce((sum, x) => sum + Number(x.amount || 0), 0).toLocaleString('en-IN')}
                     </td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'ledger' ? (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--color-text)] font-heading">
+                General Ledger Double-Entry Audit Journal
+              </h3>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium">
+                Immutable, append-only double entry ledger postings for statutory tax audits and bank reconciliations.
+              </p>
+            </div>
+            <button onClick={loadJournal} disabled={loadingJournal} className="btn btn-secondary btn-xs">
+              {loadingJournal ? 'Refreshing…' : '↻ Refresh Ledger'}
+            </button>
+          </div>
+
+          {loadingJournal ? (
+            <div className="text-center py-8 text-xs text-[var(--color-text-muted)]">Loading ledger journal entries…</div>
+          ) : journalEntries.length === 0 ? (
+            <div className="text-center py-8 text-xs text-[var(--color-text-muted)]">No ledger journal entries found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table text-xs">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Entry Type</th>
+                    <th>Account Category</th>
+                    <th>Reference</th>
+                    <th className="text-right">Debit (₹)</th>
+                    <th className="text-right">Credit (₹)</th>
+                    <th>Narration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {journalEntries.map((e: any) => (
+                    <tr key={e.id}>
+                      <td className="font-mono text-[11px] text-[var(--color-text-muted)]">
+                        {new Date(e.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td>
+                        <span className="badge badge-brand text-[10px] font-semibold">{e.entryType}</span>
+                      </td>
+                      <td className="font-medium text-[var(--color-text)]">{e.accountCategory}</td>
+                      <td className="font-mono text-[11px]">{e.referenceNumber || e.referenceType || '-'}</td>
+                      <td className="text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {e.debitAmount > 0 ? `₹${Number(e.debitAmount).toLocaleString('en-IN')}` : '-'}
+                      </td>
+                      <td className="text-right font-mono font-semibold text-rose-600 dark:text-rose-400">
+                        {e.creditAmount > 0 ? `₹${Number(e.creditAmount).toLocaleString('en-IN')}` : '-'}
+                      </td>
+                      <td className="text-[var(--color-text-secondary)] text-[11px]">{e.narration}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -2003,6 +2094,9 @@ export default function Billing() {
                 placeholder="SeniorCitizen / StaffFamily / Discretion"
                 className="form-input text-xs"
               />
+              {errors.discountReason && (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.discountReason.message}</p>
+              )}
             </div>
           </div>
 

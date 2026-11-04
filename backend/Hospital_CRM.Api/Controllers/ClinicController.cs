@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
@@ -52,6 +52,51 @@ public class ClinicController : ControllerBase
         if (!string.IsNullOrWhiteSpace(request.DateFormat)) clinic.DateFormat = request.DateFormat.Trim();
         if (!string.IsNullOrWhiteSpace(request.TimeFormat)) clinic.TimeFormat = request.TimeFormat.Trim();
         if (!string.IsNullOrWhiteSpace(request.Language)) clinic.Language = request.Language.Trim();
+        if (!string.IsNullOrWhiteSpace(request.PrimaryColor)) clinic.PrimaryColor = request.PrimaryColor.Trim();
+        if (!string.IsNullOrWhiteSpace(request.SecondaryColor)) clinic.SecondaryColor = request.SecondaryColor.Trim();
+        if (!string.IsNullOrWhiteSpace(request.AccentColor)) clinic.AccentColor = request.AccentColor.Trim();
+        if (request.DefaultAppointmentDurationMinutes.HasValue && request.DefaultAppointmentDurationMinutes.Value > 0)
+            clinic.DefaultAppointmentDurationMinutes = request.DefaultAppointmentDurationMinutes.Value;
+        if (request.BufferMinutes.HasValue && request.BufferMinutes.Value >= 0)
+            clinic.BufferMinutes = request.BufferMinutes.Value;
+        if (request.MinAdvanceBookingHours.HasValue && request.MinAdvanceBookingHours.Value >= 0)
+            clinic.MinAdvanceBookingHours = request.MinAdvanceBookingHours.Value;
+        if (request.MaxAdvanceBookingDays.HasValue && request.MaxAdvanceBookingDays.Value >= 1)
+            clinic.MaxAdvanceBookingDays = request.MaxAdvanceBookingDays.Value;
+        if (request.SameDayBookingAllowed.HasValue)
+            clinic.SameDayBookingAllowed = request.SameDayBookingAllowed.Value;
+        if (request.WalkInsAllowed.HasValue)
+            clinic.WalkInsAllowed = request.WalkInsAllowed.Value;
+        if (request.OverbookingAllowed.HasValue)
+            clinic.OverbookingAllowed = request.OverbookingAllowed.Value;
+        if (request.CancellationWindowHours.HasValue && request.CancellationWindowHours.Value >= 0)
+            clinic.CancellationWindowHours = request.CancellationWindowHours.Value;
+        if (request.ReschedulingAllowed.HasValue)
+            clinic.ReschedulingAllowed = request.ReschedulingAllowed.Value;
+        if (request.NoShowHandlingEnabled.HasValue)
+            clinic.NoShowHandlingEnabled = request.NoShowHandlingEnabled.Value;
+        if (request.QueueEnabled.HasValue)
+            clinic.QueueEnabled = request.QueueEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(request.TokenFormat))
+            clinic.TokenFormat = request.TokenFormat.Trim();
+        if (request.TokenStartNumber.HasValue && request.TokenStartNumber.Value > 0)
+            clinic.TokenStartNumber = request.TokenStartNumber.Value;
+        if (!string.IsNullOrWhiteSpace(request.TokenResetFrequency))
+            clinic.TokenResetFrequency = request.TokenResetFrequency.Trim();
+        if (!string.IsNullOrWhiteSpace(request.InvoicePrefix))
+            clinic.InvoicePrefix = request.InvoicePrefix.Trim();
+        if (request.DefaultConsultationFee.HasValue && request.DefaultConsultationFee.Value >= 0)
+            clinic.DefaultConsultationFee = request.DefaultConsultationFee.Value;
+        if (request.DefaultGstRate.HasValue && request.DefaultGstRate.Value >= 0)
+            clinic.DefaultGstRate = request.DefaultGstRate.Value;
+        if (request.DefaultInvoiceStatus.HasValue)
+            clinic.DefaultInvoiceStatus = request.DefaultInvoiceStatus.Value;
+        if (request.PharmacyLicenceNumber20 != null)
+            clinic.PharmacyLicenceNumber20 = request.PharmacyLicenceNumber20.Trim();
+        if (request.PharmacyLicenceNumber21 != null)
+            clinic.PharmacyLicenceNumber21 = request.PharmacyLicenceNumber21.Trim();
+        if (request.PharmacyGstNumber != null)
+            clinic.PharmacyGstNumber = request.PharmacyGstNumber.Trim();
         clinic.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -132,6 +177,9 @@ public class ClinicController : ControllerBase
             defaultConsultationFee = clinic.DefaultConsultationFee,
             defaultGstRate = clinic.DefaultGstRate,
             defaultInvoiceStatus = clinic.DefaultInvoiceStatus,
+            pharmacyLicenceNumber20 = clinic.PharmacyLicenceNumber20,
+            pharmacyLicenceNumber21 = clinic.PharmacyLicenceNumber21,
+            pharmacyGstNumber = clinic.PharmacyGstNumber,
             workingHours = workingHours
                 .OrderBy(h => h.DayOfWeek)
                 .ThenBy(h => h.ShiftIndex)
@@ -363,7 +411,39 @@ public record ClinicProfileRequest(
     string? Website = null,
     string? DateFormat = null,
     string? TimeFormat = null,
-    string? Language = null);
+    string? Language = null,
+    string? PrimaryColor = null,
+    string? SecondaryColor = null,
+    string? AccentColor = null,
+    int? DefaultAppointmentDurationMinutes = null,
+    int? BufferMinutes = null,
+    int? MinAdvanceBookingHours = null,
+    int? MaxAdvanceBookingDays = null,
+    bool? SameDayBookingAllowed = null,
+    bool? WalkInsAllowed = null,
+    bool? OverbookingAllowed = null,
+    int? CancellationWindowHours = null,
+    bool? ReschedulingAllowed = null,
+    bool? NoShowHandlingEnabled = null,
+    bool? QueueEnabled = null,
+    string? TokenFormat = null,
+    int? TokenStartNumber = null,
+    string? TokenResetFrequency = null,
+    string? InvoicePrefix = null,
+    decimal? DefaultConsultationFee = null,
+    decimal? DefaultGstRate = null,
+    bool? DefaultInvoiceStatus = null,
+    // State drug-control formats differ (e.g. "KA/B-123/2020-21", "DL-20-2026-KA-8891"), so reject only
+    // characters a licence never contains; GSTIN has one national format.
+    [StringLength(100, ErrorMessage = "Form 20 licence number cannot exceed 100 characters")]
+    [RegularExpression(@"^[A-Za-z0-9][A-Za-z0-9/\- ]{3,99}$", ErrorMessage = "Form 20 licence number may only contain letters, digits, spaces, '-' and '/'")]
+    string? PharmacyLicenceNumber20 = null,
+    [StringLength(100, ErrorMessage = "Form 21 licence number cannot exceed 100 characters")]
+    [RegularExpression(@"^[A-Za-z0-9][A-Za-z0-9/\- ]{3,99}$", ErrorMessage = "Form 21 licence number may only contain letters, digits, spaces, '-' and '/'")]
+    string? PharmacyLicenceNumber21 = null,
+    [StringLength(50, ErrorMessage = "Pharmacy GST number cannot exceed 50 characters")]
+    [RegularExpression(@"(?i)^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$", ErrorMessage = "Pharmacy GST number must be a valid 15-character GSTIN")]
+    string? PharmacyGstNumber = null);
 
 public record WorkingHoursRequest(
     [Required(ErrorMessage = "Day is required")]

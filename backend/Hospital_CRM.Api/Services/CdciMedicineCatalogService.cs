@@ -27,6 +27,8 @@ public class CdciMedicineCatalogService : ICdciMedicineCatalogService
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
+    // Cache dose form id -> dose form name
+    private readonly Dictionary<string, string> _drugForms = new(StringComparer.OrdinalIgnoreCase);
     // Cache generic code -> generic name & dose form
     private readonly Dictionary<string, (string GenericName, string? DoseForm)> _generics = new(StringComparer.OrdinalIgnoreCase);
     // Cache searchable list of generics
@@ -57,8 +59,31 @@ public class CdciMedicineCatalogService : ICdciMedicineCatalogService
                 return;
             }
 
+            var formPath = Path.Combine(basePath, "DrugFormMaster.txt");
             var genericPath = Path.Combine(basePath, "GenericMaster.txt");
             var brandPath = Path.Combine(basePath, "BrandMaster.txt");
+
+            if (File.Exists(formPath))
+            {
+                using var reader = new StreamReader(formPath, Encoding.UTF8);
+                string? line;
+                bool isHeader = true;
+                while ((line = await reader.ReadLineAsync(ct)) != null)
+                {
+                    if (isHeader) { isHeader = false; continue; }
+                    var parts = line.Split('\t');
+                    if (parts.Length >= 2)
+                    {
+                        var formId = parts[0].Trim();
+                        var formName = parts[1].Trim();
+                        if (!string.IsNullOrEmpty(formId) && !string.IsNullOrEmpty(formName))
+                        {
+                            _drugForms[formId] = formName;
+                        }
+                    }
+                }
+                _logger.LogInformation("Loaded {Count} dosage forms from CDCI DrugFormMaster.txt", _drugForms.Count);
+            }
 
             if (File.Exists(genericPath))
             {
@@ -73,7 +98,8 @@ public class CdciMedicineCatalogService : ICdciMedicineCatalogService
 
                     var id = parts[0].Trim();
                     var genericName = parts[1].Trim();
-                    var doseForm = parts.Length > 4 ? parts[4].Trim() : null;
+                    var doseFormCode = parts.Length > 4 ? parts[4].Trim() : null;
+                    var doseForm = (doseFormCode != null && _drugForms.TryGetValue(doseFormCode, out var df)) ? df : doseFormCode;
 
                     _generics[id] = (genericName, doseForm);
                     _genericList.Add((id, genericName, doseForm));

@@ -83,7 +83,7 @@ public record PosCheckoutRequest(
     [StringLength(100, MinimumLength = 2)]
     string? WalkInCustomerName,
 
-    [RegularExpression(@"^[6-9]\d{9}$", ErrorMessage = "Customer phone must be a valid 10-digit number")]
+    [RegularExpression(@"^(?:\+91[\-\s]?)?[6-9]\d{9}$", ErrorMessage = "Customer phone must be a valid 10-digit number")]
     string? WalkInCustomerPhone,
 
     Guid? PatientId,
@@ -256,4 +256,26 @@ public record StockAdjustmentRequest(
 
     [StringLength(100)]
     string? ApprovedBy
+);
+
+public record SyncFormularyRequest(
+    bool SeedBatches = true
+);
+
+public record ImportCdciDrugRequest(
+    [Required, StringLength(150, MinimumLength = 2)] string Name,
+    [Required, StringLength(150, MinimumLength = 2)] string GenericName,
+    [StringLength(100)] string? TherapeuticCategory,
+    [StringLength(50)] string? DosageForm,
+    [StringLength(50)] string? Strength,
+    string? ScheduleClass,
+    [RegularExpression(@"^\d{4,8}$")] string? HsnCode,
+    [Range(0, 28)] decimal GstRate,
+    [Range(0.00, 500000.00)] decimal IndicativeMrp,
+    [StringLength(50)] string? StandardPackSize,
+    [StringLength(300)] string? CommonBrands,
+    string? ExternalCode,
+    bool SeedInitialBatch = false,
+    [Range(0.01, 500000.00)] decimal? InitialBatchMrp = null,
+    [Range(1, 10000)] int InitialBatchQty = 100
 );

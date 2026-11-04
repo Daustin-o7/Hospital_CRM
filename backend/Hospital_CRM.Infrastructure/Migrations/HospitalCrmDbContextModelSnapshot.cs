@@ -103,6 +103,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("\"QueueToken\" IS NOT NULL");
 
+                    b.HasIndex("TenantId", "DoctorId", "Date", "Status");
+
                     b.HasIndex("TenantId", "DoctorId", "Date", "TimeSlot")
                         .IsUnique()
                         .HasFilter("\"Status\" <> 6");
@@ -667,6 +669,9 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<string>("Observations")
                         .HasColumnType("text");
 
+                    b.Property<string>("OdontogramJson")
+                        .HasColumnType("text");
+
                     b.Property<Guid?>("PreviousVersionId")
                         .HasColumnType("uuid");
 
@@ -687,6 +692,11 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.Property<int?>("TemplateVersion")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -710,6 +720,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("DoctorId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "AppointmentId", "CreatedAt");
 
                     b.ToTable("Consultations");
                 });
@@ -1200,6 +1212,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasIndex("DrugId", "ExpiryDate");
 
+                    b.HasIndex("DrugId", "ExpiryDate", "QuantityRemaining");
+
                     b.ToTable("DrugBatches", t =>
                         {
                             t.HasCheckConstraint("CK_DrugBatch_QuantityRemaining_NonNegative", "\"QuantityRemaining\" >= 0");
@@ -1544,6 +1558,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasIndex("Status", "CreatedAt");
 
+                    b.HasIndex("TenantId", "PatientId", "Status");
+
                     b.HasIndex("TenantId", "FinancialYear", "Series", "InvoiceNumber")
                         .IsUnique()
                         .HasFilter("\"InvoiceNumber\" > 0");
@@ -1741,6 +1757,11 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(5000)
                         .HasColumnType("character varying(5000)");
 
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
+
                     b.Property<string>("Units")
                         .HasColumnType("text");
 
@@ -1748,6 +1769,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("EnteredBy");
 
@@ -2491,6 +2514,8 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.HasIndex("Phone");
 
+                    b.HasIndex("TenantId", "Phone");
+
                     b.HasIndex("TenantId", "Uhid")
                         .IsUnique()
                         .HasFilter("\"Uhid\" IS NOT NULL");
@@ -2588,10 +2613,17 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
+
                     b.Property<DateTimeOffset?>("WithdrawnAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("CapturedBy");
 
@@ -3112,7 +3144,14 @@ namespace Hospital_CRM.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("00000000-0000-0000-0000-000000000000"));
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("ConsultationId");
 
@@ -4179,6 +4218,10 @@ namespace Hospital_CRM.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -4330,6 +4373,10 @@ namespace Hospital_CRM.Infrastructure.Migrations
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid");

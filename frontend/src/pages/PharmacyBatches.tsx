@@ -34,6 +34,9 @@ interface DrugMaster {
   standardPackSize: string
   indicativeMrp: number
   commonBrands?: string
+  dataSource?: string
+  isUnverified?: boolean
+  isOfficialHospitalFormulary?: boolean
   totalStock: number
   activeBatchesCount: number
   expiringBatchesCount: number
@@ -45,6 +48,21 @@ interface DrugMaster {
     mrp: number
     quantityRemaining: number
   }
+}
+
+interface CdciHit {
+  externalCode: string
+  name: string
+  genericName?: string
+  dosageForm?: string
+  strength?: string
+  commonBrands?: string
+  dataSource: string
+  isUnverified: boolean
+  checkpointMessage?: string
+  isInInventory: boolean
+  existingDrugId?: string
+  isOfficialFormulary: boolean
 }
 
 interface PharmacyStats {
@@ -89,6 +107,124 @@ export default function PharmacyBatches() {
 
   // Drug detail modal
   const [viewDrugDetail, setViewDrugDetail] = useState<any | null>(null)
+
+  // Stock movements ledger modal
+  const [showMovementsModal, setShowMovementsModal] = useState(false)
+  const [movements, setMovements] = useState<any[]>([])
+  const [loadingMovements, setLoadingMovements] = useState(false)
+
+  // Official Hospital Formulary Sync
+  const [syncingFormulary, setSyncingFormulary] = useState(false)
+
+  // National CDCI Master Modal
+  const [showCdciModal, setShowCdciModal] = useState(false)
+  const [cdciQuery, setCdciQuery] = useState('')
+  const [cdciHits, setCdciHits] = useState<CdciHit[]>([])
+  const [cdciSearching, setCdciSearching] = useState(false)
+  const [importingCdciItem, setImportingCdciItem] = useState<CdciHit | null>(null)
+  const [importCategory, setImportCategory] = useState('Antibiotics & Antimicrobials')
+  const [importDosageForm, setImportDosageForm] = useState('Tablet')
+  const [importStrength, setImportStrength] = useState('')
+  const [importMrp, setImportMrp] = useState<number | ''>(100)
+  const [importPackSize, setImportPackSize] = useState('10 Tablets')
+  const [importSchedule, setImportSchedule] = useState('General')
+  const [importInitialBatch, setImportInitialBatch] = useState(true)
+  const [importInitialQty, setImportInitialQty] = useState<number | ''>(100)
+  const [importingLoading, setImportingLoading] = useState(false)
+
+  const handleSyncFormulary = async () => {
+    if (!window.confirm('Sync the official verified hospital formulary (440 medicines across 8 clinical categories)? This will ensure all official hospital drugs and batches are populated.')) return
+
+    setSyncingFormulary(true)
+    setError('')
+    setActionSuccess('')
+    try {
+      const res = await api.post('/pharmacy/formulary/sync-official', { seedBatches: true })
+      setActionSuccess(`Official Hospital Formulary Synchronized: ${res.data.addedCount} medicines added, ${res.data.updatedCount} verified, ${res.data.batchesAdded} batches ready.`)
+      fetchDrugs()
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to synchronize official hospital formulary.')
+    } finally {
+      setSyncingFormulary(false)
+    }
+  }
+
+  const handleCdciSearch = async (q: string) => {
+    setCdciQuery(q)
+    if (!q.trim() || q.trim().length < 2) {
+      setCdciHits([])
+      return
+    }
+
+    setCdciSearching(true)
+    try {
+      const res = await api.get('/pharmacy/cdci/search', { params: { query: q.trim(), limit: 40 } })
+      setCdciHits(Array.isArray(res.data) ? res.data : [])
+    } catch {
+      // search error handled gracefully
+    } finally {
+      setCdciSearching(false)
+    }
+  }
+
+  const openImportModal = (hit: CdciHit) => {
+    setImportingCdciItem(hit)
+    setImportDosageForm(hit.dosageForm || 'Tablet')
+    setImportStrength(hit.strength || '')
+    setImportCategory('Antibiotics & Antimicrobials')
+    setImportMrp(120)
+    setImportPackSize(hit.dosageForm && hit.dosageForm.toLowerCase().includes('inj') ? '1 Vial' : '10 Tablets')
+    setImportSchedule(hit.name.toLowerCase().includes('cef') || hit.name.toLowerCase().includes('mox') ? 'ScheduleH1' : 'ScheduleH')
+    setImportInitialBatch(true)
+    setImportInitialQty(100)
+  }
+
+  const submitImportCdci = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!importingCdciItem) return
+
+    setImportingLoading(true)
+    setError('')
+    try {
+      await api.post('/pharmacy/cdci/import', {
+        name: importingCdciItem.name,
+        genericName: importingCdciItem.genericName || importingCdciItem.name,
+        therapeuticCategory: importCategory,
+        dosageForm: importDosageForm,
+        strength: importStrength,
+        scheduleClass: importSchedule,
+        indicativeMrp: Number(importMrp) || 50,
+        standardPackSize: importPackSize,
+        commonBrands: importingCdciItem.name,
+        externalCode: importingCdciItem.externalCode,
+        seedInitialBatch: importInitialBatch,
+        initialBatchQty: Number(importInitialQty) || 50,
+        initialBatchMrp: Number(importMrp) || 50
+      })
+
+      setActionSuccess(`Successfully imported ${importingCdciItem.name} into hospital formulary inventory.`)
+      setImportingCdciItem(null)
+      setShowCdciModal(false)
+      fetchDrugs()
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to import drug from CDCI.')
+    } finally {
+      setImportingLoading(false)
+    }
+  }
+
+  const fetchStockMovements = async () => {
+    setShowMovementsModal(true)
+    setLoadingMovements(true)
+    try {
+      const res = await api.get('/pharmacy/stock-movements')
+      setMovements(Array.isArray(res.data) ? res.data : [])
+    } catch {
+      setError('Failed to load stock movements audit ledger')
+    } finally {
+      setLoadingMovements(false)
+    }
+  }
 
   const fetchDrugs = async () => {
     setLoading(true)
@@ -278,7 +414,34 @@ export default function PharmacyBatches() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleSyncFormulary}
+            disabled={syncingFormulary}
+            className="btn btn-primary btn-sm flex items-center gap-1.5"
+            title="Synchronize verified official hospital formulary (440 medicines across 8 clinical categories)"
+          >
+            {syncingFormulary ? (
+              <span className="spinner spinner-xs" />
+            ) : (
+              <span>⚡</span>
+            )}
+            Sync Official Formulary
+          </button>
+          <button
+            onClick={() => setShowCdciModal(true)}
+            className="btn btn-secondary btn-sm flex items-center gap-1.5"
+            title="Search the national 93k+ CDCI drug codes database"
+          >
+            <span>🔍</span>
+            National CDCI Master (93k+)
+          </button>
+          <button
+            onClick={fetchStockMovements}
+            className="btn btn-secondary btn-sm"
+          >
+            📦 Stock Ledger
+          </button>
           <button
             onClick={exportCatalogCsv}
             className="btn btn-secondary btn-sm"
@@ -286,7 +449,7 @@ export default function PharmacyBatches() {
             <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Export to Excel / CSV
+            Export CSV
           </button>
         </div>
       </div>
@@ -358,13 +521,15 @@ export default function PharmacyBatches() {
             onChange={e => setSelectedCategory(e.target.value)}
             className="form-select text-xs"
           >
-            <option value="">All Categories</option>
-            <option value="Antibiotic">Antibiotics</option>
-            <option value="Analgesic">Analgesic / Pain</option>
-            <option value="Antacid">Antacids / PPI</option>
-            <option value="Cardiovascular">Cardiovascular</option>
-            <option value="Antidiabetic">Antidiabetic</option>
-            <option value="Respiratory">Respiratory</option>
+            <option value="">All Categories (8 Hospital Departments)</option>
+            <option value="Antibiotics & Antimicrobials">Antibiotics & Antimicrobials</option>
+            <option value="Analgesics, Antipyretics & NSAIDs">Analgesics & NSAIDs</option>
+            <option value="Cardiovascular & Antihypertensives">Cardiovascular & Antihypertensives</option>
+            <option value="Antidiabetics & Endocrine">Antidiabetics & Endocrine</option>
+            <option value="CNS, Neurology & Psychotropic">CNS & Neurology</option>
+            <option value="Gastrointestinal, Hepatic & Antispasmodic">Gastrointestinal & Hepatic</option>
+            <option value="Respiratory, Pulmonology & Urological">Respiratory & Pulmonology</option>
+            <option value="Vitamins, Minerals, Nutrients & Nephrology">Vitamins, Minerals & Nephrology</option>
           </select>
         </div>
       </div>
@@ -408,10 +573,21 @@ export default function PharmacyBatches() {
                   return (
                     <tr key={drug.id}>
                       <td>
-                        <div className="font-bold text-[var(--color-text)]">{drug.name}</div>
-                        <div className="text-[11px] text-[var(--color-text-muted)]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-[var(--color-text)]">{drug.name}</span>
+                          {(drug.isOfficialHospitalFormulary || drug.dataSource === 'HospitalMaster') && (
+                            <span className="badge badge-success text-[9px] py-0 px-1 bg-emerald-50 text-emerald-700 border-emerald-300 font-medium">
+                              ✓ Official Formulary
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
                           {drug.genericName}
-                          {drug.commonBrands && <span className="ml-1 opacity-75">({drug.commonBrands})</span>}
+                          {drug.therapeuticCategory && (
+                            <span className="badge badge-subtle text-[9px] ml-1.5 py-0">
+                              {drug.therapeuticCategory}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -735,6 +911,67 @@ export default function PharmacyBatches() {
         </Modal>
       )}
 
+      {/* Stock movements audit modal */}
+      <Modal
+        open={showMovementsModal}
+        onClose={() => setShowMovementsModal(false)}
+        title="Drug Stock Movements Audit Ledger"
+        description="Immutable ledger of inward stock, POS dispensations, adjustments, and recalls (REVOKE UPDATE/DELETE compliant)."
+        size="lg"
+      >
+        <div className="space-y-4">
+          {loadingMovements ? (
+            <div className="text-center py-8 text-xs text-[var(--color-text-muted)]">
+              Loading inventory movements ledger…
+            </div>
+          ) : movements.length === 0 ? (
+            <div className="text-center py-8 text-xs text-[var(--color-text-muted)]">
+              No stock movements recorded yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[60vh]">
+              <table className="data-table text-xs">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Medicine</th>
+                    <th>Batch</th>
+                    <th>Direction</th>
+                    <th className="text-right">Qty</th>
+                    <th>Reference</th>
+                    <th>Reason / Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.map((m: any) => (
+                    <tr key={m.id}>
+                      <td className="font-mono text-[11px] text-[var(--color-text-muted)]">
+                        {new Date(m.recordedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td className="font-bold text-[var(--color-text)]">{m.drugName}</td>
+                      <td className="font-mono">{m.batchNumber}</td>
+                      <td>
+                        <span className={`badge badge-xs ${m.direction === 'In' ? 'badge-success' : 'badge-error'}`}>
+                          {m.direction === 'In' ? '↓ Inward' : '↑ Outward'}
+                        </span>
+                      </td>
+                      <td className="text-right font-mono font-bold">{m.quantity}</td>
+                      <td className="font-mono text-[11px]">{m.referenceType || '-'}</td>
+                      <td className="text-[var(--color-text-muted)] text-[11px]">{m.note || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex justify-end pt-3 border-t border-[var(--color-border)]">
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowMovementsModal(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* ── Statutory Batch Recall Confirmation Modal ── */}
       {recallingBatch && (
         <Modal
@@ -780,6 +1017,188 @@ export default function PharmacyBatches() {
           </form>
         </Modal>
       )}
+    
+      {/* ── National CDCI Master Catalog Modal ── */}
+      {showCdciModal && (
+        <Modal
+          open={showCdciModal}
+          onClose={() => {
+            setShowCdciModal(false)
+            setImportingCdciItem(null)
+          }}
+          title="National CDCI Medicine Master (93,000+ Indian Drugs)"
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500">
+              Direct live search against the National Resource Centre for EHR Standards (NRCeS / C-DAC) Common Drug Codes for India.
+              Search by commercial brand name, generic composition, or salt, and curate directly into your hospital formulary.
+            </p>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={cdciQuery}
+                onChange={e => handleCdciSearch(e.target.value)}
+                placeholder="Search by brand or salt (e.g. Paracetamol, Meropenem, Telmisartan, Lantus)..."
+                className="input text-xs w-full pl-8"
+                autoFocus
+              />
+              <span className="absolute left-2.5 top-2.5 text-slate-400">
+                🔍
+              </span>
+              {cdciSearching && (
+                <span className="absolute right-3 top-2.5">
+                  <span className="spinner spinner-xs" />
+                </span>
+              )}
+            </div>
+
+            {/* Results list */}
+            <div className="max-h-80 overflow-y-auto space-y-2 divide-y divide-slate-100">
+              {cdciHits.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">
+                  {cdciQuery.trim().length >= 2 ? 'No matches found in national CDCI master.' : 'Type at least 2 characters to search over 93,000 Indian drugs.'}
+                </div>
+              ) : (
+                cdciHits.map((hit, idx) => (
+                  <div key={hit.externalCode || idx} className="pt-2 flex items-center justify-between text-xs hover:bg-slate-50 p-2 rounded">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">{hit.name}</span>
+                        {hit.isInInventory ? (
+                          <span className="badge badge-success text-[9px] py-0">✓ In Inventory</span>
+                        ) : (
+                          <span className="badge badge-subtle text-[9px] py-0">Available to Import</span>
+                        )}
+                      </div>
+                      <div className="text-slate-500 text-[11px] mt-0.5">
+                        {hit.genericName} • <span className="text-slate-600 font-medium">{hit.dosageForm || 'Oral'}</span> {hit.strength && `• ${hit.strength}`}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mono">
+                        Code: {hit.externalCode} • {hit.dataSource}
+                      </div>
+                    </div>
+
+                    <div>
+                      {hit.isInInventory ? (
+                        <button
+                          disabled
+                          className="btn btn-secondary btn-xs opacity-60 cursor-not-allowed"
+                        >
+                          Enrolled
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openImportModal(hit)}
+                          className="btn btn-primary btn-xs"
+                        >
+                          + Curate &amp; Import
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Sub-drawer for importing */}
+            {importingCdciItem && (
+              <form onSubmit={submitImportCdci} className="p-4 bg-teal-50/50 rounded-xl border border-teal-200 space-y-3 mt-4 animate-fadein">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-teal-900">
+                    Import to Clinic Catalog: {importingCdciItem.name}
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setImportingCdciItem(null)}
+                    className="text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    ✕ Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-700 mb-1">Hospital Category</label>
+                    <select
+                      value={importCategory}
+                      onChange={e => setImportCategory(e.target.value)}
+                      className="form-select text-xs w-full"
+                    >
+                      <option value="Antibiotics & Antimicrobials">Antibiotics & Antimicrobials</option>
+                      <option value="Analgesics, Antipyretics & NSAIDs">Analgesics & NSAIDs</option>
+                      <option value="Cardiovascular & Antihypertensives">Cardiovascular & Antihypertensives</option>
+                      <option value="Antidiabetics & Endocrine">Antidiabetics & Endocrine</option>
+                      <option value="CNS, Neurology & Psychotropic">CNS & Neurology</option>
+                      <option value="Gastrointestinal, Hepatic & Antispasmodic">Gastrointestinal & Hepatic</option>
+                      <option value="Respiratory, Pulmonology & Urological">Respiratory & Pulmonology</option>
+                      <option value="Vitamins, Minerals, Nutrients & Nephrology">Vitamins, Minerals & Nephrology</option>
+                      <option value="General">General / Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-700 mb-1">Schedule Class</label>
+                    <select
+                      value={importSchedule}
+                      onChange={e => setImportSchedule(e.target.value)}
+                      className="form-select text-xs w-full"
+                    >
+                      <option value="General">General / OTC</option>
+                      <option value="ScheduleH">Schedule H (Prescription)</option>
+                      <option value="ScheduleH1">Schedule H1 (Controlled Antibiotic)</option>
+                      <option value="NDPS">NDPS / Schedule X (Narcotics)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-700 mb-1">Pack Size</label>
+                    <input
+                      type="text"
+                      value={importPackSize}
+                      onChange={e => setImportPackSize(e.target.value)}
+                      className="input text-xs w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-700 mb-1">Indicative MRP (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={importMrp}
+                      onChange={e => setImportMrp(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="input text-xs w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-teal-200/60 flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={importInitialBatch}
+                      onChange={e => setImportInitialBatch(e.target.checked)}
+                      className="checkbox"
+                    />
+                    <span>Seed initial active batch ({importInitialQty} units)</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={importingLoading}
+                    className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  >
+                    {importingLoading && <span className="spinner spinner-xs" />}
+                    Confirm &amp; Add to Catalog
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </Modal>
+      )}
+
     </div>
   )
 }

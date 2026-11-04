@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -345,6 +345,8 @@ public class ConsultationsController : ControllerBase
         draft.TemplateId = request.TemplateId;
         draft.TemplateVersion = request.TemplateVersion;
         draft.StructuredObservationsJson = request.StructuredObservationsJson;
+        draft.OdontogramJson = request.OdontogramJson;
+        draft.TenantId = User.GetTenantId() ?? appointment.TenantId;
         draft.UpdatedAt = DateTimeOffset.UtcNow;
 
         // Sync draft prescription items if provided
@@ -357,6 +359,7 @@ public class ConsultationsController : ControllerBase
                 rx = new Prescription
                 {
                     Id = Guid.NewGuid(),
+                    TenantId = draft.TenantId,
                     ConsultationId = draft.Id,
                     CreatedAt = DateTimeOffset.UtcNow
                 };
@@ -583,6 +586,8 @@ public class ConsultationsController : ControllerBase
             consultation.TemplateId = request.TemplateId;
             consultation.TemplateVersion = request.TemplateVersion;
             consultation.StructuredObservationsJson = request.StructuredObservationsJson;
+            consultation.OdontogramJson = request.OdontogramJson;
+            if (tenantId != Guid.Empty) consultation.TenantId = tenantId;
 
             // One timestamp, second precision: SignedAt and the hash must agree exactly once
             // the row is read back from Postgres (microseconds would break reproduction).
@@ -608,6 +613,7 @@ public class ConsultationsController : ControllerBase
                     rx = new Prescription
                     {
                         Id = Guid.NewGuid(),
+                        TenantId = consultation.TenantId,
                         ConsultationId = consultation.Id,
                         CreatedAt = DateTimeOffset.UtcNow
                     };
@@ -769,6 +775,8 @@ public class ConsultationsController : ControllerBase
             TemplateId = request.TemplateId ?? existing.TemplateId,
             TemplateVersion = request.TemplateVersion ?? existing.TemplateVersion,
             StructuredObservationsJson = request.StructuredObservationsJson ?? existing.StructuredObservationsJson,
+            OdontogramJson = request.OdontogramJson ?? existing.OdontogramJson,
+            TenantId = User.GetTenantId() ?? existing.TenantId,
             Status = ConsultationStatus.Amended,
             Version = existing.Version + 1,
             PreviousVersionId = existing.Id,
@@ -787,6 +795,7 @@ public class ConsultationsController : ControllerBase
         var rx = new Prescription
         {
             Id = Guid.NewGuid(),
+            TenantId = newVersion.TenantId,
             ConsultationId = newVersion.Id,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -1229,6 +1238,8 @@ public class ConsultationsController : ControllerBase
             icdTitle = consultation.IcdTitle,
             followUpDate = consultation.FollowUpDate,
             followUpNotes = consultation.FollowUpNotes,
+            structuredObservationsJson = consultation.StructuredObservationsJson,
+            odontogramJson = consultation.OdontogramJson,
             version = consultation.Version,
             previousVersionId = consultation.PreviousVersionId,
             amendmentReason = consultation.AmendmentReason,
@@ -1365,6 +1376,7 @@ public class ConsultationsController : ControllerBase
         var prescription = new Prescription
         {
             Id = Guid.NewGuid(),
+            TenantId = consultation.TenantId,
             ConsultationId = consultationId,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -1636,7 +1648,8 @@ public record SaveConsultationDraftRequest(
     Guid? TemplateId,
     int? TemplateVersion,
     string? StructuredObservationsJson,
-    List<StructuredPrescriptionItemRequest>? PrescriptionItems
+    List<StructuredPrescriptionItemRequest>? PrescriptionItems,
+    string? OdontogramJson = null
 );
 
 public record FinalizeConsultationRequest(
@@ -1652,7 +1665,8 @@ public record FinalizeConsultationRequest(
     int? TemplateVersion,
     string? StructuredObservationsJson,
     List<StructuredPrescriptionItemRequest>? PrescriptionItems,
-    List<string>? OrderedLabTests
+    List<string>? OrderedLabTests,
+    string? OdontogramJson = null
 );
 
 public record AmendConsultationRequest(
@@ -1668,7 +1682,8 @@ public record AmendConsultationRequest(
     Guid? TemplateId,
     int? TemplateVersion,
     string? StructuredObservationsJson,
-    List<StructuredPrescriptionItemRequest>? PrescriptionItems
+    List<StructuredPrescriptionItemRequest>? PrescriptionItems,
+    string? OdontogramJson = null
 );
 
 public record CreateConsultationRequest(

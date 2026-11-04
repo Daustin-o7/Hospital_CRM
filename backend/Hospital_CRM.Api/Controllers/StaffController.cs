@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Api.Services;
@@ -77,6 +77,11 @@ public class StaffController : ControllerBase
             ExpiresAt = DateTimeOffset.UtcNow.AddHours(72) // FR-04
         };
 
+        if (request.Role.Equals("Doctor", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(request.Specialty))
+        {
+            invite.Specialization = request.Specialty ?? string.Empty;
+        }
+
         if (request.Role.Equals("Nurse", StringComparison.OrdinalIgnoreCase))
         {
             invite.LicenseNumber = request.LicenseNumber ?? string.Empty;
@@ -144,6 +149,7 @@ public class StaffController : ControllerBase
             Email = invite.Email,
             PasswordHash = request.Password.HashPassword(),
             Role = invite.Role,
+            Specialty = !string.IsNullOrWhiteSpace(invite.Specialization) ? invite.Specialization : null,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -294,6 +300,7 @@ public class StaffController : ControllerBase
                 name = u.Name,
                 email = u.Email,
                 role = u.Role.ToString().ToLower(),
+                specialty = u.Specialty,
                 status = "Active",
                 joinedAt = u.CreatedAt
             })
@@ -312,6 +319,9 @@ public record StaffInviteRequest(
 
     [Required(ErrorMessage = "Role is required")]
     string Role,
+
+    // Doctor specialization
+    string? Specialty = null,
 
     // Nurse-specific optional fields
     string? LicenseNumber = null,

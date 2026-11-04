@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+﻿import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -25,7 +25,7 @@ async function login(page: import('@playwright/test').Page, preset: 'Admin' | 'N
   for (let attempt = 1; attempt <= 3; attempt++) {
     await page.goto('/login')
     // Preset buttons include an emoji icon — match the exact label span instead
-    await page.getByText(preset, { exact: true }).click()
+    await page.getByRole('button', { name: preset, exact: true }).click()
     await page.getByRole('button', { name: /Sign in/i }).click()
     try {
       await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 })
@@ -95,8 +95,8 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
 
     await page.getByRole('link', { name: /Nurse Roster/i }).click()
     await expect(page).toHaveURL(/.*roster/)
-    await expect(page.getByRole('heading', { name: /Nurse Roster & Leave/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /Pending leave requests/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Staff Duty Roster & Shift Management|Nurse Roster/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Active Duty Roster/i })).toBeVisible()
 
     // Post an open shift (no nurse selected → nurses can apply)
     await page.getByRole('button', { name: /Post shift/i }).first().click()
@@ -105,8 +105,8 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
     await dialog.locator('#shift-date').fill(shiftDate())
     await dialog.locator('#shift-type').selectOption('Evening')
     await dialog.locator('#shift-notes').fill(marker)
-    await dialog.getByRole('button', { name: /^Post shift$/ }).click()
-    await expect(page.getByText('Shift posted')).toBeVisible({ timeout: 8000 })
+    await dialog.getByRole('button', { name: /^Post shift$/i }).click()
+    await expect(page.getByText(/Shift created and added to roster|Shift posted/i)).toBeVisible({ timeout: 8000 })
 
     const row = page.locator('tr', { hasText: marker })
     await expect(row).toBeVisible()
@@ -117,8 +117,8 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
     await login(page, 'Nurse')
 
     await page.getByRole('link', { name: /Nurse Roster/i }).click()
-    await expect(page.getByRole('heading', { name: /Nurse Roster & Leave/i })).toBeVisible()
-    await expect(page.getByRole('heading', { name: /My leave requests/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Staff Duty Roster & Shift Management|Nurse Roster/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Active Duty Roster/i })).toBeVisible()
 
     const row = page.locator('tr', { hasText: marker })
     await expect(row).toBeVisible()
@@ -162,7 +162,7 @@ test.describe('MOD-26 Nurse roster, leave & nursing care', () => {
   test('4. Admin assigns the applicant, then approves leave with a roster-clash flag', async ({ page }) => {
     await login(page, 'Admin')
     await page.getByRole('link', { name: /Nurse Roster/i }).click()
-    await expect(page.getByRole('heading', { name: /Nurse Roster & Leave/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Staff Duty Roster & Shift Management|Nurse Roster/i })).toBeVisible()
 
     // Pick the applicant on this run's shift
     const row = page.locator('tr', { hasText: marker })

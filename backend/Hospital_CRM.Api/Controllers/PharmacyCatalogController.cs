@@ -16,12 +16,24 @@ namespace Hospital_CRM.Api.Controllers;
 public class PharmacyCatalogController : ControllerBase
 {
     private readonly HospitalCrmDbContext _db;
+    private readonly Hospital_CRM.Api.Services.ICdciMedicineCatalogService _cdci;
     private readonly ILogger<PharmacyCatalogController> _logger;
 
-    public PharmacyCatalogController(HospitalCrmDbContext db, ILogger<PharmacyCatalogController> logger)
+    public PharmacyCatalogController(
+        HospitalCrmDbContext db,
+        Hospital_CRM.Api.Services.ICdciMedicineCatalogService cdci,
+        ILogger<PharmacyCatalogController> logger)
     {
         _db = db;
+        _cdci = cdci;
         _logger = logger;
+    }
+
+    public PharmacyCatalogController(
+        HospitalCrmDbContext db,
+        ILogger<PharmacyCatalogController> logger)
+        : this(db, null!, logger)
+    {
     }
 
     [HttpGet("drugs")]
@@ -327,4 +339,302 @@ public class PharmacyCatalogController : ControllerBase
             substitutes = results
         });
     }
+
+    [HttpGet("formulary")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor", "Receptionist", "Nurse")]
+    public async Task<IActionResult> GetHospitalFormulary(
+        [FromQuery] string? query,
+        [FromQuery] string? category,
+        [FromQuery] string? dosageForm,
+        [FromQuery] string? schedule,
+        [FromQuery] bool? verifiedOnly,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        var q = _db.Drugs.AsNoTracking().Include(d => d.Batches).AsQueryable();
+
+        if (verifiedOnly == true)
+        {
+            q = q.Where(d => d.DataSource == "HospitalMaster" && !d.IsUnverified);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var cleanQuery = query.Trim().ToLower();
+            q = q.Where(d =>
+                d.Name.ToLower().Contains(cleanQuery) ||
+                d.GenericName.ToLower().Contains(cleanQuery) ||
+                (d.CommonBrands != null && d.CommonBrands.ToLower().Contains(cleanQuery)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var cleanCat = category.Trim().ToLower();
+            q = q.Where(d => d.TherapeuticCategory.ToLower().Contains(cleanCat));
+        }
+
+        if (!string.IsNullOrWhiteSpace(dosageForm))
+        {
+            var cleanForm = dosageForm.Trim().ToLower();
+            q = q.Where(d => d.DosageForm.ToLower().Contains(cleanForm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(schedule) && Enum.TryParse<ScheduleClass>(schedule, true, out var schedClass))
+        {
+            q = q.Where(d => d.ScheduleClass == schedClass);
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sixtyDaysLater = today.AddDays(60);
+
+        var totalCount = await q.CountAsync(ct);
+
+        // Fetch category breakdown stats across all drugs
+        var allDrugsForStats = await _db.Drugs.AsNoTracking()
+            .Select(d => new { d.TherapeuticCategory, d.DosageForm, d.DataSource, d.IsUnverified, InStock = d.Batches.Any(b => b.ExpiryDate >= today && b.QuantityRemaining > 0) })
+            .ToListAsync(ct);
+
+        var categoryStats = allDrugsForStats
+            .GroupBy(d => string.IsNullOrWhiteSpace(d.TherapeuticCategory) ? "General" : d.TherapeuticCategory)
+            .Select(g => new
+            {
+                category = g.Key,
+                totalCount = g.Count(),
+                inStockCount = g.Count(x => x.InStock)
+            })
+            .OrderByDescending(x => x.totalCount)
+            .ToList();
+
+        var dosageFormStats = allDrugsForStats
+            .GroupBy(d => string.IsNullOrWhiteSpace(d.DosageForm) ? "Tablet" : d.DosageForm)
+            .Select(g => new
+            {
+                dosageForm = g.Key,
+                totalCount = g.Count()
+            })
+            .OrderByDescending(x => x.totalCount)
+            .ToList();
+
+        var rawDrugs = await q
+            .OrderBy(d => d.TherapeuticCategory)
+            .ThenBy(d => d.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        var results = rawDrugs.Select(d =>
+        {
+            var validBatches = d.Batches.Where(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today).ToList();
+            var totalStock = validBatches.Sum(b => b.QuantityRemaining);
+            var expiringBatchesCount = d.Batches.Count(b => b.QuantityRemaining > 0 && b.ExpiryDate >= today && b.ExpiryDate <= sixtyDaysLater);
+            var nextExpiringBatch = validBatches.OrderBy(b => b.ExpiryDate).FirstOrDefault();
+
+            return new
+            {
+                id = d.Id,
+                name = d.Name,
+                genericName = d.GenericName,
+                therapeuticCategory = d.TherapeuticCategory,
+                dosageForm = d.DosageForm,
+                strength = d.Strength,
+                scheduleClass = d.ScheduleClass.ToString(),
+                hsnCode = d.HsnCode,
+                gstRate = d.GstRate,
+                nlemCovered = d.NlemCovered,
+                dpcoCeilingPrice = d.DpcoCeilingPrice,
+                standardPackSize = d.StandardPackSize,
+                indicativeMrp = d.IndicativeMrp,
+                commonBrands = d.CommonBrands,
+                dataSource = d.DataSource,
+                isUnverified = d.IsUnverified,
+                isOfficialHospitalFormulary = d.DataSource == "HospitalMaster" && !d.IsUnverified,
+                totalStock,
+                expiringBatchesCount,
+                nextExpiringBatch = nextExpiringBatch == null ? null : new
+                {
+                    batchId = nextExpiringBatch.Id,
+                    batchNumber = nextExpiringBatch.BatchNumber,
+                    expiryDate = nextExpiringBatch.ExpiryDate.ToString("yyyy-MM-dd"),
+                    mrp = nextExpiringBatch.Mrp,
+                    quantityRemaining = nextExpiringBatch.QuantityRemaining
+                }
+            };
+        }).ToList();
+
+        return Ok(new
+        {
+            total = totalCount,
+            page,
+            pageSize,
+            officialHospitalCount = allDrugsForStats.Count(d => d.DataSource == "HospitalMaster" && !d.IsUnverified),
+            categories = categoryStats,
+            dosageForms = dosageFormStats,
+            drugs = results
+        });
+    }
+
+    [HttpPost("formulary/sync-official")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist")]
+    public async Task<IActionResult> SyncOfficialHospitalFormulary(
+        [FromBody] SyncFormularyRequest? req,
+        CancellationToken ct = default)
+    {
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+        try
+        {
+            var result = await HospitalFormularySeeder.SyncFormularyAsync(
+                _db,
+                tenantId,
+                seedBatches: req?.SeedBatches ?? true,
+                ct);
+
+            _logger.LogInformation("Synchronized official hospital formulary for tenant {TenantId}: {Added} added, {Updated} updated, {Batches} batches",
+                tenantId, result.AddedCount, result.UpdatedCount, result.BatchesAdded);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Official Hospital Formulary synchronized successfully.",
+                totalProcessed = result.TotalProcessed,
+                addedCount = result.AddedCount,
+                updatedCount = result.UpdatedCount,
+                batchesAdded = result.BatchesAdded,
+                source = Path.GetFileName(result.SourcePath)
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to synchronize official hospital formulary.");
+            return StatusCode(500, new { error = "formulary_sync_failed", message = ex.Message });
+        }
+    }
+
+    [HttpGet("cdci/search")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist", "Doctor")]
+    public async Task<IActionResult> SearchCdciCatalog(
+        [FromQuery] string? query,
+        [FromQuery] int limit = 30,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+            return Ok(Array.Empty<object>());
+
+        var hits = await _cdci.SearchAsync(query.Trim(), Math.Clamp(limit, 1, 100), ct);
+
+        // Check if any hit already exists in the hospital's Drug catalog
+        var hitNames = hits.Select(h => h.Name.ToLower()).Distinct().ToList();
+        var existingDrugs = await _db.Drugs.AsNoTracking()
+            .Where(d => hitNames.Contains(d.Name.ToLower()))
+            .Select(d => new { d.Id, Name = d.Name.ToLower(), d.DataSource, d.IsUnverified })
+            .ToDictionaryAsync(d => d.Name, ct);
+
+        var response = hits.Select(h =>
+        {
+            existingDrugs.TryGetValue(h.Name.ToLower(), out var existing);
+            return new
+            {
+                externalCode = h.ExternalCode,
+                name = h.Name,
+                genericName = h.GenericName,
+                dosageForm = h.DosageForm,
+                strength = h.Strength,
+                commonBrands = h.CommonBrands,
+                dataSource = h.DataSource,
+                isUnverified = h.IsUnverified,
+                checkpointMessage = h.CheckpointMessage,
+                isInInventory = existing != null,
+                existingDrugId = existing?.Id,
+                isOfficialFormulary = existing != null && existing.DataSource == "HospitalMaster" && !existing.IsUnverified
+            };
+        }).ToList();
+
+        return Ok(response);
+    }
+
+    [HttpPost("cdci/import")]
+    [AuthorizeRoles("ClinicAdmin", "Pharmacist")]
+    public async Task<IActionResult> ImportCdciDrugToCatalog(
+        [FromBody] ImportCdciDrugRequest req,
+        CancellationToken ct = default)
+    {
+        var tenantId = User.GetTenantId() ?? Guid.Empty;
+
+        var existing = await _db.Drugs
+            .FirstOrDefaultAsync(d => d.TenantId == tenantId && d.Name.ToLower() == req.Name.Trim().ToLower(), ct);
+
+        if (existing != null)
+        {
+            return Conflict(new { error = "drug_already_exists", drugId = existing.Id, message = $"A drug with the name '{req.Name}' already exists in inventory." });
+        }
+
+        var schedule = ScheduleClass.General;
+        if (!string.IsNullOrWhiteSpace(req.ScheduleClass) && Enum.TryParse<ScheduleClass>(req.ScheduleClass, true, out var parsed))
+        {
+            schedule = parsed;
+        }
+
+        var drug = new Drug
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = req.Name.Trim(),
+            GenericName = req.GenericName.Trim(),
+            TherapeuticCategory = !string.IsNullOrWhiteSpace(req.TherapeuticCategory) ? req.TherapeuticCategory.Trim() : "General",
+            DosageForm = !string.IsNullOrWhiteSpace(req.DosageForm) ? req.DosageForm.Trim() : "Tablet",
+            Strength = req.Strength?.Trim() ?? "",
+            ScheduleClass = schedule,
+            HsnCode = !string.IsNullOrWhiteSpace(req.HsnCode) ? req.HsnCode.Trim() : "30049099",
+            GstRate = req.GstRate > 0 ? req.GstRate : 12m,
+            StandardPackSize = !string.IsNullOrWhiteSpace(req.StandardPackSize) ? req.StandardPackSize.Trim() : "10 Tablets",
+            IndicativeMrp = req.IndicativeMrp,
+            CommonBrands = req.CommonBrands?.Trim() ?? req.Name.Trim(),
+            ExternalCode = req.ExternalCode,
+            DataSource = "HospitalMaster", // Curated into hospital master catalog
+            IsUnverified = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        _db.Drugs.Add(drug);
+
+        if (req.SeedInitialBatch && req.InitialBatchQty > 0)
+        {
+            var supplier = await _db.Suppliers.FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+            var mrp = req.InitialBatchMrp.GetValueOrDefault(req.IndicativeMrp > 0 ? req.IndicativeMrp : 50m);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var batch = new DrugBatch
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                DrugId = drug.Id,
+                BatchNumber = $"INIT-{DateTime.UtcNow:MMdd}-{Random.Shared.Next(100, 999)}",
+                ExpiryDate = today.AddMonths(18),
+                MfgDate = today.AddMonths(-2),
+                QuantityReceived = req.InitialBatchQty,
+                QuantityRemaining = req.InitialBatchQty,
+                Mrp = mrp,
+                PurchaseRate = Math.Round(mrp * 0.65m, 2),
+                SupplierId = supplier?.Id,
+                PackSize = drug.StandardPackSize,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _db.DrugBatches.Add(batch);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return StatusCode(201, new
+        {
+            id = drug.Id,
+            name = drug.Name,
+            genericName = drug.GenericName,
+            category = drug.TherapeuticCategory,
+            dataSource = drug.DataSource,
+            message = "drug_imported_into_formulary"
+        });
+    }
+
 }

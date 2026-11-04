@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useTheme, type ThemeMode } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import MobilePaymentBridgeSettings from '../components/MobilePaymentBridgeSettin
 import TwoFactorSettings from '../components/TwoFactorSettings'
 import { CLINICAL_SPECIALTIES } from '../constants/clinicalSpecialties'
 import { SkeletonCard } from '../components/ui/Skeleton'
+import { friendlyError } from '../components/ui/Alert'
 
 interface WorkingHour {
   day: string
@@ -57,9 +58,20 @@ interface ClinicProfile {
   overbookingAllowed: boolean
   cancellationWindowHours: number
   reschedulingAllowed: boolean
+  noShowHandlingEnabled: boolean
   queueEnabled: boolean
   invoicePrefix: string
   defaultGstRate: number
+  defaultConsultationFee: number
+  defaultInvoiceStatus: boolean
+  // Pharmacy Retail Licensing (Form 20 & 21)
+  pharmacyLicenceNumber20: string | null
+  pharmacyLicenceNumber21: string | null
+  pharmacyGstNumber: string | null
+  // Queue token settings
+  tokenFormat: string
+  tokenStartNumber: number
+  tokenResetFrequency: string
   workingHours: WorkingHour[]
   holidays: Holiday[]
   specialHours: SpecialHour[]
@@ -106,10 +118,48 @@ export default function Settings() {
     if (!profile) return
     setLoading(true)
     try {
-      await api.put('/clinic/profile', { name: profile.name })
-      showToast('Clinic profile saved')
-    } catch {
-      showToast('Failed to save profile', 'err')
+      await api.put('/clinic/profile', {
+        name: profile.name,
+        organizationType: profile.organizationType,
+        legalName: profile.legalName,
+        timezone: profile.timezone,
+        currency: profile.currency,
+        language: profile.language,
+        address: profile.address,
+        phone: profile.phone,
+        email: profile.email,
+        website: profile.website,
+        dateFormat: profile.dateFormat,
+        timeFormat: profile.timeFormat,
+        primaryColor: profile.primaryColor,
+        secondaryColor: profile.secondaryColor,
+        accentColor: profile.accentColor,
+        defaultAppointmentDurationMinutes: profile.defaultAppointmentDurationMinutes,
+        bufferMinutes: profile.bufferMinutes,
+        minAdvanceBookingHours: profile.minAdvanceBookingHours,
+        maxAdvanceBookingDays: profile.maxAdvanceBookingDays,
+        sameDayBookingAllowed: profile.sameDayBookingAllowed,
+        walkInsAllowed: profile.walkInsAllowed,
+        overbookingAllowed: profile.overbookingAllowed,
+        cancellationWindowHours: profile.cancellationWindowHours,
+        reschedulingAllowed: profile.reschedulingAllowed,
+        noShowHandlingEnabled: profile.noShowHandlingEnabled,
+        queueEnabled: profile.queueEnabled,
+        invoicePrefix: profile.invoicePrefix,
+        defaultGstRate: profile.defaultGstRate,
+        defaultConsultationFee: profile.defaultConsultationFee,
+        defaultInvoiceStatus: profile.defaultInvoiceStatus,
+        pharmacyLicenceNumber20: profile.pharmacyLicenceNumber20,
+        pharmacyLicenceNumber21: profile.pharmacyLicenceNumber21,
+        pharmacyGstNumber: profile.pharmacyGstNumber,
+        tokenFormat: profile.tokenFormat,
+        tokenStartNumber: profile.tokenStartNumber,
+        tokenResetFrequency: profile.tokenResetFrequency,
+      })
+      showToast('Clinic profile and configuration saved successfully')
+    } catch (err) {
+      // Surface RFC 7807 field errors (licence/GSTIN format) instead of a generic failure.
+      showToast(friendlyError(err) || 'Failed to save profile', 'err')
     } finally {
       setLoading(false)
     }
@@ -902,11 +952,57 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
             <span>Rescheduling allowed</span>
           </label>
         </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
+            <input
+              type="checkbox"
+              checked={profile.overbookingAllowed}
+              onChange={e => update('overbookingAllowed', e.target.checked)}
+              disabled={!isAdmin}
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+            />
+            <span>Overbooking allowed</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
+            <input
+              type="checkbox"
+              checked={profile.noShowHandlingEnabled}
+              onChange={e => update('noShowHandlingEnabled', e.target.checked)}
+              disabled={!isAdmin}
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+            />
+            <span>No-show handling</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
+            <input
+              type="checkbox"
+              checked={profile.queueEnabled}
+              onChange={e => update('queueEnabled', e.target.checked)}
+              disabled={!isAdmin}
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+            />
+            <span>Queue enabled</span>
+          </label>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="form-label">Cancellation Window (hrs)</label>
+            <input
+              type="number"
+              min="0"
+              max="168"
+              value={profile.cancellationWindowHours}
+              onChange={e => update('cancellationWindowHours', Number(e.target.value))}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="pt-4 border-t border-[var(--color-border)]">
         <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Billing Defaults</h3>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="form-label">Invoice Prefix</label>
             <input
@@ -928,6 +1024,110 @@ function ClinicProfileEditor({ profile, isAdmin, onUpdate, onSave, saving }: {
               disabled={!isAdmin}
               className="form-input mono disabled:bg-[var(--color-surface-hover)]"
             />
+          </div>
+          <div>
+            <label className="form-label">Default Consultation Fee (₹)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={profile.defaultConsultationFee}
+              onChange={e => update('defaultConsultationFee', Number(e.target.value))}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+            />
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text)] font-medium">
+            <input
+              type="checkbox"
+              checked={profile.defaultInvoiceStatus}
+              onChange={e => update('defaultInvoiceStatus', e.target.checked)}
+              disabled={!isAdmin}
+              className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+            />
+            <span>Default invoice status = Finalized</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-[var(--color-border)]">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Pharmacy Retail Licensing (Form 20 & 21)</h3>
+        <p className="text-xs text-[var(--color-text-muted)] mb-3">
+          Required for Schedule H / H1 / X dispensing compliance. Format: DL-XX-YYYY-XXXXXX
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="form-label">Form 20 Licence Number</label>
+            <input
+              value={profile.pharmacyLicenceNumber20 || ''}
+              onChange={e => update('pharmacyLicenceNumber20', e.target.value || null)}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+              placeholder="DL-20-2026-KA-8891"
+            />
+          </div>
+          <div>
+            <label className="form-label">Form 21 Licence Number</label>
+            <input
+              value={profile.pharmacyLicenceNumber21 || ''}
+              onChange={e => update('pharmacyLicenceNumber21', e.target.value || null)}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+              placeholder="DL-21-2026-KA-8892"
+            />
+          </div>
+          <div>
+            <label className="form-label">Pharmacy GST Number</label>
+            <input
+              value={profile.pharmacyGstNumber || ''}
+              onChange={e => update('pharmacyGstNumber', e.target.value || null)}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+              placeholder="29AAAAA0000A1Z5"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-[var(--color-border)]">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3">Queue Token Settings</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="form-label">Token Format</label>
+            <input
+              value={profile.tokenFormat}
+              onChange={e => update('tokenFormat', e.target.value)}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+              placeholder="D{0:000}"
+            />
+          </div>
+          <div>
+            <label className="form-label">Token Start Number</label>
+            <input
+              type="number"
+              min="1"
+              max="9999"
+              value={profile.tokenStartNumber}
+              onChange={e => update('tokenStartNumber', Number(e.target.value))}
+              disabled={!isAdmin}
+              className="form-input mono disabled:bg-[var(--color-surface-hover)]"
+            />
+          </div>
+          <div>
+            <label className="form-label">Token Reset Frequency</label>
+            <select
+              value={profile.tokenResetFrequency}
+              onChange={e => update('tokenResetFrequency', e.target.value)}
+              disabled={!isAdmin}
+              className="form-select disabled:bg-[var(--color-surface-hover)]"
+            >
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+              <option value="never">Never</option>
+            </select>
           </div>
         </div>
       </div>

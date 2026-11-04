@@ -790,7 +790,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         Name = "Demo Health Organization",
         SubscriptionTier = SubscriptionTier.Starter,
         SubscriptionStatus = SubscriptionStatus.Trial,
-        ActivatedModules = "core,pharmacy,lab,inventory,finance,wishlist,precheck",
+        ActivatedModules = "core,pharmacy,lab,inventory,finance,wishlist,emergency,precheck,notifications,staff_roster",
         SubscriptionEndsAt = DateTimeOffset.UtcNow.AddDays(30),
         CreatedAt = DateTimeOffset.UtcNow,
         UpdatedAt = DateTimeOffset.UtcNow
@@ -1046,6 +1046,10 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
     clinic.DefaultConsultationFee = 0m;
     clinic.DefaultGstRate = 18.0m;
     clinic.DefaultInvoiceStatus = false;
+    // Pharmacy Retail Licensing (Form 20 & 21) - seeded for demo compliance
+    clinic.PharmacyLicenceNumber20 = "DL-20-2026-KA-8891";
+    clinic.PharmacyLicenceNumber21 = "DL-21-2026-KA-8892";
+    clinic.PharmacyGstNumber = "29AAAAA0000A1Z5";
     clinic.UpdatedAt = DateTimeOffset.UtcNow;
     await db.SaveChangesAsync();
 
@@ -1078,6 +1082,7 @@ static async Task SeedDevelopmentDataAsync(HospitalCrmDbContext db)
         db.PatientConsents.Add(new PatientConsent
         {
             Id = Guid.NewGuid(),
+            TenantId = patient.TenantId,
             PatientId = patient.Id,
             Purpose = "care_delivery",
             CapturedBy = receptionist.Id,
@@ -1250,160 +1255,16 @@ static async Task SeedPharmacyDataAsync(HospitalCrmDbContext db, Guid? tenantId 
 
     var targetTenantId = tenantId.Value;
 
-    var supplier = new Supplier
+    try
     {
-        Id = Guid.NewGuid(),
-        TenantId = targetTenantId,
-        Name = "MedSource India Healthcare Pvt Ltd",
-        Gstin = "27AABCM8812K1Z0",
-        Phone = "+91 98201 12345",
-        Email = "orders@medsourceindia.com",
-        Address = "Plot 42, MIDC Industrial Area, Andheri East, Mumbai, Maharashtra 400093",
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-    db.Suppliers.Add(supplier);
-
-    var candidates = new[]
-    {
-        Path.Combine(AppContext.BaseDirectory, "SeedData", "Indian_Essential_Medicine_Master.csv"),
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
-        Path.Combine(Directory.GetCurrentDirectory(), "backend", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv"),
-        Path.Combine(Directory.GetCurrentDirectory(), "..", "Hospital_CRM.Infrastructure", "Data", "SeedData", "Indian_Essential_Medicine_Master.csv")
-    };
-
-    string? csvPath = null;
-    foreach (var c in candidates)
-    {
-        var full = Path.GetFullPath(c);
-        if (File.Exists(full))
-        {
-            csvPath = full;
-            break;
-        }
+        var syncResult = await HospitalFormularySeeder.SyncFormularyAsync(db, targetTenantId, seedBatches: true);
+        Log.Information("Official Hospital Formulary successfully seeded: {Added} drugs added, {Batches} batches created from {Source}",
+            syncResult.AddedCount, syncResult.BatchesAdded, syncResult.SourcePath);
     }
-
-    var drugs = new List<Drug>();
-    var batches = new List<DrugBatch>();
-    var today = DateOnly.FromDateTime(DateTime.UtcNow);
-
-    if (csvPath != null)
+    catch (Exception ex)
     {
-        var lines = await File.ReadAllLinesAsync(csvPath);
-        for (int i = 1; i < lines.Length; i++)
-        {
-            var line = lines[i];
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            var parts = ParseCsvLine(line);
-            if (parts.Count < 12) continue;
-
-            var name = parts[0].Trim();
-            var genericName = parts[1].Trim();
-            var category = parts[2].Trim();
-            var dosageForm = parts[3].Trim();
-            var strength = parts[4].Trim();
-            var schedStr = parts[5].Trim();
-            var hsn = parts[6].Trim();
-            decimal.TryParse(parts[7].Trim(), out var gstRate);
-            var nlem = parts[8].Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
-            decimal? dpco = decimal.TryParse(parts[9].Trim(), out var dVal) ? dVal : null;
-            var packSize = parts[10].Trim();
-            decimal.TryParse(parts[11].Trim(), out var indicativeMrp);
-            var commonBrands = parts.Count > 12 ? parts[12].Trim() : "";
-
-            Enum.TryParse<ScheduleClass>(schedStr, true, out var schedClass);
-
-            var drug = new Drug
-            {
-                Id = Guid.NewGuid(),
-                TenantId = targetTenantId,
-                Name = name,
-                GenericName = genericName,
-                TherapeuticCategory = category,
-                DosageForm = dosageForm,
-                Strength = strength,
-                ScheduleClass = schedClass,
-                HsnCode = hsn,
-                GstRate = gstRate > 0 ? gstRate : 12m,
-                NlemCovered = nlem,
-                DpcoCeilingPrice = dpco,
-                StandardPackSize = packSize,
-                IndicativeMrp = indicativeMrp,
-                CommonBrands = commonBrands,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            };
-            drugs.Add(drug);
-
-            var batchNumA = $"BAT-{i:D3}-A";
-            var batchNumB = $"BAT-{i:D3}-B";
-
-            batches.Add(new DrugBatch
-            {
-                Id = Guid.NewGuid(),
-                TenantId = targetTenantId,
-                DrugId = drug.Id,
-                BatchNumber = batchNumA,
-                ExpiryDate = today.AddMonths(14 + (i % 12)),
-                MfgDate = today.AddMonths(-4),
-                QuantityReceived = 100,
-                QuantityRemaining = 85,
-                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
-                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
-                SupplierId = supplier.Id,
-                CreatedAt = DateTimeOffset.UtcNow
-            });
-
-            batches.Add(new DrugBatch
-            {
-                Id = Guid.NewGuid(),
-                TenantId = Guid.Empty,
-                DrugId = drug.Id,
-                BatchNumber = batchNumB,
-                ExpiryDate = today.AddMonths(28 + (i % 8)),
-                MfgDate = today.AddMonths(-1),
-                QuantityReceived = 150,
-                QuantityRemaining = 150,
-                Mrp = indicativeMrp > 0 ? indicativeMrp : 50m,
-                PurchaseRate = Math.Round((indicativeMrp > 0 ? indicativeMrp : 50m) * 0.65m, 2),
-                SupplierId = supplier.Id,
-                CreatedAt = DateTimeOffset.UtcNow
-            });
-        }
+        Log.Warning(ex, "Failed to seed official hospital formulary via HospitalFormularySeeder.");
     }
-
-    if (drugs.Count > 0)
-    {
-        db.Drugs.AddRange(drugs);
-        db.DrugBatches.AddRange(batches);
-    }
-}
-
-static List<string> ParseCsvLine(string line)
-{
-    var result = new List<string>();
-    var inQuotes = false;
-    var current = new StringBuilder();
-
-    for (int i = 0; i < line.Length; i++)
-    {
-        char c = line[i];
-        if (c == '"')
-        {
-            inQuotes = !inQuotes;
-        }
-        else if (c == ',' && !inQuotes)
-        {
-            result.Add(current.ToString());
-            current.Clear();
-        }
-        else
-        {
-            current.Append(c);
-        }
-    }
-    result.Add(current.ToString());
-    return result;
 }
 
 static async Task SeedOpenIddictClientsAsync(IServiceProvider serviceProvider)

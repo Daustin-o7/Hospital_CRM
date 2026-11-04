@@ -1,4 +1,4 @@
-using Hospital_CRM.Api.Authorization;
+﻿using Hospital_CRM.Api.Authorization;
 using Hospital_CRM.Api.Extensions;
 using Hospital_CRM.Domain.Constants;
 using Hospital_CRM.Domain.Entities;
@@ -9,17 +9,44 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hospital_CRM.Api.Controllers;
 
+using System.ComponentModel.DataAnnotations;
+
+/// <summary>
+/// Clinical sanity bounds only: the FRD defines no vitals ranges, so these reject physiologically
+/// impossible entries without second-guessing a real patient.
+/// </summary>
 public record RecordVitalsRequest(
+    [Range(30, 300, ErrorMessage = "Systolic BP must be between 30 and 300 mmHg")]
     int? SystolicBp,
+
+    [Range(20, 200, ErrorMessage = "Diastolic BP must be between 20 and 200 mmHg")]
     int? DiastolicBp,
+
+    [Range(30, 300, ErrorMessage = "Heart rate must be between 30 and 300 bpm")]
     int? HeartRate,
+
+    [Range(80.0, 115.0, ErrorMessage = "Temperature must be between 80.0 and 115.0 °F")]
     decimal? Temperature,
+
+    [Range(4, 80, ErrorMessage = "Respiratory rate must be between 4 and 80 bpm")]
     int? RespiratoryRate,
+
+    [Range(40, 100, ErrorMessage = "SpO2 must be between 40% and 100%")]
     int? SpO2,
+
+    [Range(0.5, 600.0, ErrorMessage = "Weight must be between 0.5 and 600 kg")]
     decimal? WeightKg,
+
+    [Range(20.0, 300.0, ErrorMessage = "Height must be between 20 and 300 cm")]
     decimal? HeightCm,
+
+    [Range(10.0, 1500.0, ErrorMessage = "Blood glucose must be between 10 and 1500 mg/dL")]
     decimal? BloodGlucoseMgDl,
+
+    [StringLength(500, ErrorMessage = "Allergies cannot exceed 500 characters")]
     string? Allergies,
+
+    [StringLength(2000, ErrorMessage = "Bedside observations cannot exceed 2000 characters")]
     string? BedsideObservations);
 
 /// <summary>
@@ -102,6 +129,9 @@ public class VitalsController : ControllerBase
         }
         else
         {
+            // One vitals row per appointment is amended in place, so the prior values survive only here.
+            var prior = Snapshot(existing);
+
             existing.SystolicBp = request.SystolicBp;
             existing.DiastolicBp = request.DiastolicBp;
             existing.HeartRate = request.HeartRate;
@@ -116,6 +146,20 @@ public class VitalsController : ControllerBase
             existing.BedsideObservations = request.BedsideObservations;
             existing.RecordedByUserId = callerId.Value;
             existing.RecordedAt = DateTimeOffset.UtcNow;
+
+            if (Snapshot(existing) != prior)
+            {
+                _db.PatientAuditLogs.Add(new PatientAuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    PatientId = appointment.PatientId,
+                    FieldName = "VITALS_AMENDED",
+                    OldValue = prior,
+                    NewValue = Snapshot(existing),
+                    ChangedBy = callerId.Value,
+                    ChangedAt = DateTimeOffset.UtcNow
+                });
+            }
         }
 
         // Automatic state transition: when vitals are captured for CheckedIn patient, move to InNursing
@@ -241,5 +285,15 @@ public class VitalsController : ControllerBase
             return NotFound(new { error = "no_vitals_found" });
 
         return Ok(vitals);
+    }
+
+    /// <summary>Compact snapshot of the clinical values for the audit trail's 255-char columns.</summary>
+    private static string Snapshot(PatientVital v)
+    {
+        var s = $"BP {v.SystolicBp}/{v.DiastolicBp}; HR {v.HeartRate}; T {v.Temperature}; RR {v.RespiratoryRate}; " +
+                $"SpO2 {v.SpO2}; W {v.WeightKg}; H {v.HeightCm}; BMI {v.Bmi}; Glu {v.BloodGlucoseMgDl}; " +
+                $"Allergies {v.Allergies}; Obs {v.BedsideObservations}";
+        // shortcut: PatientAuditLog OldValue/NewValue cap at 255, long notes clip; widen the columns if full text is needed.
+        return s.Length <= 255 ? s : s[..252] + "...";
     }
 }

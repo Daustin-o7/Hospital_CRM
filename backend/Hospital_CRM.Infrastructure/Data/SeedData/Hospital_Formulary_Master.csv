@@ -1,0 +1,441 @@
+DrugName,GenericComposition,TherapeuticCategory,DosageForm,Strength,ScheduleClass,HsnCode,GstRate,NLEM_Covered,DPCO_CeilingPriceUnit,StandardPackSize,IndicativeMRP,CommonBrands
+IMILASTIN 500MG Injection,IMIPENEM+CILASTATIN,Antibiotics & Antimicrobials,Injection,500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,IMILASTIN
+MAXIGARD 500MG Injection,IMIPENEM+CILASTATIN,Antibiotics & Antimicrobials,Injection,500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,MAXIGARD
+ICUPEN 500MG Injection,DORIPENAM,Antibiotics & Antimicrobials,Injection,500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,ICUPEN
+"MEROMAC 500MG,1000MG Injection",MEROPENAM,Antibiotics & Antimicrobials,Injection,"500MG,1000MG",ScheduleH1,30049099,12,No,,1 Vial,1450.00,MEROMAC
+MEROMAC PLUS 1500MG Injection,MEROPENAM+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,1450.00,MEROMAC PLUS
+ZAXTER XP 1500MG Injection,MEROPENAM+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,1450.00,ZAXTER XP
+BDOXY 100MG Injection,DOXYCYCLINE,Antibiotics & Antimicrobials,Injection,100MG,ScheduleH,30049099,12,No,,1 Vial,280.00,BDOXY
+T PLANIN 400MG Injection,TICOPLANINE,Antibiotics & Antimicrobials,Injection,400MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,T PLANIN
+"TICPLAT 400MG,200MG Injection",TICOPLANINE,Antibiotics & Antimicrobials,Injection,"400MG,200MG",ScheduleH1,30049099,12,No,,1 Vial,280.00,TICPLAT
+TICOJET 400MG Injection,TICOPLANINE,Antibiotics & Antimicrobials,Injection,400MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,TICOJET
+"BDCOLIST / COLIHUB / COLIST 4.5MILL,2MILL Injection",COLISTIMETHATE,Antibiotics & Antimicrobials,Injection,"4.5MILL,2MILL",ScheduleH1,30049099,12,No,,1 Vial,1450.00,BDCOLIST/COLIHUB/COLIST
+POLY B 5MILL Injection,POLYMYXIN,Antibiotics & Antimicrobials,Injection,5MILL,ScheduleH1,30049099,12,No,,1 Vial,1450.00,POLY B
+XAVITAZ 2.5GM Injection,CEFTRAZIDIME+AVIBACTUM,Antibiotics & Antimicrobials,Injection,2.5GM,ScheduleH,30049099,12,No,,1 Vial,280.00,XAVITAZ
+POLY B XP 7.5MILL Injection,POLYMYXIN,Antibiotics & Antimicrobials,Injection,7.5MILL,ScheduleH1,30049099,12,No,,1 Vial,1450.00,POLY B XP
+STAFCURE SB 1500MG Injection,CEFUROXIME+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,STAFCURE SB
+TAPICEM  / PEPAR 4.5GM Injection,PIPERACILLINE+TAZOBACTUM,Antibiotics & Antimicrobials,Injection,4.5GM,ScheduleH,30049099,12,No,,1 Vial,280.00,TAPICEM /PEPAR
+KABICEFECTM 1500MG Injection,CEFOPERAZONE+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,KABICEFECTM
+"MONOCEF 2GM,1GM,500MG Injection",CEFTRIAXONE,Antibiotics & Antimicrobials,Injection,"2GM,1GM,500MG",ScheduleH1,30049099,12,Yes,180.0,1 Vial,280.00,MONOCEF
+CEPOFIC 1500MG Injection,CEFOPERAZONE+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,CEPOFIC
+"XATRONEM 2GM,1GM Injection",AZTREONAM,Antibiotics & Antimicrobials,Injection,"2GM,1GM",ScheduleH,30049099,12,No,,1 Vial,280.00,XATRONEM
+DALOCEL 600MG Injection,CLIDAMYCIN,Antibiotics & Antimicrobials,Injection,600MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DALOCEL
+"AMIKMAC 500MG,250MG Injection",AMIKACIN,Antibiotics & Antimicrobials,Injection,"500MG,250MG",ScheduleH,30049099,12,No,,1 Vial,280.00,AMIKMAC
+AMIKMAC 100MG Injection,AMIKMAC 100MG,Antibiotics & Antimicrobials,Injection,,ScheduleH,30049099,12,No,,1 Vial,280.00,AMIKMAC 100MG
+VANTOX CP 1G Injection,VANTOX CP 1G,Antibiotics & Antimicrobials,Injection,,ScheduleH,30049099,12,No,,1 Vial,280.00,VANTOX CP 1G
+"VANTOX CP 1GM,500MG Injection",VANCOMYCIN,Antibiotics & Antimicrobials,Injection,"1GM,500MG",ScheduleH,30049099,12,No,,1 Vial,280.00,VANTOX CP
+GENTAMYCIN 80MG Injection,GENTAMYCIN,Antibiotics & Antimicrobials,Injection,80MG,ScheduleH,30049099,12,No,,1 Vial,280.00,GENTAMYCIN
+ZOSTUM 1500MG Injection,CEFOPERAZONE+SULBACTAM,Antibiotics & Antimicrobials,Injection,1500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,ZOSTUM
+"TAXIM 125MG,250MG,500MG Injection",CEFOTAXIME,Antibiotics & Antimicrobials,Injection,"125MG,250MG,500MG",ScheduleH,30049099,12,No,,1 Vial,280.00,TAXIM
+KLACID INJ 500MG Injection,CLARITHROMYCIN,Antibiotics & Antimicrobials,Injection,500MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,KLACID INJ
+TINIBA 400MG IV Infusion,TINIDAZOLE,Antibiotics & Antimicrobials,IV Infusion,400MG,ScheduleH,30049099,12,No,,10 Tablets,280.00,TINIBA
+LEVOFUXIN 500MG IV Infusion,LEVOFLOXACINE,Antibiotics & Antimicrobials,IV Infusion,500MG,ScheduleH1,30049099,12,No,,10 Tablets,280.00,LEVOFUXIN
+MOXPLOR 400MG IV Infusion,MOXCIFLOXACINE,Antibiotics & Antimicrobials,IV Infusion,400MG,ScheduleH,30049099,12,No,,10 Tablets,280.00,MOXPLOR
+LINOPLUS 600MG IV Infusion,LINAZOLIDE,Antibiotics & Antimicrobials,IV Infusion,600MG,ScheduleH,30049099,12,No,,10 Tablets,280.00,LINOPLUS
+NIRMIT 500MG IV Infusion,METRONIDAZOLE,Antibiotics & Antimicrobials,IV Infusion,500MG,ScheduleH,30049099,12,Yes,180.0,10 Tablets,280.00,NIRMIT
+"STAFCURE / CEROM 500MG,250MG Tablet",CEFUROXIME,Antibiotics & Antimicrobials,Tablet,"500MG,250MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,STAFCURE/CEROM
+STAFCURE CV 500MG/125MG Tablet,CEFUROXIM+CLAVULANIC ACID,Antibiotics & Antimicrobials,Tablet,500MG/125MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,STAFCURE CV
+LIZOMAC / LINID 600MG Tablet,LINAZOLIDE,Antibiotics & Antimicrobials,Tablet,600MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,LIZOMAC/LINID
+AZRO / AZEE 500MG Tablet,AZITHROMYCINE,Antibiotics & Antimicrobials,Tablet,500MG,ScheduleH1,30049099,12,Yes,32.0,10 Tablets,65.00,AZRO/AZEE
+AZEE 500MG Tablet,AZEE 500MG,Antibiotics & Antimicrobials,Tablet,,ScheduleH,30049099,12,No,,10 Tablets,65.00,AZEE 500MG
+"CLARIBID 500MG,250MG Tablet",CLARITHROMYCIN,Antibiotics & Antimicrobials,Tablet,"500MG,250MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,CLARIBID
+MOXIMAC 400MG 400MG Tablet,MOXCIFLOXACINE,Antibiotics & Antimicrobials,Tablet,400MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MOXIMAC 400MG
+"LOXOF 750MG 750MG,500MG,250MG Tablet",LEVOFLOXACINE,Antibiotics & Antimicrobials,Tablet,"750MG,500MG,250MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,LOXOF 750MG
+BACTRIM DS / SEPTRAN DS 800MG/160MG Tablet,SUFAMETHAXAZOLE+TRIMETHOPRIM,Antibiotics & Antimicrobials,Tablet,800MG/160MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,BACTRIM DS/SEPTRAN DS
+DOXYPAL DRL 100MG Capsule,DOXYCYCLINE,Antibiotics & Antimicrobials,Capsule,100MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,DOXYPAL DRL
+METROGYL 400MG Tablet,METRONIDAZOLE,Antibiotics & Antimicrobials,Tablet,400MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,METROGYL
+MOX 500MG Capsule,AMOXACILLINE,Antibiotics & Antimicrobials,Capsule,500MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,MOX
+CIPLOX 500MG Tablet,CIPROFLOXACIN,Antibiotics & Antimicrobials,Tablet,500MG,ScheduleH1,30049099,12,Yes,32.0,10 Tablets,65.00,CIPLOX
+"NORFLOX 400MG,200MG Tablet",NORFLOXACIN,Antibiotics & Antimicrobials,Tablet,"400MG,200MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,NORFLOX
+AGUMENTIN DUO 500MG/125MG Tablet,AMOXACILLINE+CLAVULANIC ACID,Antibiotics & Antimicrobials,Tablet,500MG/125MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,AGUMENTIN DUO
+TAXIM O 200MG Tablet,CEFIXIME,Antibiotics & Antimicrobials,Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,TAXIM O
+MACPOD CV / DOXCEF CV 200MG/125MG Tablet,CEFPODOXIM+POTASSIUM CLAVINATE,Antibiotics & Antimicrobials,Tablet,200MG/125MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,MACPOD CV/DOXCEF CV
+FAROFENC ER / ORPENEM ER 300MG Tablet,FEROPENAM,Antibiotics & Antimicrobials,Tablet,300MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,FAROFENC ER/ORPENEM ER
+FAROKAA 200MG Tablet,FEROPENAM,Antibiotics & Antimicrobials,Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,FAROKAA
+REZFURAN 100MG Tablet,NITROFURANTOIN,Antibiotics & Antimicrobials,Tablet,100MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,REZFURAN
+DALACIN C / CLINDASURE 300MG Capsule,CLIDAMYCIN,Antibiotics & Antimicrobials,Capsule,300MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,DALACIN C/CLINDASURE
+ZENFLOX OZ 500MG/200MG Tablet,OFLOXACINE+ORINADAZOLE,Antibiotics & Antimicrobials,Tablet,500MG/200MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,ZENFLOX OZ
+"ZENFLOX 400MG 400MG,200MG Tablet",OFLOXACINE,Antibiotics & Antimicrobials,Tablet,"400MG,200MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,ZENFLOX 400MG
+ZOSTUM O 200MG Tablet,CEFDITORNE,Antibiotics & Antimicrobials,Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ZOSTUM O
+"RIFORTE / RCIFEX / RIXMIN 400MG,550MG Tablet",RIFAXIMINE,Antibiotics & Antimicrobials,Tablet,"400MG,550MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,RIFORTE/RCIFEX/RIXMIN
+"PENTID 800MG,400MG Tablet",PENICILLINE,Antibiotics & Antimicrobials,Tablet,"800MG,400MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,PENTID
+STARIZO 200MG Tablet,TIDIZOLIDE PHOSPATE,Antibiotics & Antimicrobials,Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,STARIZO
+CETIL / CEFAKIND 200MG Syrup,CEFUROXIM,Antibiotics & Antimicrobials,Syrup,200MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,CETIL/CEFAKIND
+"GUDCEF 100MG,50MG Syrup",CEPODOXIM,Antibiotics & Antimicrobials,Syrup,"100MG,50MG",ScheduleH,30049099,12,No,,1 Bottle,115.00,GUDCEF
+MOXCLAV BD 200MG/28.5MG Syrup,AMOXICILLINE+POTASSIUM CLAVINATE,Antibiotics & Antimicrobials,Syrup,200MG/28.5MG,ScheduleH,30049099,12,Yes,85.0,1 Bottle,115.00,MOXCLAV BD
+ERYTOP 1%W/W Topical Gel/Cream,CLIDAMYCIN,Antibiotics & Antimicrobials,Topical Gel/Cream,1%W/W,ScheduleH,30049099,12,No,,10 Tablets,65.00,ERYTOP
+NEOSPORIN 400IU/3400IU/5000IU Powder,NEOMYCINE SULFATE+POLYMYXIN B,Antibiotics & Antimicrobials,Powder,400IU/3400IU/5000IU,ScheduleH1,30049099,12,No,,1 Sachet,65.00,NEOSPORIN
+ZENFLOX Drops,OFLOXACINE,Antibiotics & Antimicrobials,Drops,,ScheduleH1,30049099,12,No,,1 Bottle,115.00,ZENFLOX
+CIPLOX Drops,CIPROFLOXACIN,Antibiotics & Antimicrobials,Drops,,ScheduleH1,30049099,12,Yes,85.0,1 Bottle,115.00,CIPLOX
+MILFLOX Drops,MOXCIFLOXACINE,Antibiotics & Antimicrobials,Drops,,ScheduleH,30049099,12,No,,1 Bottle,115.00,MILFLOX
+DYNAPAR AQ 75MG 75MG Injection,DICLOFENAC,"Analgesics, Antipyretics & NSAIDs",Injection,75MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DYNAPAR AQ 75MG
+FEBRINIL 150MG 150MG Injection,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Injection,150MG,General,30049099,12,Yes,180.0,1 Vial,280.00,FEBRINIL 150MG
+TRAMAZAC 100MG 100MG Injection,TRAMADOL,"Analgesics, Antipyretics & NSAIDs",Injection,100MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,TRAMAZAC 100MG
+BUPRIGESIC 0.3MG 0.3MG Injection,BUPRENORPHINE,"Analgesics, Antipyretics & NSAIDs",Injection,0.3MG,ScheduleH,30049099,12,No,,1 Vial,280.00,BUPRIGESIC 0.3MG
+NUCOXIA 60 60MG Injection,ETORICOXIB,"Analgesics, Antipyretics & NSAIDs",Injection,60MG,ScheduleH,30049099,12,No,,1 Vial,280.00,NUCOXIA 60
+KABIPARA 1G 1000MG IV Infusion,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",IV Infusion,1000MG,General,30049099,12,Yes,180.0,10 Tablets,280.00,KABIPARA 1G
+HIFENAC P 100MG/325MG Tablet,ACECLOFENAC + PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,HIFENAC P
+HIFENAC TA 100MG/325MG/37.5MG Tablet,ACECLOFENAC + PARACETAMOL+TRAMADOL,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/37.5MG,ScheduleH1,30049099,12,Yes,32.0,10 Tablets,65.00,HIFENAC TA
+HIFENAC MR 100MG/325MG/500MG Tablet,ACECLOFENAC+PARACETAMOL+CHLORZOXAZONE,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/500MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,HIFENAC MR
+HIFENAC SP 100MG/325MG/15MG Tablet,ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/15MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,HIFENAC SP
+SIGNOFLAM 100MG/325MG/15MG Tablet,ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/15MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,SIGNOFLAM
+DOLO 650 650MG Tablet,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,650MG,General,30049099,12,Yes,32.0,10 Tablets,65.00,DOLO 650
+CALPOL 650 650MG Tablet,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,650MG,General,30049099,12,Yes,32.0,10 Tablets,65.00,CALPOL 650
+DOLONEX DT 20MG Tablet,PIROXICAM,"Analgesics, Antipyretics & NSAIDs",Tablet,20MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,DOLONEX DT
+CHYMOCAD 100MG/325MG/50000AU Tablet,ACECLOFENAC + PARACETAMOL+TRYPSIN CHYMOTRYPSIN,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/50000AU,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,CHYMOCAD
+CHYMORAL FORTE 100000AU Tablet,TRYPSIN CHYMOTRYPSIN,"Analgesics, Antipyretics & NSAIDs",Tablet,100000AU,ScheduleH,30049099,12,No,,10 Tablets,65.00,CHYMORAL FORTE
+ETOSHINE MR 60MG/4MG Tablet,ETORICOXIB+THIOCOLCHICOSIDE,"Analgesics, Antipyretics & NSAIDs",Tablet,60MG/4MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ETOSHINE MR
+ETOSHINE 90 90MG Tablet,ETORICOXIB,"Analgesics, Antipyretics & NSAIDs",Tablet,90MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ETOSHINE 90
+NUCOXIA P 60MG/325MG Tablet,ETORICOXIB+PARACTAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,60MG/325MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NUCOXIA P
+NUCOXIA MR 60MG/4MG Tablet,ETORICOXIB+THIOCOLCHICOSIDE,"Analgesics, Antipyretics & NSAIDs",Tablet,60MG/4MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NUCOXIA MR
+NUCOXIA 60 60MG Tablet,ETORICOXIB,"Analgesics, Antipyretics & NSAIDs",Tablet,60MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NUCOXIA 60
+NUCOXIA 90 90MG Tablet,ETORICOXIB,"Analgesics, Antipyretics & NSAIDs",Tablet,90MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NUCOXIA 90
+RETOZ MR 60MG/4MG Tablet,ETORICOXIB+THIOCOLCHICOSIDE,"Analgesics, Antipyretics & NSAIDs",Tablet,60MG/4MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,RETOZ MR
+ENZOMAC FAST 96MG/180MG/200MG Tablet,Trypsin+Bromelain+Rutoside,"Analgesics, Antipyretics & NSAIDs",Tablet,96MG/180MG/200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ENZOMAC FAST
+ENZOMAC PLUS 48MG/90MG/100MG/50MG Tablet,Trypsin+Bromelain+Rutoside+Diclofenac,"Analgesics, Antipyretics & NSAIDs",Tablet,48MG/90MG/100MG/50MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ENZOMAC PLUS
+ENZOMAC FORTE 96MG/180MG/200MG Tablet,Trypsin+Bromelain+Rutoside,"Analgesics, Antipyretics & NSAIDs",Tablet,96MG/180MG/200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ENZOMAC FORTE
+ENZOMAC 48MG/90MG/100MG Tablet,Trypsin+Bromelain+Rutoside,"Analgesics, Antipyretics & NSAIDs",Tablet,48MG/90MG/100MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ENZOMAC
+ENZOFLAM MR 100MG/325MG/4MG Tablet,ACECLOFENAC + PARACETAMOL+THIOCOLCHICOSIDE,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/4MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,ENZOFLAM MR
+PACIMOL ACTIVE 650MG/50MG Tablet,PARACETAMOL+CAFFEINE,"Analgesics, Antipyretics & NSAIDs",Tablet,650MG/50MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,PACIMOL ACTIVE
+ZERODOL P 100MG/325MG Tablet,ACECLOFENAC + PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,ZERODOL P
+ZERODOL SP 100MG/325MG/15MG Tablet,ACECLOFENAC+PARACETAMOL+SERRATIOPEPTIDASE,"Analgesics, Antipyretics & NSAIDs",Tablet,100MG/325MG/15MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,ZERODOL SP
+PARASAFE 650 650MG Tablet,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,650MG,General,30049099,12,Yes,32.0,10 Tablets,65.00,PARASAFE 650
+PARASAFE 500 500MG Tablet,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Tablet,500MG,General,30049099,12,Yes,32.0,10 Tablets,65.00,PARASAFE 500
+CALPOL 250 250MG Syrup,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Syrup,250MG,General,30049099,12,Yes,85.0,1 Bottle,115.00,CALPOL 250
+IBUGESIC 100MG Syrup,IBUPROFEN,"Analgesics, Antipyretics & NSAIDs",Syrup,100MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,IBUGESIC
+IBUGESIC PLUS 100MG/162.5MG Syrup,IBUPROFEN+PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Syrup,100MG/162.5MG,ScheduleH,30049099,12,Yes,85.0,1 Bottle,115.00,IBUGESIC PLUS
+PARASAFE 250MG Syrup,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Syrup,250MG,General,30049099,12,Yes,85.0,1 Bottle,115.00,PARASAFE
+IBUFROM 100MG Syrup,IBUPROFEN,"Analgesics, Antipyretics & NSAIDs",Syrup,100MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,IBUFROM
+CALPOL 100MG Drops,PARACETAMOL,"Analgesics, Antipyretics & NSAIDs",Drops,100MG,General,30049099,12,Yes,85.0,1 Bottle,115.00,CALPOL
+FLEXABENZ Topical Gel/Cream,DICLOFENAC,"Analgesics, Antipyretics & NSAIDs",Topical Gel/Cream,,ScheduleH,30049099,12,No,,10 Tablets,65.00,FLEXABENZ
+MOOV Topical Gel/Cream,DICLOFENAC,"Analgesics, Antipyretics & NSAIDs",Topical Gel/Cream,,ScheduleH,30049099,12,No,,10 Tablets,65.00,MOOV
+DFO Topical Gel/Cream,DICLOFENAC,"Analgesics, Antipyretics & NSAIDs",Topical Gel/Cream,,ScheduleH,30049099,12,No,,10 Tablets,65.00,DFO
+SENSOR Oil&Lotion,AYURVEDIC,"Analgesics, Antipyretics & NSAIDs",Oil&Lotion,,ScheduleH,30049099,12,No,,10 Tablets,65.00,SENSOR
+MACGESIA Oil,AYURVEDIC,"Analgesics, Antipyretics & NSAIDs",Oil,,ScheduleH,30049099,12,No,,10 Tablets,65.00,MACGESIA
+DYNAPAR QPS Syrup,DICLOFENAC,"Analgesics, Antipyretics & NSAIDs",Syrup,,ScheduleH,30049099,12,No,,1 Bottle,115.00,DYNAPAR QPS
+TROIS Emulsion,AYURVEDIC,"Analgesics, Antipyretics & NSAIDs",Emulsion,,ScheduleH,30049099,12,No,,10 Tablets,65.00,TROIS
+DILZEM 25MG Injection,DITILAZEM,Cardiovascular & Antihypertensives,Injection,25MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DILZEM
+NIKORAN 5MG Injection,NIKORANDIL,Cardiovascular & Antihypertensives,Injection,5MG,ScheduleH,30049099,12,No,,1 Vial,280.00,NIKORAN
+METOLAR 50MG Injection,METOPROLOL TARTRATE,Cardiovascular & Antihypertensives,Injection,50MG,ScheduleH,30049099,12,No,,1 Vial,280.00,METOLAR
+PROTA 50MG Injection,PROTAMINE,Cardiovascular & Antihypertensives,Injection,50MG,ScheduleH,30049099,12,No,,1 Vial,280.00,PROTA
+DOMIN 200MG Injection,DOPAMINE,Cardiovascular & Antihypertensives,Injection,200MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DOMIN
+NORAD / ADRENOR 4MG Injection,NORADRENALINE,Cardiovascular & Antihypertensives,Injection,4MG,ScheduleH,30049099,12,No,,1 Vial,280.00,NORAD/ADRENOR
+ATROPIN 0.6MG Injection,ATROPIN,Cardiovascular & Antihypertensives,Injection,0.6MG,ScheduleH,30049099,12,No,,1 Vial,280.00,ATROPIN
+ADRENILINE 1MG Injection,ADRENALINE,Cardiovascular & Antihypertensives,Injection,1MG,ScheduleH,30049099,12,No,,1 Vial,280.00,ADRENILINE
+DURON 150MG Injection,AMIODARONE,Cardiovascular & Antihypertensives,Injection,150MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DURON
+"GUFINOX 40MG,60MG Injection",ENOXAPARINE,Cardiovascular & Antihypertensives,Injection,"40MG,60MG",ScheduleH,30049099,12,No,,1 Vial,280.00,GUFINOX
+"HEPARIN 5000IU,25000IU Injection",HEPARIN,Cardiovascular & Antihypertensives,Injection,"5000IU,25000IU",ScheduleH,30049099,12,No,,1 Vial,280.00,HEPARIN
+MIREL 18MG Injection,RETEPLASE,Cardiovascular & Antihypertensives,Injection,18MG,ScheduleH,30049099,12,No,,1 Vial,280.00,MIREL
+TSART / ARBITEL / TELSAR 40MG Tablet,TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,40MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TSART/ARBITEL/TELSAR
+TSART / ARBITEL / TELSAR H 40MG+12.5MG Tablet,TELMISARTAN + HYDROCHLOROTHIAZIDE,Cardiovascular & Antihypertensives,Tablet,40MG+12.5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TSART/ARBITEL/TELSAR H
+TSART / ARBITEL AM 40MG+5MG Tablet,TELMISARTAN + AMLODIPINE,Cardiovascular & Antihypertensives,Tablet,40MG+5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TSART/ARBITEL AM
+TAZLOC  / TELSAR 20MG Tablet,TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,20MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TAZLOC /TELSAR
+TAZLOC 80MG Tablet,TELMISARTAN + HYDROCHLOROTHIAZIDE,Cardiovascular & Antihypertensives,Tablet,80MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TAZLOC
+TAZLOC H 80MG+12.5MG Tablet,TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,80MG+12.5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TAZLOC H
+"METXL 12.5MG,25MG,50MG Tablet",METOPROLOL SUCCINATE,Cardiovascular & Antihypertensives,Tablet,"12.5MG,25MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,METXL
+METXL AM 25/5MG & 50/5MG Tablet,METOPROLOL SUCCINATE + AMLODIPINE,Cardiovascular & Antihypertensives,Tablet,25/5MG & 50/5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,METXL AM
+METXL AM 25/2.5MG & 50/2.5MG Tablet,METOPROLOL SUCCINATE + AMLODIPINE,Cardiovascular & Antihypertensives,Tablet,25/2.5MG & 50/2.5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,METXL AM
+METXL 3D 25/12.5MG & 50/12.5MG Tablet,METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,25/12.5MG & 50/12.5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,METXL 3D
+METXL 3D 25/6.25MG & 50/6.25MG Tablet,METOPROLOL SUCCINATE + CHLORTHALIDONE + TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,25/6.25MG & 50/6.25MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,METXL 3D
+"LOSAR 25MG,50MG Tablet",LOSARTAN,Cardiovascular & Antihypertensives,Tablet,"25MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,LOSAR
+LOSAR H 50/12.5MG Tablet,LOSARTAN + HYDROCHLOROTHIAZIDE,Cardiovascular & Antihypertensives,Tablet,50/12.5MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,LOSAR H
+"CIPLAR / BETACAP TR 10MG,40MG Tablet",PROPRANOLOL,Cardiovascular & Antihypertensives,Tablet,"10MG,40MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CIPLAR/BETACAP TR
+"CIPLAR LA 20MG,40MG Tablet",PROPRANOLOL,Cardiovascular & Antihypertensives,Tablet,"20MG,40MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CIPLAR LA
+"CILACAR 10MG,20MG Tablet",CILINIDIPINE,Cardiovascular & Antihypertensives,Tablet,"10MG,20MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CILACAR
+"CILACAR T 10/40MG,20/40MG Tablet",CILINIDIPINE + TELMISARTAN,Cardiovascular & Antihypertensives,Tablet,"10/40MG,20/40MG",ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,CILACAR T
+"CARDACE 1.25MG,2.5MG,5MG,10MG Tablet",RAMIPRIL,Cardiovascular & Antihypertensives,Tablet,"1.25MG,2.5MG,5MG,10MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CARDACE
+"CARDACE H 2.5/12.5MG,5/12.5MG Tablet",RAMIPRIL + HYDROCHLOROTHIZIDE,Cardiovascular & Antihypertensives,Tablet,"2.5/12.5MG,5/12.5MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CARDACE H
+"NEPTAZ 100MG,50MG Tablet",SACUBITRIL + VALSARTAN,Cardiovascular & Antihypertensives,Tablet,"100MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,NEPTAZ
+"CTD 12.5MG,6.25MG Tablet",CHLORTHALIDONE,Cardiovascular & Antihypertensives,Tablet,"12.5MG,6.25MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CTD
+"CILAMET XL 25/10MG,50/10MG Tablet",CILNIDIPINE + METOPROLOL,Cardiovascular & Antihypertensives,Tablet,"25/10MG,50/10MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CILAMET XL
+"CORDARONE 100MG,200MG Tablet",AMIODARONE,Cardiovascular & Antihypertensives,Tablet,"100MG,200MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CORDARONE
+"CARDIVAS 12.5MG,6.25MG,3.125MG Tablet",CARVEDILOL,Cardiovascular & Antihypertensives,Tablet,"12.5MG,6.25MG,3.125MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CARDIVAS
+"CARDIVAS CR 10MG,20MG Tablet",CARVEDILOL,Cardiovascular & Antihypertensives,Tablet,"10MG,20MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,CARDIVAS CR
+"PLANEP 25MG,50MG Tablet",EPLERENONE,Cardiovascular & Antihypertensives,Tablet,"25MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,PLANEP
+"PLANEP T 25/10MG,50/10MG Tablet",EPLERENONE + TORSEMIDE,Cardiovascular & Antihypertensives,Tablet,"25/10MG,50/10MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,PLANEP T
+"AMLODAC 5MG,10MG Tablet",AMLODIPINE,Cardiovascular & Antihypertensives,Tablet,"5MG,10MG",ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,AMLODAC
+AMLOKIND AT 50/5MG Tablet,AMLODIPINE + ATENOLOL,Cardiovascular & Antihypertensives,Tablet,50/5MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,AMLOKIND AT
+LANOXIN 0.25MG Tablet,DIGOXIN,Cardiovascular & Antihypertensives,Tablet,0.25MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,LANOXIN
+"MOXOVAS 0.2MG,0.3MG Tablet",MOXONIDINE,Cardiovascular & Antihypertensives,Tablet,"0.2MG,0.3MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,MOXOVAS
+"ECOSPRIN 75MG,150MG Tablet",ASPRIN,Cardiovascular & Antihypertensives,Tablet,"75MG,150MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,ECOSPRIN
+"ECOSPRIN AV 75/10MG,75/20MG & 10/150MG,20/150MG Capsule",ATORVASTATINE + ASPRIN,Cardiovascular & Antihypertensives,Capsule,"75/10MG,75/20MG & 10/150MG,20/150MG",ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,ECOSPRIN AV
+ECOSPRIN GOLD 20/75/75MG & 10/75/75MG Capsule,ATORVASTATINE + ASPRIN + CLOPIDOGREL,Cardiovascular & Antihypertensives,Capsule,20/75/75MG & 10/75/75MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,ECOSPRIN GOLD
+ROSUFIT CV 10/75MG & 20/75MG Capsule,ROSUVASTATIN + CLOPIDOGREL,Cardiovascular & Antihypertensives,Capsule,10/75MG & 20/75MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,ROSUFIT CV
+"ROSEDAY 5MG,10MG,20MG Tablet",ROSUVASTATIN,Cardiovascular & Antihypertensives,Tablet,"5MG,10MG,20MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,ROSEDAY
+ROSEDAY GOLD 10/75/75MG & 20/75/75MG Capsule,ATORVASTATINE + ASPRIN + CLOPIDOGREL,Cardiovascular & Antihypertensives,Capsule,10/75/75MG & 20/75/75MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,ROSEDAY GOLD
+ROSEDAY A 10/75MG & 20/75MG Tablet,ROSUVASTATIN + ASPRIN,Cardiovascular & Antihypertensives,Tablet,10/75MG & 20/75MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,ROSEDAY A
+TONACT TG 10MG/160MG Tablet,ATORVASTATINE + FENOFIBRATE,Cardiovascular & Antihypertensives,Tablet,10MG/160MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TONACT TG
+"NITROLONG 2.6MG,6.4MG Tablet",NITROGLYCERIN,Cardiovascular & Antihypertensives,Tablet,"2.6MG,6.4MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,NITROLONG
+CHOLTRAN 4GM Sachets,CHOLESTYRAMINE,Cardiovascular & Antihypertensives,Sachets,4GM,ScheduleH,30049099,12,No,,1 Sachet,95.00,CHOLTRAN
+GLUGON 1MG Injection,GLUCAGON,Antidiabetics & Endocrine,Injection,1MG,ScheduleH,30049099,12,No,,1 Vial,280.00,GLUGON
+WOSULIN R 40IU Insullin,HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,40IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,WOSULIN R
+HUMAN MIXTARD 70%/30% Insullin,INSULLIN ISPOHANE+HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,70%/30%,ScheduleH,30049099,5,No,,10 Tablets,95.00,HUMAN MIXTARD
+HUMAN ACTRAPID 40IU Insullin,HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,40IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,HUMAN ACTRAPID
+LANTUS 100IU Insullin,INSULLIN GLARGINE,Antidiabetics & Endocrine,Insullin,100IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,LANTUS
+NOVOMIX 30%/70% Insullin,INSULLIN ASPART+INSULLIN ASPART PROTAMINE,Antidiabetics & Endocrine,Insullin,30%/70%,ScheduleH,30049099,5,No,,10 Tablets,95.00,NOVOMIX
+NOVORAPID 100IU Insullin,INSULLIN ASPART,Antidiabetics & Endocrine,Insullin,100IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,NOVORAPID
+LUPISULLIN M 50%/50% Insullin,INSULLIN ISPOHANE+HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,50%/50%,ScheduleH,30049099,5,No,,10 Tablets,95.00,LUPISULLIN M
+LUPISULLIN N 100IU Insullin,INSULLIN ISPOHANE,Antidiabetics & Endocrine,Insullin,100IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,LUPISULLIN N
+RYZODEG 2.56MG/1.05MG Insullin,INSULLIN DEGLUDEC + INSULLIN ASPART,Antidiabetics & Endocrine,Insullin,2.56MG/1.05MG,ScheduleH,30049099,5,No,,10 Tablets,95.00,RYZODEG
+HUMINSULLIN 70%/30% Insullin,INSULLIN ISPOHANE+HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,70%/30%,ScheduleH,30049099,5,No,,10 Tablets,95.00,HUMINSULLIN
+HUMINSULLIN  R 100IU Insullin,HUMAN INSULLIN,Antidiabetics & Endocrine,Insullin,100IU,ScheduleH,30049099,5,No,,10 Tablets,95.00,HUMINSULLIN  R
+GLYCOMET GP1 1/500 MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,1/500 MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET GP1
+GLYCOMET GP 2 2/500MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,2/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET GP 2
+GLYCOMET GP 3 / 850 3/850MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,3/850MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET GP 3/850
+GLYCOMET GP.05 0.5/500MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,0.5/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET GP.05
+GLYCIPHAGE 250 250MG Tablet,METFORMIN,Antidiabetics & Endocrine,Tablet,250MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCIPHAGE 250
+GLYCIPHAGE 500 500 MG Tablet,METFORMIN,Antidiabetics & Endocrine,Tablet,500 MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCIPHAGE 500
+GLYCOMET SR 500 500 MG Tablet,METFORMIN SUSTAIN,Antidiabetics & Endocrine,Tablet,500 MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET SR 500
+GLYCOMET GP 4 FORTE 4MG /1000MG Tablet,METFORMIN + GLIMEPRIDE,Antidiabetics & Endocrine,Tablet,4MG /1000MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GLYCOMET GP 4 FORTE
+DIAPRIDE M1 1MG/500 MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,1MG/500 MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,DIAPRIDE M1
+DIAPRIDE M2 2/500 MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,2/500 MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,DIAPRIDE M2
+DIAPRIDE M 1 FORTE 1/1000MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,1/1000MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,DIAPRIDE M 1 FORTE
+DIAPRIDE M2 FORTE 2/1000MG Tablet,GLIMEPRIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,2/1000MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,DIAPRIDE M2 FORTE
+TENEPRIDE 20 MG 20MG Tablet,TENLIGLIPTIN,Antidiabetics & Endocrine,Tablet,20MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,TENEPRIDE 20 MG
+TENEPRIDE M 500 MG 20/500MG Tablet,TENLIGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,20/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,TENEPRIDE M 500 MG
+"DAPFEY 5MG 5MG,10MG Tablet",DAPAGLIFOZIN,Antidiabetics & Endocrine,Tablet,"5MG,10MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,DAPFEY 5MG
+"DAPFEY MXR 10 / 500 10/500MG,10/1000MG Tablet",DAPAGLIFOZIN + METFORMIN,Antidiabetics & Endocrine,Tablet,"10/500MG,10/1000MG",ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,DAPFEY MXR 10/500
+ZORYL MV 1 1/500/0.2MG Tablet,GLIMEPRIDE + METFORMIN + VOGLIBOSE,Antidiabetics & Endocrine,Tablet,1/500/0.2MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,ZORYL MV 1
+ZORYL MV 2 2/500/0.2MG Tablet,GLIMEPRIDE + METFORMIN + VOGLIBOSE,Antidiabetics & Endocrine,Tablet,2/500/0.2MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,ZORYL MV 2
+"GLIMY 1 1MG,2MG Tablet",GLIMEPRIDE,Antidiabetics & Endocrine,Tablet,"1MG,2MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,GLIMY 1
+GP 0.5 0.5MG Tablet,GLIMEPRIDE,Antidiabetics & Endocrine,Tablet,0.5MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,GP 0.5
+RECLIDE XR 60 60MG Tablet,GLICLAZIDE,Antidiabetics & Endocrine,Tablet,60MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,RECLIDE XR 60
+RECLIMET 80 80MG/500MG Tablet,GLICLAZIDE + METFORMIN,Antidiabetics & Endocrine,Tablet,80MG/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,RECLIMET 80
+DAIMACRON 30MG 30MG Tablet,GLICLAZIDE,Antidiabetics & Endocrine,Tablet,30MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,DAIMACRON 30MG
+GALVAS / JALRA 50MG Tablet,VILDAGLIPTIN,Antidiabetics & Endocrine,Tablet,50MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,GALVAS/JALRA
+"GALVAS MET 50/500MG,50/1000MG Tablet",VILDAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,"50/500MG,50/1000MG",ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,GALVAS MET
+ONDERO 5MG Tablet,LINAGLIPTIN,Antidiabetics & Endocrine,Tablet,5MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,ONDERO
+ONDERO MET 2.5/500MG Tablet,LINAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,2.5/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,ONDERO MET
+SITAGLYN 100MG Tablet,SITAGLIPTIN,Antidiabetics & Endocrine,Tablet,100MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,SITAGLYN
+SITAGLYN D 10/100MG Tablet,SITAGLIPTIN + DAPAGLIFLOZIN,Antidiabetics & Endocrine,Tablet,10/100MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,SITAGLYN D
+SITAGLYN DM 10/100/500MG Tablet,DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,10/100/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,SITAGLYN DM
+SITAGLYN DM 10/100/1000MG Tablet,DAPAGLIFLOZIN + SITAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,10/100/1000MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,SITAGLYN DM
+SITAGLYN M 50/1000MG Tablet,SITAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,50/1000MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,SITAGLYN M
+SITAGLYN M 50/500MG Tablet,SITAGLIPTIN + METFORMIN,Antidiabetics & Endocrine,Tablet,50/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,SITAGLYN M
+XENIA ST 25/100MG Tablet,EMPAGLIFLOZIN+SITAGLIPTIN,Antidiabetics & Endocrine,Tablet,25/100MG,ScheduleH,30049099,12,No,,10 Tablets,95.00,XENIA ST
+"EUREPA 1 1MG,2MG Tablet",REPAGLINIDE,Antidiabetics & Endocrine,Tablet,"1MG,2MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,EUREPA 1
+EUREPA MF 2/500MG Tablet,REPAGLINIDE+ METFORMIN,Antidiabetics & Endocrine,Tablet,2/500MG,ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,EUREPA MF
+"VOLIX 0.2MG,0.3MG Tablet",VOGLIBOSE,Antidiabetics & Endocrine,Tablet,"0.2MG,0.3MG",ScheduleH,30049099,12,No,,10 Tablets,95.00,VOLIX
+"VOZUCA M ACTIVE 0.2/500MG,0.3/500MG Tablet",VOGLIBOSE+METFORMIN,Antidiabetics & Endocrine,Tablet,"0.2/500MG,0.3/500MG",ScheduleH,30049099,12,Yes,45.0,10 Tablets,95.00,VOZUCA M ACTIVE
+Tablet,CNS & NRX & SEDATIVES,"CNS, Neurology & Psychotropic",Tablet,,ScheduleH,30049099,12,No,,10 Tablets,65.00,
+CEHAM 250MG Injection,CITICOLINE,"CNS, Neurology & Psychotropic",Injection,250MG,ScheduleH,30049099,12,No,,1 Vial,280.00,CEHAM
+EDASTAR 1.5MG Injection,EDARAVONE,"CNS, Neurology & Psychotropic",Injection,1.5MG,ScheduleH,30049099,12,No,,1 Vial,280.00,EDASTAR
+LEVILEX 100MG Injection,LEVETIRACETAM,"CNS, Neurology & Psychotropic",Injection,100MG,ScheduleH,30049099,12,No,,1 Vial,280.00,LEVILEX
+EPSOLIN 500MG/ML Injection,PHENYTOIN,"CNS, Neurology & Psychotropic",Injection,500MG/ML,ScheduleH,30049099,12,No,,1 Vial,280.00,EPSOLIN
+FENOBARB 200MG Injection,PHENOBARBITONE,"CNS, Neurology & Psychotropic",Injection,200MG,ScheduleH,30049099,12,No,,1 Vial,280.00,FENOBARB
+MANNITOL 20%W/V Injection,MANNITOL,"CNS, Neurology & Psychotropic",Injection,20%W/V,ScheduleH,30049099,12,No,,1 Vial,280.00,MANNITOL
+NEUROTOL 10%W/V+10%W/V Injection,GLYCERIN + MANNITOL,"CNS, Neurology & Psychotropic",Injection,10%W/V+10%W/V,ScheduleH,30049099,12,No,,1 Vial,280.00,NEUROTOL
+BUTRUM 2MG Injection,BUTORPHANOL,"CNS, Neurology & Psychotropic",Injection,2MG,ScheduleH,30049099,12,No,,1 Vial,280.00,BUTRUM
+LOPEZ 2MG/ML Injection,LORAZEPAM,"CNS, Neurology & Psychotropic",Injection,2MG/ML,ScheduleH1,30049099,12,No,,1 Vial,280.00,LOPEZ
+BRIVAHENZ 50MG/5ML Injection,BRIVARACETAM,"CNS, Neurology & Psychotropic",Injection,50MG/5ML,ScheduleH,30049099,12,No,,1 Vial,280.00,BRIVAHENZ
+CEREBROGEN 60MG Injection,CEREBROPROTIN,"CNS, Neurology & Psychotropic",Injection,60MG,ScheduleH,30049099,12,No,,1 Vial,280.00,CEREBROGEN
+MEZOLAM 10MG Injection,MEDAZOLAM,"CNS, Neurology & Psychotropic",Injection,10MG,ScheduleH1,30049099,12,No,,1 Vial,280.00,MEZOLAM
+CEHAM 500MG Tablet,CITICOLINE,"CNS, Neurology & Psychotropic",Tablet,500MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,CEHAM
+CEHAM P 500MG/800MG Tablet,CITICOLINE + PIRACETAM,"CNS, Neurology & Psychotropic",Tablet,500MG/800MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,CEHAM P
+"LEVESAM 250MG,500MG,750MG Tablet",LEVETIRACETAM,"CNS, Neurology & Psychotropic",Tablet,"250MG,500MG,750MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,LEVESAM
+"EPTOIN 100MG,300MG Tablet",PHENYTOIN,"CNS, Neurology & Psychotropic",Tablet,"100MG,300MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,EPTOIN
+"BREVIPIL 100MG,75MG,50MG Tablet",BRIVARACETAM,"CNS, Neurology & Psychotropic",Tablet,"100MG,75MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,BREVIPIL
+SYNDOPA 110 100MG/10MG Tablet,LEVODOPA + CARBIDOPA,"CNS, Neurology & Psychotropic",Tablet,100MG/10MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,SYNDOPA 110
+SYNDOPA PLUS 100MG/125MG Tablet,LEVODOPA + CARBIDOPA,"CNS, Neurology & Psychotropic",Tablet,100MG/125MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,SYNDOPA PLUS
+SYNDOPA CR 200MG/50MG Tablet,LEVODOPA + CARBIDOPA,"CNS, Neurology & Psychotropic",Tablet,200MG/50MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,SYNDOPA CR
+SYNDOPA 275 250MG/25MG Tablet,LEVODOPA + CARBIDOPA,"CNS, Neurology & Psychotropic",Tablet,250MG/25MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,SYNDOPA 275
+PARI CR 12.5MG Tablet,PAROXETINE,"CNS, Neurology & Psychotropic",Tablet,12.5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PARI CR
+PACITAN 2MG Tablet,TRIHEXPHENIDYL,"CNS, Neurology & Psychotropic",Tablet,2MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PACITAN
+DONEP M 5MG/5MG Tablet,DONEPEZIL + MEMANTINE,"CNS, Neurology & Psychotropic",Tablet,5MG/5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,DONEP M
+NOOTROPIL 800MG Tablet,PIRACETAM,"CNS, Neurology & Psychotropic",Tablet,800MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NOOTROPIL
+TRANXIETY 50MG Tablet,ETIFOXINE,"CNS, Neurology & Psychotropic",Tablet,50MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,TRANXIETY
+"GARDENAL 30MG,60MG Tablet",PHENOBARBITONE,"CNS, Neurology & Psychotropic",Tablet,"30MG,60MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,GARDENAL
+"LOPEZ MD 1MG,2MG Tablet",LORAZEPAM,"CNS, Neurology & Psychotropic",Tablet,"1MG,2MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,LOPEZ MD
+"ZOLFRESH 5MG,10MG Tablet",ZOLPIDEM,"CNS, Neurology & Psychotropic",Tablet,"5MG,10MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,ZOLFRESH
+NEWCITA PLUS 10MG/0.5MG Tablet,ESCITALOPRAM + CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,10MG/0.5MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,NEWCITA PLUS
+"NEXITO 10MG,5MG Tablet",ESCITALOPRAM,"CNS, Neurology & Psychotropic",Tablet,"10MG,5MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,NEXITO
+NEXITO PLUS 5MG/0.5MG Tablet,ESCITALOPRAM + CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,5MG/0.5MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,NEXITO PLUS
+NEXITO FORTE 10MG/0.5MG Tablet,ESCITALOPRAM + CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,10MG/0.5MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,NEXITO FORTE
+NEXITO LS 10MG/0.25MG Tablet,ESCITALOPRAM + CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,10MG/0.25MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,NEXITO LS
+"FRISIUM 10MG,5MG Tablet",CLOBAZAM,"CNS, Neurology & Psychotropic",Tablet,"10MG,5MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,FRISIUM
+"LIBRIUM 10MG,25MG Tablet",CHLORDIAZEPOXIDE,"CNS, Neurology & Psychotropic",Tablet,"10MG,25MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,LIBRIUM
+"ALPREX 0.25MG,0.5MG Tablet",ALPRAZOLAM,"CNS, Neurology & Psychotropic",Tablet,"0.25MG,0.5MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,ALPREX
+RIVOTRIL 0.5MG Tablet,CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,0.5MG,ScheduleH1,30049099,12,No,,10 Tablets,65.00,RIVOTRIL
+"CLONOTRIL 0.25MG,0.5MG Tablet",CLONAZEPAM,"CNS, Neurology & Psychotropic",Tablet,"0.25MG,0.5MG",ScheduleH1,30049099,12,No,,10 Tablets,65.00,CLONOTRIL
+PANTOCID 40MG Injection,PENTOPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,40MG,ScheduleH,30049099,12,No,,1 Vial,280.00,PANTOCID
+RAPEED 20MG Injection,RABEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,20MG,ScheduleH,30049099,12,No,,1 Vial,280.00,RAPEED
+ESOMAC 40MG Injection,ESOMEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,40MG,ScheduleH,30049099,12,Yes,180.0,1 Vial,280.00,ESOMAC
+DROTIN 40MG Injection,DROTAVERINE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,40MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DROTIN
+LESURIDE 25MG Injection,LEVOSULPIRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,25MG,ScheduleH,30049099,12,No,,1 Vial,280.00,LESURIDE
+ACILOC 150MG Injection,RANITIDINE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,150MG,ScheduleH,30049099,12,Yes,180.0,1 Vial,280.00,ACILOC
+GTLIVE 600MG Injection,GLUTATHIONE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,600MG,ScheduleH,30049099,12,No,,1 Vial,280.00,GTLIVE
+SAMLOL / LORNIT 5MG Injection,L-ORNITHINE L-ASPARTATE,"Gastrointestinal, Hepatic & Antispasmodic",Injection,5MG,ScheduleH,30049099,12,No,,1 Vial,280.00,SAMLOL/LORNIT
+PANSEC 40MG Tablet,PENTOPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,40MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PANSEC
+PANSEC DSR 40MG/30MG Capsule,PENTOPRAZOLE + DOMPERIDONE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,40MG/30MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,PANSEC DSR
+RABICIP 20MG Tablet,RABEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,20MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,RABICIP
+RABICIP D /  RABELOC RD 20MG/30MG Capsule,RABEPRAZOLE + DOMPERIDONE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,20MG/30MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,RABICIP D/ RABELOC RD
+RABICIP L 20MG/75MG Capsule,RABEPRAZOLE + LEVOSULPIRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,20MG/75MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,RABICIP L
+RABELOC IT 20MG/150MG Capsule,RABEPRAZOLE + ITOPRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,20MG/150MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,RABELOC IT
+"ACILOC / RANTEC 150MG,300MG Tablet",RANITIDINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,"150MG,300MG",ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,ACILOC/RANTEC
+"VACILOC / VONZAI / KABVIE 10MG,20MG Tablet",VONOPRAZAN,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,"10MG,20MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,VACILOC/VONZAI/KABVIE
+OMEZ 20MG Capsule,OMEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,20MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,OMEZ
+OMEZ D / ESOMAC D / ESOKEM 40MG/30MG Capsule,ESOMEPRAZOLE + DOMPERIDONE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,40MG/30MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,OMEZ D/ESOMAC D/ESOKEM
+OMEZ IT 40MG/150MG Capsule,ESOMEPRAZOLE + ITOPRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,40MG/150MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,OMEZ IT
+OMEZ REFLEX 100MG/500MG Tablet,ALGINIC ACID + POTASSIUM HYDROGEN CARBONATE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,100MG/500MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,OMEZ REFLEX
+"ESOMAC 40MG,80MG Tablet",ESOMEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,"40MG,80MG",ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,ESOMAC
+ESOMER L 75MG/40MG Capsule,LEVOSULPIRIDE + ESOMEPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,75MG/40MG,ScheduleH,30049099,12,Yes,95.0,10 Capsules,135.00,ESOMER L
+CINTODAC 3MG/40MG Capsule,CINITAPRIDE + PENTOPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,3MG/40MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,CINTODAC
+ILADAC 10MG Tablet,ILAPRAZOLE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,10MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ILADAC
+PCAB 50MG Tablet,TEGOPRAZAN,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,50MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PCAB
+GANATON 50MG Tablet,ITOPRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,50MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,GANATON
+GANATON OD 150MG Capsule,ITOPRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,150MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,GANATON OD
+GANATON TOTAL 40MG/150MG Capsule,PENTAPRAZOLE + ITOPRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,40MG/150MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,GANATON TOTAL
+LESURIDE 25MG Tablet,LEVOSULPIRIDE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,25MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,LESURIDE
+DROTIN DS 80MG Tablet,DROTAVERINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,80MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,DROTIN DS
+DROTIN M 80MG/250MG Tablet,DROTAVERINE + MEFENAMIC ACID,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,80MG/250MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,DROTIN M
+MEFTAL-SPAS 10MG/250MG Tablet,DICYCLOMINE + MEFENAMIC ACID,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,10MG/250MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MEFTAL-SPAS
+CIZASPA SR / MEBIZ SR 200MG Capsule,MEBEVERINE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,200MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,CIZASPA SR/MEBIZ SR
+CIZASPA X / MEBIZ CX 135MG/5MG Tablet,MEBEVERINE + CHLORDIAZEPOXIDE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,135MG/5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,CIZASPA X/MEBIZ CX
+COLOSPA RETARD 200MG Capsule,MEREVERINE,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,200MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,COLOSPA RETARD
+NORMAXIN 2.5MG/5MG/10MG Tablet,CLIDINIUM + CHLORDIAZEPOXIDE + DICYCLOMINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,2.5MG/5MG/10MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,NORMAXIN
+"CREON  / PANLIPASE / CADPAN 300MG,150MG Capsule",PANCREATIN,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,"300MG,150MG",ScheduleH,30049099,12,No,,10 Capsules,135.00,CREON /PANLIPASE/CADPAN
+PANLIPASE UC 200MG Capsule,PANCREATIN,"Gastrointestinal, Hepatic & Antispasmodic",Capsule,200MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,PANLIPASE UC
+HEPKART / NUSAM / ZELADENO 400MG Tablet,ADEMETIONINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,400MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,HEPKART/NUSAM/ZELADENO
+LIPAGLYN 4MG Tablet,SAROGLITAZAR,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,4MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,LIPAGLYN
+"URSOCOL / UCLICK 150MG,300MG Tablet",URSODEOXYCHOLIC ACID,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,"150MG,300MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,URSOCOL/UCLICK
+GASVENZ 250MG/80MG Tablet,ACTIVATED CHARCOAL + SIMETHICONE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,250MG/80MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,GASVENZ
+MAXILIV 500MG Tablet,GLUTATHIONE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,500MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MAXILIV
+MESAGRAN OD / VEGAZ OD 1.2GM Tablet,MESALAZINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,1.2GM,ScheduleH,30049099,12,No,,10 Tablets,65.00,MESAGRAN OD/VEGAZ OD
+"MESACOL 400MG,800MG Tablet",MESALAZINE,"Gastrointestinal, Hepatic & Antispasmodic",Tablet,"400MG,800MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,MESACOL
+"MESAGRAN LB / VEGAZ OD 2GM,1GM Sachets",MESALAZINE,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,"2GM,1GM",ScheduleH,30049099,12,No,,1 Sachet,65.00,MESAGRAN LB/VEGAZ OD
+LAMINO BCCA 13.2MG/1.25GM/2.5GM/1.25GM Sachets,ELEMENTAL ZINC+L-ISOLEUCINE+L-LEUCIN+L-VALINE,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,13.2MG/1.25GM/2.5GM/1.25GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,LAMINO BCCA
+LAMINO HEPA 700MG/480MG/830MG/490MG Sachets,L-LYSINE+L-ISOLEUCINE+L-LEUCIN+L-VALINE,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,700MG/480MG/830MG/490MG,ScheduleH,30049099,12,No,,1 Sachet,65.00,LAMINO HEPA
+LAMINO HP 30GM Sachets,ALPHA LIOPIC ACID + L-CARNITINE ETC,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,30GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,LAMINO HP
+HEPAGARD / SAMLOL 3GM Sachets,L-ORNITHINE L-ASPARTATE,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,3GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,HEPAGARD/SAMLOL
+PENTASURE CREPITIC 400GM Powder,HYDROLYSED WHEY PEPTIDE,"Gastrointestinal, Hepatic & Antispasmodic",Powder,400GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,PENTASURE CREPITIC
+EFEZAC 10GM Sachets,WHEY PROTIN ISOLATE+LEUCINE+ISOLUCINE+VALINE,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,10GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,EFEZAC
+PROHENCE LIV 18GM Sachets,WHEY PROTIN CONCENTRATE+BCAAs ETC,"Gastrointestinal, Hepatic & Antispasmodic",Sachets,18GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,PROHENCE LIV
+SUCRAFIL / MACRALFATE 500MG/5ML Syrup,SUCRALFATE,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,500MG/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,SUCRAFIL/MACRALFATE
+SUCRAFIL O  / MACRALFATE O 500MG/5ML+10MG/5ML Syrup,SUCRALFATE + OXETACAINE,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,500MG/5ML+10MG/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,SUCRAFIL O /MACRALFATE O
+MACRAFT / ALGISOD 80MG/133.5MG/250MG Syrup,CALCIUM CARBONATE+SODIUM BICARBONATE+SODIUM ALGINATE,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,80MG/133.5MG/250MG,ScheduleH,30049099,12,Yes,85.0,1 Bottle,115.00,MACRAFT/ALGISOD
+LOOZ PEG 13.125GM Syrup,POLYETHYLENE GLYCOL,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,13.125GM,ScheduleH,30049099,12,No,,1 Bottle,115.00,LOOZ PEG
+LACTIHEP PLUS / PICLIN PLUS 33.33MG+1.25ML+3.75ML/5ML Syrup,SODIUM PICOSULFATE+LIQUID PARAFFIN+MILK OF MAGNESIA,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,33.33MG+1.25ML+3.75ML/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,LACTIHEP PLUS/PICLIN PLUS
+CADILOSE / LAXITOL / LACTIHEP 10GM/15ML Syrup,LAXITOL,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,10GM/15ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,CADILOSE/LAXITOL/LACTIHEP
+MUCAIN GEL 10MG+0.291GM+98MG/5ML Syrup,OXETACAINE+ALUMINIUM HYDROXIDE+MILK OF MAGNESIA,"Gastrointestinal, Hepatic & Antispasmodic",Syrup,10MG+0.291GM+98MG/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,MUCAIN GEL
+LACTIFIBER / LIVOLUK 10GM/3.5GM Powder,LAXITOL + ISPAGHULA,"Gastrointestinal, Hepatic & Antispasmodic",Powder,10GM/3.5GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,LACTIFIBER/LIVOLUK
+PEGFIBER 17GM/3.5GM Powder,POLYETHYLENE GLYCOL + ISPAGHULA,"Gastrointestinal, Hepatic & Antispasmodic",Powder,17GM/3.5GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,PEGFIBER
+PEGMOVE 17GM Powder,POLYETHYLENE GLYCOL,"Gastrointestinal, Hepatic & Antispasmodic",Powder,17GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,PEGMOVE
+PEGLAC 137.15GM Powder,POLYETHYLENE GLYCOL+SODIUM CHLORIDE+POTASSIUM CHLORIDE,"Gastrointestinal, Hepatic & Antispasmodic",Powder,137.15GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,PEGLAC
+EXELYTE 45ML Solution,ORAL SALINE LAXATIVE,"Gastrointestinal, Hepatic & Antispasmodic",Solution,45ML,ScheduleH,30049099,12,No,,10 Tablets,65.00,EXELYTE
+SILDOO / SILODAL / SILOCAP 8MG Tablet,SILODOSIN,"Respiratory, Pulmonology & Urological",Tablet,8MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,SILDOO/SILODAL/SILOCAP
+SILDOO / SILODAL / SILOCAP D 8MG/0.5MG Capsule,SILODOSIN + DUTASTERIDE,"Respiratory, Pulmonology & Urological",Capsule,8MG/0.5MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,SILDOO/SILODAL/SILOCAP D
+RAPLIF / MAXVOID 8MG Tablet,SILODOSIN,"Respiratory, Pulmonology & Urological",Tablet,8MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,RAPLIF/MAXVOID
+RAPLIF T / SILDOO T 80MG/5MG Capsule,SILODOSIN + TADALAFIL,"Respiratory, Pulmonology & Urological",Capsule,80MG/5MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,RAPLIF T/SILDOO T
+MAXVOID M / SILODAL M 8MG/25MG Tablet,SILODOSIN + MIRABEGRON,"Respiratory, Pulmonology & Urological",Tablet,8MG/25MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MAXVOID M/SILODAL M
+MAXVOID PLUS / GERIPOD D 8MG/0.5MG Tablet,SILODOSIN + DUTASTERIDE,"Respiratory, Pulmonology & Urological",Tablet,8MG/0.5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MAXVOID PLUS/GERIPOD D
+"MIRAGO / MIRBEG / EXENA 50MG,25MG Tablet",MIRABEGRON,"Respiratory, Pulmonology & Urological",Tablet,"50MG,25MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,MIRAGO/MIRBEG/EXENA
+PYRIDIUM 200MG Tablet,PHENAZOPYRIDINE HYDROCHLORIDE,"Respiratory, Pulmonology & Urological",Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PYRIDIUM
+"TEDUP / MODULA 5MG,10MG Tablet",TADALAFIL,"Respiratory, Pulmonology & Urological",Tablet,"5MG,10MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,TEDUP/MODULA
+"UROTONE 25MG,50MG Tablet",BETHANECHOL CHLORIDE,"Respiratory, Pulmonology & Urological",Tablet,"25MG,50MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,UROTONE
+TRACFREE 600MG/300MG Capsule,CRANBERRY EXTRACT + D-MANNOSE,"Respiratory, Pulmonology & Urological",Capsule,600MG/300MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,TRACFREE
+DARIF 7.5MG Tablet,DARIFENACIN,"Respiratory, Pulmonology & Urological",Tablet,7.5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,DARIF
+GERISTART / URIMAX / TASULIN 0.4MG Tablet,TAMSULOSIN,"Respiratory, Pulmonology & Urological",Tablet,0.4MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,GERISTART/URIMAX/TASULIN
+URIMAX D 0.4MG/0.5MG Tablet,TAMSULOSIN + DUTASTERIDE,"Respiratory, Pulmonology & Urological",Tablet,0.4MG/0.5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,URIMAX D
+KCIT 334MG+1100MG/5ML Syrup,CITRIC ACID + POTASSIUM CITRATE,"Respiratory, Pulmonology & Urological",Syrup,334MG+1100MG/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,KCIT
+URIVOLT / CRANPAC KM 200MG/300MG/978MG Syrup,CRANBERRY EXTRACT + D-MANNOSE+POTASSIUM+MAGNESIUM,"Respiratory, Pulmonology & Urological",Syrup,200MG/300MG/978MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,URIVOLT/CRANPAC KM
+ALKASOL 1.4GM/5ML Syrup,DISODIUM HYDROGEN CITRATE,"Respiratory, Pulmonology & Urological",Syrup,1.4GM/5ML,ScheduleH,30049099,12,No,,1 Bottle,115.00,ALKASOL
+K MAC ACTIVE 1100MG/375MG/1.5MG Syrup,POTASSIUM CITRATE+MAGNESIUM CITRATE+PYRIDOXAL,"Respiratory, Pulmonology & Urological",Syrup,1100MG/375MG/1.5MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,K MAC ACTIVE
+POTKLOR 1.5GM Syrup,POTASSIUM CHLORIDE,"Respiratory, Pulmonology & Urological",Syrup,1.5GM,ScheduleH,30049099,12,No,,1 Bottle,115.00,POTKLOR
+FOSIROL 3GM Sachets,FOSFOMYCIN,"Respiratory, Pulmonology & Urological",Sachets,3GM,ScheduleH,30049099,12,No,,1 Sachet,65.00,FOSIROL
+PULMOCLEAR / MUCOMIX ACE 100MG/600MG Tablet,ACEBROPHYLLINE + ACETYLCYSTEINE,"Respiratory, Pulmonology & Urological",Tablet,100MG/600MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,PULMOCLEAR/MUCOMIX ACE
+EFETIL 600MG Tablet,ACETYLCYSTEINE,"Respiratory, Pulmonology & Urological",Tablet,600MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,EFETIL
+MONTEK AB 10MG/200MG Tablet,MONTELUKAST + ACEBROPHYLLINE,"Respiratory, Pulmonology & Urological",Tablet,10MG/200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MONTEK AB
+GLEMONT F 10MG/120MG Tablet,MONTELUKAST + FEXOFENADINE,"Respiratory, Pulmonology & Urological",Tablet,10MG/120MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,GLEMONT F
+MONTICOPE 5MG/10MG Tablet,LEVOCETIRIZINE + MONTELUKAST,"Respiratory, Pulmonology & Urological",Tablet,5MG/10MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,MONTICOPE
+MONDESLOR 5MG/10MG Tablet,DESLORATADINE + MONTELUKAST,"Respiratory, Pulmonology & Urological",Tablet,5MG/10MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,MONDESLOR
+"HISTAFREE 120MG,180MG Tablet",FEXOFENADINE,"Respiratory, Pulmonology & Urological",Tablet,"120MG,180MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,HISTAFREE
+AB PHYLLINE SR 200MG Tablet,ACEBROPHYLLINE,"Respiratory, Pulmonology & Urological",Tablet,200MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,AB PHYLLINE SR
+DERIPHYLLINE R 115MG/35MG Injection,ETOFYLLINE + THEOPHYLLINE,"Respiratory, Pulmonology & Urological",Injection,115MG/35MG,ScheduleH,30049099,12,No,,1 Vial,280.00,DERIPHYLLINE R
+CETIRIZ 10MG Tablet,CETIRIZINE,"Respiratory, Pulmonology & Urological",Tablet,10MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,CETIRIZ
+"DOXOLIN 400MG,650MG Tablet",DOXYPHYLLINE,"Respiratory, Pulmonology & Urological",Tablet,"400MG,650MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,DOXOLIN
+"BILASURE 40MG,20MG Tablet",BILASTINE,"Respiratory, Pulmonology & Urological",Tablet,"40MG,20MG",ScheduleH,30049099,12,No,,10 Tablets,65.00,BILASURE
+BILASURE M 40MG/10MG Tablet,BILASTINE + MONTELUKAST,"Respiratory, Pulmonology & Urological",Tablet,40MG/10MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,BILASURE M
+ALEX 5MG Lozenges,DEXTROMETHORPHAN HYDROBROMIDE,"Respiratory, Pulmonology & Urological",Lozenges,5MG,ScheduleH,30049099,12,No,,10 Tablets,65.00,ALEX
+BENZ PEARL 100MG Capsule,BENZONATATE,"Respiratory, Pulmonology & Urological",Capsule,100MG,ScheduleH,30049099,12,No,,10 Capsules,135.00,BENZ PEARL
+ALLERBIO 4 BILLION CELL Capsule,LACTOBASILLUS PARACASEI + LACTOBASILLUS FERMENTUM,"Respiratory, Pulmonology & Urological",Capsule,4 BILLION CELL,ScheduleH,30049099,12,No,,10 Capsules,135.00,ALLERBIO
+SOVENTUS D 20MG/2MG Syrup,AMBROXOL+CHLORPHENIRAMINE MALEATE,"Respiratory, Pulmonology & Urological",Syrup,20MG/2MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,SOVENTUS D
+LUPITUSS  /  ALEX L 20MG Syrup,LEVOCLOPREASTINE,"Respiratory, Pulmonology & Urological",Syrup,20MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,LUPITUSS / ALEX L
+BROZEDEX SF 50MG/1.25MG/4MG Syrup,GUAIFENESIN+TERBUTALINE+BROMHEXINE,"Respiratory, Pulmonology & Urological",Syrup,50MG/1.25MG/4MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,BROZEDEX SF
+BROZEDEX LS 1MG/30MG/50MG Syrup,LEVOSALBUTAMOL+AMBROXOL+GUAIFENESIN,"Respiratory, Pulmonology & Urological",Syrup,1MG/30MG/50MG,ScheduleH,30049099,12,Yes,85.0,1 Bottle,115.00,BROZEDEX LS
+ALEX SF 5MG/2MG/10MG Syrup,PHENYLEPHRINE+CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE,"Respiratory, Pulmonology & Urological",Syrup,5MG/2MG/10MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,ALEX SF
+CHERICOF 12 4MG/30MG Syrup,CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE,"Respiratory, Pulmonology & Urological",Syrup,4MG/30MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,CHERICOF 12
+COREX DX 4MG/10MG Syrup,CHLORPHENIRAMINE MALEATE+DEXTROMETHORPHAN HYDROBROMIDE,"Respiratory, Pulmonology & Urological",Syrup,4MG/10MG,ScheduleH,30049099,12,No,,1 Bottle,115.00,COREX DX
+"FORMONIDE / FORACORT 200MG,400MG Inhaler",FORMOTEROL FUMARATE+BUDESONIDE,"Respiratory, Pulmonology & Urological",Inhaler,"200MG,400MG",ScheduleH,30049099,12,Yes,,1 Device,390.00,FORMONIDE/FORACORT
+TIOVA 9MG Inhaler,TIOTROPIUM BROMIDE,"Respiratory, Pulmonology & Urological",Inhaler,9MG,ScheduleH,30049099,12,No,,1 Device,390.00,TIOVA
+DUONASE / FLUBLOCK AZ 50MCG/140MCG Nasal Spray,FLUTICASONE PROPIONATE+AZELASTINE,"Respiratory, Pulmonology & Urological",Nasal Spray,50MCG/140MCG,ScheduleH,30049099,12,No,,1 Device,65.00,DUONASE/FLUBLOCK AZ
+FLOMIST / FLUBLOCK 50MCG Nasal Spray,FLUTICASONE PROPIONATE,"Respiratory, Pulmonology & Urological",Nasal Spray,50MCG,ScheduleH,30049099,12,No,,1 Device,65.00,FLOMIST/FLUBLOCK
+INSED 0.5MG Nasal Spray,MIDAZOLAM,"Respiratory, Pulmonology & Urological",Nasal Spray,0.5MG,ScheduleH1,30049099,12,No,,1 Device,65.00,INSED
+MOMEFLO 50MCG Nasal Spray,MOMETASONE,"Respiratory, Pulmonology & Urological",Nasal Spray,50MCG,ScheduleH,30049099,12,No,,1 Device,65.00,MOMEFLO
+NASOCLEAR 0.0065 Nasal Spray,SODIUM CHLORIDE,"Respiratory, Pulmonology & Urological",Nasal Spray,0.0065,ScheduleH,30049099,12,No,,1 Device,65.00,NASOCLEAR
+"FORMONIDE / FORACORT 20MCG/0.5MG,20MCG/1MG Nebulizer Solution",FORMOTEROL FUMARATE+BUDESONIDE,"Respiratory, Pulmonology & Urological",Nebulizer Solution,"20MCG/0.5MG,20MCG/1MG",ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,FORMONIDE/FORACORT
+"BUDAMATE 20MCG/0.5MG,20MCG/1MG Nebulizer Solution",FORMOTEROL+BUDESONIDE,"Respiratory, Pulmonology & Urological",Nebulizer Solution,"20MCG/0.5MG,20MCG/1MG",ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,BUDAMATE
+IPRAZEST 1.25MG/500MCG Nebulizer Solution,LEVOSALBUTAMOL+IPRATROPIUM,"Respiratory, Pulmonology & Urological",Nebulizer Solution,1.25MG/500MCG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,IPRAZEST
+BUNASE 0.5MG Nebulizer Solution,BUDESONIDE,"Respiratory, Pulmonology & Urological",Nebulizer Solution,0.5MG,ScheduleH,30049099,12,Yes,32.0,10 Tablets,65.00,BUNASE
+GLYCOFLO / GLYCOHALE 25MCG Nebulizer Solution,GLYCOPYRROLATE,"Respiratory, Pulmonology & Urological",Nebulizer Solution,25MCG,ScheduleH,30049099,12,No,,10 Tablets,65.00,GLYCOFLO/GLYCOHALE
+TOBAMIST 300MG INJ-80MG Injection,TOBRAMYCIN,"Respiratory, Pulmonology & Urological",Injection,300MG INJ-80MG,ScheduleH,30049099,12,No,,1 Vial,280.00,TOBAMIST
+NUROKIND PLUS / MYLAMIN 1500MCG Injection,METHYLCOBALAMIN + NIACINAMIDE + VIT B6,"Vitamins, Minerals, Nutrients & Nephrology",Injection,1500MCG,General,30049099,12,No,,1 Vial,280.00,NUROKIND PLUS/MYLAMIN
+RENERVE PLUS 1000MCG Injection,METHYLCOBALAMIN + NIACINAMIDE + VIT B6,"Vitamins, Minerals, Nutrients & Nephrology",Injection,1000MCG,General,30049099,12,No,,1 Vial,280.00,RENERVE PLUS
+MVI / POLYBION 1000IU Injection,VIT A+VIT B1+VITB2+VIT D3+VIT B5,"Vitamins, Minerals, Nutrients & Nephrology",Injection,1000IU,General,30049099,12,No,,1 Vial,280.00,MVI/POLYBION
+RUBIRED 20MG/ML Injection,IRON SUCROSE,"Vitamins, Minerals, Nutrients & Nephrology",Injection,20MG/ML,General,30049099,12,Yes,180.0,1 Vial,280.00,RUBIRED
+AMINTOZ 100MG Injection,VIT B1,"Vitamins, Minerals, Nutrients & Nephrology",Injection,100MG,General,30049099,12,No,,1 Vial,280.00,AMINTOZ
+JILAZO 500MG Injection,IRON SUCROSE,"Vitamins, Minerals, Nutrients & Nephrology",Injection,500MG,General,30049099,12,Yes,180.0,1 Vial,280.00,JILAZO
+ALAMIN SN 10.641%GM IV Infusion,AMINO ACID,"Vitamins, Minerals, Nutrients & Nephrology",IV Infusion,10.641%GM,General,30049099,12,No,,10 Tablets,280.00,ALAMIN SN
+ALBUREL 20%W/V IV Infusion,ALBUMIN,"Vitamins, Minerals, Nutrients & Nephrology",IV Infusion,20%W/V,General,30049099,5,Yes,1100.0,10 Tablets,1450.00,ALBUREL
+NEPHROSTERIL 70GM IV Infusion,L-Lysine + L-Threonine + L-Isoleucine + L-Methionine + L-Histidine Hydrochloride,"Vitamins, Minerals, Nutrients & Nephrology",IV Infusion,70GM,General,30049099,12,No,,10 Tablets,280.00,NEPHROSTERIL
+AMINOVEN 0.1 IV Infusion,AMINO ACID,"Vitamins, Minerals, Nutrients & Nephrology",IV Infusion,0.1,General,30049099,12,No,,10 Tablets,280.00,AMINOVEN
+ALCOFIX GOLD 250/4/50MG Tablet,VIT B1+VITB2+VIT B6,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,250/4/50MG,General,30049099,12,No,,10 Tablets,65.00,ALCOFIX GOLD
+MELCOVIT / SURBEX GOLD 250MG Capsule,OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,250MG,General,30049099,12,No,,10 Capsules,135.00,MELCOVIT/SURBEX GOLD
+SUPRACTIVE 250MG Capsule,OMEGA 3+ALPHA LIOPIC ACID+LYCOPENE ETC,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,250MG,General,30049099,12,No,,10 Capsules,135.00,SUPRACTIVE
+ZINCOVIT 50MG Tablet,MULTIVIT+MULTIMINERAL+GRAPE SEED EXTRACT,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,50MG,General,30049099,12,No,,10 Tablets,65.00,ZINCOVIT
+MENOPASE ISO 100MG Tablet,"Soya Isoflavones, Magnesium Hydroxide, Vitamin C","Vitamins, Minerals, Nutrients & Nephrology",Tablet,100MG,General,30049099,12,No,,10 Tablets,65.00,MENOPASE ISO
+OXYVOLT 100MG Capsule,GRAPE SEED EXTRACT+LYCOPENE+LUTEIN,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,100MG,General,30049099,12,No,,10 Capsules,135.00,OXYVOLT
+GEN D3 NANO 60000IU Tablet,VIT D3,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,60000IU,General,30049099,12,No,,10 Tablets,65.00,GEN D3 NANO
+FOLIZORB 1500MCG Capsule,L-Methyl Folate + Methylcobalamin + Omega-3 fatty acid + Pyridoxal-5-phosphate,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,1500MCG,General,30049099,12,No,,10 Capsules,135.00,FOLIZORB
+NEUROBION FORT 1500MCG Tablet,"Thiamine Mononitrate,Riboflavin,Pyridoxine Hydrochloride,Cyanocobalamin ,Nicotinamide","Vitamins, Minerals, Nutrients & Nephrology",Tablet,1500MCG,General,30049099,12,No,,10 Tablets,65.00,NEUROBION FORT
+NEUROLYK CD3 1000MCG Tablet,Alpha Lipoic Acid+Benfotiamine+Chromium Methylcobalamin+Pyridoxine,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,1000MCG,General,30049099,12,No,,10 Tablets,65.00,NEUROLYK CD3
+NUROKIND LC 500MG Capsule,Levo-carnitine + Methylcobalamin + Folic Acid,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,500MG,General,30049099,12,Yes,95.0,10 Capsules,135.00,NUROKIND LC
+NUROKIND NEXT 1500MCG Capsule,"Benfothiamine, Mecobalamin, Alpha Lipoic Acid, Pyridoxine, Folic acid, Biotin + Chromium.","Vitamins, Minerals, Nutrients & Nephrology",Capsule,1500MCG,General,30049099,12,Yes,95.0,10 Capsules,135.00,NUROKIND NEXT
+LYCORED 100MG Syrup,LYCOPENE,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,100MG,General,30049099,12,No,,1 Bottle,115.00,LYCORED
+RUBIRED 200MG Syrup,IRON SUCROSE,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,200MG,General,30049099,12,Yes,85.0,1 Bottle,115.00,RUBIRED
+NEUROLYK GOLD 200MG Syrup,MULTIVIT+MULTIMINERAL,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,200MG,General,30049099,12,No,,1 Bottle,115.00,NEUROLYK GOLD
+POLYBION LC 375MG Syrup,Pyridoxine Hydrochloride+Nicotinamide+Cyanocobalamin+Cyanocobalamin,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,375MG,General,30049099,12,No,,1 Bottle,115.00,POLYBION LC
+POLYBION ACTIVE 375MG Syrup,VIT B COMPLEX+LYSINE,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,375MG,General,30049099,12,No,,1 Bottle,115.00,POLYBION ACTIVE
+BEVON 200MG Syrup,MULTIVIT+MULTIMINERAL,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,200MG,General,30049099,12,No,,1 Bottle,115.00,BEVON
+AMPIMUST 275MG Syrup,Cyproheptadine + Tricholine Citrate + Sorbitol,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,275MG,General,30049099,12,No,,1 Bottle,115.00,AMPIMUST
+APTIVATE 75MG Syrup,AYURVEDIC,"Vitamins, Minerals, Nutrients & Nephrology",Syrup,75MG,General,30049099,12,No,,1 Bottle,115.00,APTIVATE
+NEOGADINE SG Syrup,"Cyanocobalamin,Iodised Peptone,Magnesium Chloride,Manganese Sulphate,Nicotinamide","Vitamins, Minerals, Nutrients & Nephrology",Syrup,,General,30049099,12,No,,1 Bottle,115.00,NEOGADINE SG
+A TO Z 50MG Drops,MULTIVIT+MULTIMINERAL,"Vitamins, Minerals, Nutrients & Nephrology",Drops,50MG,General,30049099,12,No,,1 Bottle,115.00,A TO Z
+ULTRA D3 / KIDRICH D3 400IU Drops,VIT D3,"Vitamins, Minerals, Nutrients & Nephrology",Drops,400IU,General,30049099,12,No,,1 Bottle,115.00,ULTRA D3/KIDRICH D3
+BIO D3 PLUS 200MG Capsule,CALCIUM + VIT D3,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,200MG,General,30049099,12,Yes,95.0,10 Capsules,135.00,BIO D3 PLUS
+BIO D3 MAX 1500MCG Capsule,Calcitriol+Calcium Carbonate+Omega-3 fatty acid+Methylcobalamin+Folic Acid,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,1500MCG,General,30049099,12,Yes,95.0,10 Capsules,135.00,BIO D3 MAX
+BIO D3 XT / SHELCAL XT 1500MCG Tablet,Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,1500MCG,General,30049099,12,Yes,32.0,10 Tablets,65.00,BIO D3 XT/SHELCAL XT
+BIO D3 DS 1250MG Capsule,Calcitriol + Calcium Carbonate + Vitamin K2-7 + Zinc + Potassium Citrate,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,1250MG,General,30049099,12,Yes,95.0,10 Capsules,135.00,BIO D3 DS
+BIO D3 JOINT / SHELCAL JOINT 500MG Capsule,CALCIUM+BOSCURIN+VITC TYPE II COLLOGEN,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,500MG,General,30049099,12,Yes,95.0,10 Capsules,135.00,BIO D3 JOINT/SHELCAL JOINT
+EZORB JOINT 275MG Capsule,"Rosehip extract,fructoborate, Devil's claw extract, Boswellia extract, collagen type II","Vitamins, Minerals, Nutrients & Nephrology",Capsule,275MG,General,30049099,12,No,,10 Capsules,135.00,EZORB JOINT
+"SHELCAL 500MG,1000MG Tablet",CALCIUM CARBONATE,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,"500MG,1000MG",General,30049099,12,Yes,32.0,10 Tablets,65.00,SHELCAL
+TRICIUM ACTIVE 1500MCG Capsule,Calcium Carbonate + Vitamin D3 + Methylcobalamin + L-Methyl Folate Calcium,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,1500MCG,General,30049099,12,Yes,95.0,10 Capsules,135.00,TRICIUM ACTIVE
+CENTRUM JOINT 40MG Tablet,"UC-II, undenatured collagen type II,Vitamin D3,Vitamin K2","Vitamins, Minerals, Nutrients & Nephrology",Tablet,40MG,General,30049099,12,Yes,32.0,10 Tablets,65.00,CENTRUM JOINT
+HARJOD 250MG Tablet,AYURVEDIC,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,250MG,General,30049099,12,No,,10 Tablets,65.00,HARJOD
+JOINTEC C2 750MG Capsule,"Glucosamine sulphate potassium chloride,Collagen Type II,Chondroitin sulphate","Vitamins, Minerals, Nutrients & Nephrology",Capsule,750MG,General,30049099,12,No,,10 Capsules,135.00,JOINTEC C2
+THEAL 220MG Capsule,Mucopolysaccharides + Collagen Type I + VIT C,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,220MG,General,30049099,12,No,,10 Capsules,135.00,THEAL
+TENDOFIRM 200MG Capsule,"Chondroitin, Mucopolysaccharide & Hyaluronic Acid","Vitamins, Minerals, Nutrients & Nephrology",Capsule,200MG,General,30049099,12,No,,10 Capsules,135.00,TENDOFIRM
+PROHENCE HP / PENTASURE HP 400GM Powder,"Soy protein isolate, Skimmed milk powder, Whey protein concentrate, Maltodextrin, Fructose,","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,No,,1 Sachet,65.00,PROHENCE HP/PENTASURE HP
+PROHENCE D / PENTASURE DM 400GM Powder,"Dietary Fiber,Whep Protein,cocoa Solids,calcium,vitamins and minerals","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,Yes,32.0,1 Sachet,65.00,PROHENCE D/PENTASURE DM
+PENTASURE RENAL 400GM Powder,"Encapsulated corn oil,Maltodextrin,Whey protein concentrate,Fructooligosaccharides","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,No,,1 Sachet,65.00,PENTASURE RENAL
+PENTASURE DLS 400GM Powder,"Encapsulated Vegetable oil+Choline Hydrogen Tara Vanins L-Camiline, L-Taurine, Inositol","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,No,,1 Sachet,65.00,PENTASURE DLS
+PENTASURE / PROHENCE 400GM Powder,"Whey Protein Concentrate, Maltodextrin","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,No,,1 Sachet,65.00,PENTASURE/PROHENCE
+NAN 1 PRO 400GM Powder,"Milk solids, Demineralised whey","Vitamins, Minerals, Nutrients & Nephrology",Powder,400GM,General,30049099,12,No,,1 Sachet,65.00,NAN 1 PRO
+LACTAOGEN 200GM Powder,"Milk solids, Demineralised whey","Vitamins, Minerals, Nutrients & Nephrology",Powder,200GM,General,30049099,12,No,,1 Sachet,65.00,LACTAOGEN
+REE 1GM Injection,LEVOCARNITINE,"Vitamins, Minerals, Nutrients & Nephrology",Injection,1GM,General,30049099,12,No,,1 Vial,280.00,REE
+RENOCEL 4000IU Injection,Recombinant Human Erythropoietin,"Vitamins, Minerals, Nutrients & Nephrology",Injection,4000IU,General,30049099,12,No,,1 Vial,280.00,RENOCEL
+RENADYL 4 BILLION CELL Capsule,PRE PRO,"Vitamins, Minerals, Nutrients & Nephrology",Capsule,4 BILLION CELL,General,30049099,12,No,,10 Capsules,135.00,RENADYL
+RENOSAVE / NAFROSAVE 500MG+150MG Tablet,Taurine + Acetylcysteine,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,500MG+150MG,General,30049099,12,No,,10 Tablets,65.00,RENOSAVE/NAFROSAVE
+NUCARNIT 500MG Tablet,LEVOCARNITINE,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,500MG,General,30049099,12,No,,10 Tablets,65.00,NUCARNIT
+"SOBISIS 500MG,1000MG Tablet",SODIUM BICARBONATE,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,"500MG,1000MG",General,30049099,12,No,,10 Tablets,65.00,SOBISIS
+SOIHENZ 500MG+150MG Tablet,Taurine + Acetylcysteine,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,500MG+150MG,General,30049099,12,No,,10 Tablets,65.00,SOIHENZ
+REVELMAR 800MG Tablet,SEVELAMER,"Vitamins, Minerals, Nutrients & Nephrology",Tablet,800MG,General,30049099,12,No,,10 Tablets,65.00,REVELMAR

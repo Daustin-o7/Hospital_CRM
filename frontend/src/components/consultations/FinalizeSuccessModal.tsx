@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { CheckIcon } from '../icons/Index'
+import api from '../../services/api'
 
 interface FinalizeSuccessModalProps {
   isOpen: boolean
   onClose: () => void
   data: {
     consultationId: string
+    prescriptionId?: string
     version: number
     status: string
     doctorRegistrationNumber?: string
@@ -18,50 +21,115 @@ interface FinalizeSuccessModalProps {
     safetyWarnings?: Array<{ type: string; drug?: string; message: string }>
   } | null
   patientName?: string
+  patientPhone?: string
 }
 
 export default function FinalizeSuccessModal({
   isOpen,
   onClose,
   data,
-  patientName
+  patientName,
+  patientPhone
 }: FinalizeSuccessModalProps) {
+  const [downloading, setDownloading] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
   if (!isOpen || !data) return null
+
+  const handleDownloadPdf = async () => {
+    if (!data.consultationId) return
+    setDownloading(true)
+    setFeedback(null)
+    try {
+      const res = await api.get(`/consultations/${data.consultationId}/prescription/pdf`, {
+        responseType: 'blob'
+      })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Prescription_${(patientName || 'Patient').replace(/\s+/g, '_')}_v${data.version}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      setFeedback('PDF downloaded successfully')
+    } catch {
+      window.open(`/api/v1/consultations/${data.consultationId}/prescription/pdf`, '_blank')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleShareWhatsApp = async () => {
+    if (!data.consultationId) return
+    setSharing(true)
+    setFeedback(null)
+    try {
+      const targetId = data.prescriptionId || data.consultationId
+      const res = await api.post(`/prescriptions/${targetId}/share-link`, {})
+      const shareUrl = res.data?.shareUrl
+      if (shareUrl) {
+        const fullLink = `${window.location.origin}${shareUrl}`
+        const text = encodeURIComponent(
+          `Hello ${patientName || 'Patient'}, your official electronic prescription from the clinic is ready:\n${fullLink}\n(Link active for 7 days)`
+        )
+        const phone = (patientPhone || res.data?.patientPhone || '').replace(/\D/g, '')
+        const waUrl = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`
+        window.open(waUrl, '_blank')
+        setFeedback('Digital prescription link opened in WhatsApp')
+      }
+    } catch {
+      const fallbackUrl = `${window.location.origin}/rx-verify/${data.verificationQrCode || data.consultationId}`
+      const text = encodeURIComponent(`Prescription Verification: ${fallbackUrl}`)
+      window.open(`https://wa.me/?text=${text}`, '_blank')
+    } finally {
+      setSharing(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadein">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5 animate-scalein">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-5 animate-scalein text-left">
         {/* Header with success badge */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-xl font-bold">
+            <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 flex items-center justify-center text-xl font-bold">
               <CheckIcon />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 font-heading">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 font-heading">
                 Consultation Finalized &amp; Signed
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Medical record permanently sealed for <strong>{patientName || 'Patient'}</strong> (v{data.version})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 rounded-md"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1 rounded-md"
           >
             ✕
           </button>
         </div>
 
+        {feedback && (
+          <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
+            <span>✓</span>
+            <span>{feedback}</span>
+          </div>
+        )}
+
         {/* Safety Warnings if any occurred during finalization */}
         {(data.warnings ?? data.safetyWarnings ?? []).length > 0 && (
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
-            <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 space-y-1.5">
+            <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
               <span>⚠️ Safety Notice</span>
             </div>
             {(data.warnings ?? data.safetyWarnings ?? []).map((w, idx) => (
-              <p key={idx} className="text-xs text-amber-800">
+              <p key={idx} className="text-xs text-amber-800 dark:text-amber-300">
                 • {w.message}
               </p>
             ))}
@@ -69,25 +137,25 @@ export default function FinalizeSuccessModal({
         )}
 
         {/* Legal & Regulatory Signing Details */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
-          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200">
-            <span className="text-slate-500">MCI Registration Number:</span>
-            <span className="font-mono font-bold text-slate-800">
+        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700/60 space-y-3">
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200 dark:border-slate-700/60">
+            <span className="text-slate-500 dark:text-slate-400">MCI Registration Number:</span>
+            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
               {data.doctorRegistrationNumber || 'MCI-VERIFIED'}
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200">
-            <span className="text-slate-500">Qualifications:</span>
-            <span className="font-medium text-slate-800">
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200 dark:border-slate-700/60">
+            <span className="text-slate-500 dark:text-slate-400">Qualifications:</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">
               {data.doctorQualifications || 'MBBS, MD'}
             </span>
           </div>
 
           {data.followUpDate && (
-            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200">
-              <span className="text-slate-500">Follow-up Appointment:</span>
-              <span className="font-semibold text-teal-700">
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200 dark:border-slate-700/60">
+              <span className="text-slate-500 dark:text-slate-400">Follow-up Appointment:</span>
+              <span className="font-semibold text-teal-700 dark:text-teal-400">
                 {new Date(data.followUpDate).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             </div>
@@ -98,7 +166,7 @@ export default function FinalizeSuccessModal({
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
               Cryptographic Digital Signature Hash (SHA-256)
             </div>
-            <div className="font-mono text-[10px] text-slate-600 break-all bg-white p-2 rounded-lg border border-slate-200">
+            <div className="font-mono text-[10px] text-slate-600 dark:text-slate-300 break-all bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
               {data.digitalSignatureHash || '0x4f8a...'}
             </div>
           </div>
@@ -107,8 +175,8 @@ export default function FinalizeSuccessModal({
           {data.verificationQrCode && (
             <div className="pt-2 flex items-center justify-between">
               <div className="text-xs">
-                <span className="text-slate-500">Chemist Verification Code:</span>
-                <div className="font-mono font-bold text-teal-700 text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Chemist Verification Code:</span>
+                <div className="font-mono font-bold text-teal-700 dark:text-teal-400 text-sm">
                   {data.verificationQrCode}
                 </div>
               </div>
@@ -125,21 +193,46 @@ export default function FinalizeSuccessModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="btn btn-secondary btn-sm"
-          >
-            🖨️ Print Prescription
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-primary btn-sm"
-          >
-            Done &amp; Next Patient
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="btn btn-secondary btn-sm flex items-center gap-1.5"
+              title="Download official PDF prescription with digital signing and QR code"
+            >
+              <span>📄</span>
+              <span>{downloading ? 'Downloading…' : 'Download PDF'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              disabled={sharing}
+              className="btn btn-secondary btn-sm flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400"
+              title="Share expiring signed prescription link via WhatsApp"
+            >
+              <span>💬</span>
+              <span>{sharing ? 'Generating…' : 'Share WhatsApp'}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn btn-ghost btn-sm"
+            >
+              🖨️ Print
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-primary btn-sm font-semibold"
+            >
+              Done &amp; Next Patient
+            </button>
+          </div>
         </div>
       </div>
     </div>

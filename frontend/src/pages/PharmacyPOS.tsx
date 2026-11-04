@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../services/api'
 import { Alert } from '../components/ui/Alert'
 import { Modal } from '../components/ui/Modal'
@@ -422,7 +422,7 @@ export default function PharmacyPOS() {
 
     const payload = {
       walkInCustomerName: customerName.trim() || 'Walk-in Customer',
-      walkInCustomerPhone: customerPhone.trim() || undefined,
+      walkInCustomerPhone: (customerPhone.replace(/\D/g, '').slice(-10)) || undefined,
       prescriberName: prescriberName.trim() || undefined,
       prescriberRegNo: prescriberRegNo.trim() || undefined,
       paymentMethod,

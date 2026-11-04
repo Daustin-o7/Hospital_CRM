@@ -18,11 +18,35 @@ public class PasswordFlowRemovedTests
 
     private static string RepoFile(string relativePath)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, relativePath)))
-            dir = dir.Parent;
+        var candidateRoots = new[]
+        {
+            AppContext.BaseDirectory,
+            Directory.GetCurrentDirectory(),
+            AppDomain.CurrentDomain.BaseDirectory
+        };
 
-        Assert.NotNull(dir);
-        return Path.Combine(dir!.FullName, relativePath);
+        foreach (var root in candidateRoots)
+        {
+            var dir = new DirectoryInfo(root);
+            while (dir is not null)
+            {
+                var candidate = Path.Combine(dir.FullName, relativePath);
+                if (File.Exists(candidate))
+                    return candidate;
+                dir = dir.Parent;
+            }
+        }
+
+        // Try walking up from current directory looking for repo markers
+        var cur = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (cur is not null)
+        {
+            var candidate = Path.Combine(cur.FullName, relativePath);
+            if (File.Exists(candidate))
+                return candidate;
+            cur = cur.Parent;
+        }
+
+        throw new FileNotFoundException($"Could not locate repository file '{relativePath}' from '{AppContext.BaseDirectory}' or '{Directory.GetCurrentDirectory()}'.");
     }
 }

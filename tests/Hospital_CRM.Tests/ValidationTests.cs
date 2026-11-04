@@ -232,4 +232,31 @@ public class ValidationTests
         Assert.Contains(errors, e => e.MemberNames.Contains(nameof(InwardBatchRequest.Mrp)));
         Assert.Contains(errors, e => e.MemberNames.Contains(nameof(InwardBatchRequest.PurchaseRate)));
     }
+
+    [Fact]
+    public void ClinicProfileRequest_RealLicenceFormats_PassValidation()
+    {
+        // State formats differ (KA uses slashes, DL uses dashes); GSTINs arrive in any case.
+        var request = new ClinicProfileRequest(
+            Name: "Samstack Clinic",
+            PharmacyLicenceNumber20: "DL-20-2026-KA-8891",
+            PharmacyLicenceNumber21: "KA/B-123/2020-21",
+            PharmacyGstNumber: "29aaaaa0000a1z5");
+
+        Assert.Empty(ValidateModel(request));
+    }
+
+    [Fact]
+    public void ClinicProfileRequest_MalformedLicenceAndGstin_AreRejected()
+    {
+        var request = new ClinicProfileRequest(
+            Name: "Samstack Clinic",
+            PharmacyLicenceNumber20: "<script>alert(1)</script>",
+            PharmacyLicenceNumber21: null,
+            PharmacyGstNumber: "ABC123");
+
+        var errors = ValidateModel(request);
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(ClinicProfileRequest.PharmacyLicenceNumber20)));
+        Assert.Contains(errors, e => e.MemberNames.Contains(nameof(ClinicProfileRequest.PharmacyGstNumber)));
+    }
 }
