@@ -1275,7 +1275,7 @@ function AppearanceSettingsEditor() {
               key={opt.mode}
               type="button"
               onClick={() => setTheme(opt.mode)}
-              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
+              className={`p-4 rounded-lg border text-left transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer ${
                 isSelected
                   ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-10)] shadow-md ring-2 ring-[var(--brand-primary)]'
                   : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)]'

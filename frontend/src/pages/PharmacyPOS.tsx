@@ -535,11 +535,11 @@ export default function PharmacyPOS() {
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
               {[
                 { label: 'All Catalog', query: '' },
-                { label: '🌡️ Paracetamol', query: 'Paracetamol' },
-                { label: '🛡️ Augmentin (H1)', query: 'Augmentin' },
-                { label: '🫀 Pantoprazole', query: 'Pantoprazole' },
-                { label: '🩸 Metformin', query: 'Metformin' },
-                { label: '💊 Azithromycin', query: 'Azithromycin' },
+                { label: 'Paracetamol', query: 'Paracetamol' },
+                { label: 'Augmentin (H1)', query: 'Augmentin' },
+                { label: 'Pantoprazole', query: 'Pantoprazole' },
+                { label: 'Metformin', query: 'Metformin' },
+                { label: 'Azithromycin', query: 'Azithromycin' },
               ].map(chip => (
                 <button
                   key={chip.label}

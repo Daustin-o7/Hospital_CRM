@@ -192,7 +192,7 @@ export default function NurseDashboard() {
             onClick={() => navigate('/dashboard/queue')}
             className="btn btn-secondary text-xs flex items-center gap-1.5"
           >
-            <span>📢</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span>Live Triage Queue</span>
           </button>
         </div>
@@ -204,7 +204,7 @@ export default function NurseDashboard() {
         <div className="stat-card hover-card border-amber-200 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🩺</span>
+              
               <span className="stat-label mt-0 text-amber-800 dark:text-amber-200">Awaiting Vitals</span>
             </div>
             <span className="badge badge-warning text-[10px]">Lobby</span>

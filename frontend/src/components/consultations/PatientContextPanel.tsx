@@ -35,7 +35,7 @@ export default function PatientContextPanel({
   const { patient, todayVitals, lastConsultation, totalCompletedVisits } = context
 
   return (
-    <div className="card p-4 bg-gradient-to-br from-slate-50 via-teal-50/20 to-cyan-50/30 border-teal-200/90 shadow-sm animate-fadein space-y-4">
+    <div className="card p-4 bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs animate-fadein space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-teal-100">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-teal-600 text-white flex items-center justify-center text-xs font-bold">
@@ -57,7 +57,7 @@ export default function PatientContextPanel({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* 1. Demographics & Allergies */}
-        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+        <div className="p-3 bg-white rounded-lg border border-[var(--color-border)] shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Allergies &amp; Alerts</span>
             <span className="text-[10px] font-mono text-slate-400">{patient.uhid || 'NO-UHID'}</span>

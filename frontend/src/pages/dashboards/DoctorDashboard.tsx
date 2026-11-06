@@ -401,7 +401,7 @@ export default function DoctorDashboard() {
 
       {/* ── HERO BANNER: NEXT PATIENT IN QUEUE ── */}
       {nextPatient ? (
-        <div className="p-5 rounded-2xl border border-teal-500 bg-gradient-to-r from-teal-500/10 via-cyan-500/5 to-transparent shadow-sm space-y-3">
+        <div className="card p-5 border-l-4 border-l-[var(--brand-primary)] bg-[var(--color-surface)] shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="font-mono text-base font-extrabold px-3 py-1.5 rounded-xl bg-slate-900 text-teal-400 shadow-xs">

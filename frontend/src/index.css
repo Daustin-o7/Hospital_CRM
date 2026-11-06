@@ -3,15 +3,19 @@
    Stitch "Clinical Precision Glass" · Premium · Responsive
 ───────────────────────────────────────────────────── */
 
-/* Fonts — Google Stitch Design System: Space Grotesk, Plus Jakarta Sans, JetBrains Mono */
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+/* Fonts — SIL OFL 1.1 Variable Fonts: Inter (Body/UI), Plus Jakarta Sans (Headings), JetBrains Mono (Telemetry) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/plus-jakarta-sans";
+
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans:    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 }
 
@@ -19,6 +23,14 @@
    DESIGN TOKENS (LIGHT THEME)
 ───────────────────────────────────────────────────── */
 :root {
+  /* ── SAVED PALETTE: LUXURY CLINICAL FOREST SAGE ── */
+  --palette-forest-950:  #0F1F17; /* Deep Forest Obsidian */
+  --palette-forest-900:  #1E3A2E; /* Pine Spruce Primary */
+  --palette-forest-700:  #3E5A3F; /* Muted Clinical Olive */
+  --palette-forest-500:  #6B7F67; /* Earthy Moss Sage */
+  --palette-forest-200:  #C7CBB8; /* Soft Alabaster Stone */
+  --palette-forest-800:  #3D4337; /* Charcoal Olive Slate */
+
   /* ── Brand ── */
   --brand-primary:       #0d5c63;
   --brand-primary-hover: #083e43;
@@ -168,6 +180,29 @@
   --shadow-xl:  0 16px 56px rgba(0,0,0,.7), 0 8px 16px rgba(0,0,0,.45);
 }
 
+
+/* ─────────────────────────────────────────────────────
+   THEME PRESET: LUXURY CLINICAL FOREST SAGE
+───────────────────────────────────────────────────── */
+[data-theme="forest-sage"],
+.theme-forest-sage {
+  --brand-primary:       #1E3A2E;
+  --brand-primary-hover: #0F1F17;
+  --brand-primary-10:    rgba(30, 58, 46, 0.08);
+  --brand-primary-20:    rgba(30, 58, 46, 0.18);
+  --brand-secondary:     #3E5A3F;
+  --brand-accent:        #6B7F67;
+  --color-bg:            #F5F6F2;
+  --color-surface:       #ffffff;
+  --color-surface-raised:#ECEEE6;
+  --color-surface-hover: #E3E6DC;
+  --color-border:        #C7CBB8;
+  --color-border-subtle: #DCDFD2;
+  --color-text:          #0F1F17;
+  --color-text-secondary:#3D4337;
+  --color-text-muted:    #6B7F67;
+}
+
 /* ─────────────────────────────────────────────────────
    BASE RESET
 ───────────────────────────────────────────────────── */
@@ -196,7 +231,7 @@
     letter-spacing: -0.01em;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3, h4, h5, h6, .font-heading, .font-display {
     font-family: var(--font-heading);
     color: var(--color-text);
     text-wrap: balance;
@@ -308,97 +343,104 @@
 ───────────────────────────────────────────────────── */
 @layer components {
 
-  /* ── CARD ── */
+  /* ── CARD (Taste-Skill Anti-Slop Architecture) ── */
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 3px rgba(15, 31, 23, 0.04);
     color: var(--color-text);
+    transition: transform 140ms cubic-bezier(.2, .8, .2, 1),
+                box-shadow 140ms cubic-bezier(.2, .8, .2, 1),
+                border-color 140ms cubic-bezier(.2, .8, .2, 1);
+  }
+  [data-theme="dark"] .card,
+  .dark .card {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
-  .card-hover {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    color: var(--color-text);
-    transition: box-shadow var(--duration-base) var(--ease),
-                border-color var(--duration-base) var(--ease),
-                transform var(--duration-base) var(--ease);
+  .card-hover,
+  .card-interactive {
+    cursor: pointer;
   }
-  .card-hover:hover {
-    box-shadow: var(--shadow-md);
-    border-color: var(--brand-primary);
-    transform: translateY(-1px);
+  @media (hover: hover) and (pointer: fine) {
+    .card-hover:hover,
+    .card-interactive:hover {
+      transform: translateY(-2px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 18px rgba(15, 31, 23, 0.08);
+      border-color: var(--palette-forest-500, #6B7F67);
+    }
   }
 
-  /* ── BUTTONS ── */
+  /* ── BUTTONS (Taste-Skill Micro-Interactions: Step & Press) ── */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 7px;
     font-family: var(--font-sans);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1;
     border-radius: var(--radius-md);
-    padding: 9px 16px;
-    transition: background-color var(--duration-base) var(--ease),
-                box-shadow var(--duration-base) var(--ease),
-                transform var(--duration-base) var(--ease),
-                border-color var(--duration-base) var(--ease),
-                color var(--duration-base) var(--ease);
+    padding: 8px 16px;
     white-space: nowrap;
     user-select: none;
     touch-action: manipulation;
+    cursor: pointer;
+    transition: background-color 140ms cubic-bezier(.2, .8, .2, 1),
+                color 140ms cubic-bezier(.2, .8, .2, 1),
+                border-color 140ms cubic-bezier(.2, .8, .2, 1),
+                box-shadow 140ms cubic-bezier(.2, .8, .2, 1),
+                transform 90ms cubic-bezier(.2, .8, .2, 1);
   }
-
+  @media (hover: hover) and (pointer: fine) {
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+  }
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.55;
     cursor: not-allowed;
     transform: none !important;
     box-shadow: none !important;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #0d5c63, #0d9488);
-    color: var(--color-text-inverse, #fff);
-    border: 1px solid transparent;
-    box-shadow: 0 1px 3px rgba(13, 92, 99, 0.25), 0 0 0 1px rgba(45, 212, 191, 0.2);
+    background: var(--palette-forest-900, #1E3A2E);
+    color: #ffffff;
+    border: 1px solid rgba(15, 31, 23, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 3px rgba(15, 31, 23, 0.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--palette-forest-950, #0F1F17);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 3px 8px rgba(15, 31, 23, 0.3);
   }
   [data-theme="dark"] .btn-primary,
   .dark .btn-primary {
     background: #2dd4bf;
     color: #0b131e;
     font-weight: 700;
-    box-shadow: 0 0 16px rgba(45, 212, 191, 0.35);
-  }
-  .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #083e43, #0f766e);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(45, 212, 191, 0.3);
   }
   [data-theme="dark"] .btn-primary:hover:not(:disabled),
   .dark .btn-primary:hover:not(:disabled) {
     background: #5eead4;
-    box-shadow: 0 0 20px rgba(94, 234, 212, 0.5);
-  }
-  .btn-primary:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: var(--shadow-xs);
+    box-shadow: 0 0 20px rgba(94, 234, 212, 0.45);
   }
 
   .btn-secondary {
     background: var(--color-surface);
-    color: var(--color-text-secondary);
+    color: var(--color-text);
     border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-xs);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(0, 0, 0, 0.04);
   }
   .btn-secondary:hover:not(:disabled) {
     background: var(--color-surface-hover);
-    border-color: var(--brand-primary);
+    border-color: var(--color-border-focus);
     color: var(--color-text);
   }
 
@@ -431,7 +473,7 @@
 
   .btn-lg {
     font-size: 15px;
-    padding: 12px 24px;
+    padding: 11px 22px;
     border-radius: var(--radius-lg);
   }
 
@@ -531,48 +573,56 @@
     gap: 4px;
   }
 
-  /* ── BADGES ── */
+  /* ── BADGES (Quiet, Semantic & Uncluttered) ── */
   .badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    font-size: 11.5px;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
     font-weight: 600;
     border: 1px solid;
     white-space: nowrap;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
   }
 
   .badge-success {
-    background: var(--color-success-bg);
-    color: var(--color-success-text);
-    border-color: var(--color-success-border);
+    background: #f0fdf4;
+    color: #14532d;
+    border-color: #bbf7d0;
   }
   .badge-warning {
-    background: var(--color-warning-bg);
-    color: var(--color-warning-text);
-    border-color: var(--color-warning-border);
+    background: #fffbeb;
+    color: #78350f;
+    border-color: #fde68a;
   }
   .badge-danger {
-    background: var(--color-danger-bg);
-    color: var(--color-danger-text);
-    border-color: var(--color-danger-border);
+    background: #fff1f2;
+    color: #881337;
+    border-color: #fecdd3;
   }
   .badge-info {
-    background: var(--color-info-bg);
-    color: var(--color-info-text);
-    border-color: var(--color-info-border);
+    background: #f0f9ff;
+    color: #0c4a6e;
+    border-color: #bae6fd;
   }
   .badge-neutral {
-    background: var(--color-surface-hover);
+    background: var(--color-surface-raised);
     color: var(--color-text-secondary);
     border-color: var(--color-border);
   }
   .badge-brand {
-    background: var(--brand-primary-10);
-    color: var(--brand-primary);
-    border-color: var(--brand-primary-20);
+    background: rgba(30, 58, 46, 0.08);
+    color: var(--palette-forest-900, #1E3A2E);
+    border-color: rgba(30, 58, 46, 0.2);
+  }
+  [data-theme="dark"] .badge-brand,
+  .dark .badge-brand {
+    background: rgba(45, 212, 191, 0.12);
+    color: #5eead4;
+    border-color: rgba(45, 212, 191, 0.3);
   }
 
   /* ── ALERTS ── */
@@ -694,33 +744,43 @@
     margin: 0;
   }
 
-  /* ── STAT CARD ── */
+  /* ── STAT CARD (Clinical Precision Telemetry) ── */
   .stat-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    padding: 20px 24px;
-    box-shadow: var(--shadow-sm);
+    padding: 18px 20px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 3px rgba(15, 31, 23, 0.04);
     color: var(--color-text);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 140ms cubic-bezier(.2, .8, .2, 1),
+                border-color 140ms cubic-bezier(.2, .8, .2, 1),
+                box-shadow 140ms cubic-bezier(.2, .8, .2, 1);
+  }
+  .stat-card:hover {
+    border-color: var(--palette-forest-500, #6B7F67);
   }
   .stat-value {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--color-text);
-    letter-spacing: -0.04em;
-    line-height: 1;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
     font-family: var(--font-heading);
+    font-variant-numeric: tabular-nums;
   }
   .stat-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-top: 4px;
+    font-family: var(--font-sans);
   }
   .stat-trend-up {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--color-success-text);
     display: inline-flex;
@@ -728,7 +788,7 @@
     gap: 2px;
   }
   .stat-trend-down {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--color-danger-text);
     display: inline-flex;

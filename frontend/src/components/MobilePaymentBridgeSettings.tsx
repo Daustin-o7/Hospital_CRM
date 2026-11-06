@@ -149,7 +149,7 @@ export default function MobilePaymentBridgeSettings({ isAdmin = false }: { isAdm
   }
 
   return (
-    <div className="card mb-6 border border-teal-500/30 bg-gradient-to-br from-[var(--color-surface)] to-teal-950/10 p-6 shadow-sm">
+    <div className="card mb-6 border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
           <div className="flex items-center gap-2">

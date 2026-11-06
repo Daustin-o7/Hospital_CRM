@@ -481,8 +481,8 @@ export default function DashboardLayout() {
                     className={({ isActive }) =>
                       `relative flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
                         isActive
-                          ? 'bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/40 shadow-2xs'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                          ? 'bg-white/[0.09] text-white font-semibold before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r before:bg-teal-400 shadow-xs'
+                          : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
                       }`
                     }
                   >
@@ -521,8 +521,8 @@ export default function DashboardLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium tracking-tight transition-all duration-150 group ${
                   isActive
-                    ? 'bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/40 shadow-2xs'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/70'
+                    ? 'bg-white/[0.09] text-white font-semibold before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r before:bg-teal-400 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
                 }`
               }
             >
@@ -542,8 +542,8 @@ export default function DashboardLayout() {
 
         {/* Refined User Footer Card */}
         <div className="p-2.5 border-t border-slate-800/80 bg-[#0B1322]/90">
-          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.03] border border-white/10 shadow-xs">
+            <div className="w-8 h-8 rounded-md bg-[#1E3A2E] text-teal-300 border border-teal-500/30 flex items-center justify-center font-bold text-xs shrink-0">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="flex-1 min-w-0">
@@ -596,7 +596,7 @@ export default function DashboardLayout() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patient records, tokens, or bills (Ctrl+K)…"
-                className="w-full pl-9 pr-14 py-2 text-xs bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)] focus:bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-[var(--brand-primary)] transition-all font-medium"
+                className="w-full pl-9 pr-14 py-2 text-xs bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)] focus:bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-[var(--brand-primary)] transition-all font-medium"
               />
               <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
                 <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-secondary)] bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xs font-semibold">
@@ -629,7 +629,7 @@ export default function DashboardLayout() {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-72 bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] p-3 z-50 text-xs animate-fadein">
+                <div className="absolute right-0 mt-2 w-72 bg-[var(--color-surface)] rounded-lg shadow-md border border-[var(--color-border)] p-3 z-50 text-xs animate-fadein">
                   <div className="flex items-center justify-between font-bold text-[var(--color-text)] pb-2 border-b border-[var(--color-border)] mb-2">
                     <span>Notifications</span>
                     <span className="badge badge-success text-[10px]">All caught up</span>
@@ -643,7 +643,7 @@ export default function DashboardLayout() {
 
             {/* Quick Profile Chip */}
             <div className="flex items-center gap-2 pl-2 border-l border-[var(--color-border)]">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-600 to-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              <div className="w-8 h-8 rounded-md bg-[#1E3A2E] text-teal-200 border border-teal-600/30 flex items-center justify-center font-bold text-xs shadow-xs">
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
               </div>
             </div>
@@ -690,7 +690,7 @@ export default function DashboardLayout() {
             className={({ isActive }) =>
               `flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] tracking-tight transition-all min-w-[54px] min-h-[44px] ${
                 isActive
-                  ? 'text-teal-700 dark:text-teal-400 font-extrabold bg-teal-50/90 dark:bg-teal-950/60 scale-105'
+                  ? 'text-teal-700 dark:text-teal-400 font-bold bg-teal-50/80 dark:bg-teal-950/50'
                   : 'text-slate-800 dark:text-slate-200 font-bold hover:text-teal-600'
               }`
             }

@@ -97,7 +97,7 @@ export default function VerifyRx() {
   if (error || !data) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl border border-rose-200 max-w-md w-full p-6 text-center space-y-4">
+        <div className="bg-white rounded-lg shadow-sm border border-rose-200 max-w-md w-full p-6 text-center space-y-4">
           <div className="w-14 h-14 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-2xl mx-auto font-bold">
             ⚠️
           </div>
@@ -120,9 +120,9 @@ export default function VerifyRx() {
 
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 flex justify-center">
-      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden space-y-6 pb-6">
+      <div className="max-w-2xl w-full bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden space-y-6 pb-6">
         {/* Top Header Banner */}
-        <div className={`p-6 text-white ${data.isSuperseded ? 'bg-gradient-to-r from-amber-600 to-rose-700' : 'bg-gradient-to-r from-teal-800 to-teal-900'}`}>
+        <div className={`p-6 text-white ${data.isSuperseded ? 'bg-rose-900 border-b border-rose-800' : 'bg-[#0F1F17] border-b border-[#1E3A2E]'}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1.5">

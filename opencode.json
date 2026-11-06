@@ -5,17 +5,18 @@
     "@dietrichgebert/ponytail",
     "opencode-rules"
   ],
-  "provider": {
+  "providers": {
     "agentrouter": {
-      "npm": "@ai-sdk/openai-compatible",
       "name": "AgentRouter",
-      "options": {
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
         "baseURL": "https://agentrouter.org/v1",
         "apiKey": "{env:AGENTROUTER_API_KEY}"
       },
       "models": {
         "gpt-5.6-sol": {
           "name": "GPT-5.6 Sol",
+          "package": "@opencode/ai/providers/openai-compatible/responses",
           "limit": {
             "context": 128000,
             "output": 8192
@@ -30,6 +31,7 @@
         },
         "gpt-6.1-sol": {
           "name": "GPT-6.1 Sol",
+          "package": "@opencode/ai/providers/openai-compatible/responses",
           "limit": {
             "context": 128000,
             "output": 8192
