@@ -62,6 +62,25 @@ const api = axios.create({
   },
 })
 
+// PERF: In-flight GET request deduplication to prevent duplicate concurrent network calls
+const inFlightGetMap = new Map<string, Promise<any>>()
+const rawGet = api.get.bind(api)
+
+;(api as any).get = function (url: string, config?: any) {
+  if (config?.skipDedupe) {
+    return rawGet(url, config)
+  }
+  const key = `${url}::${JSON.stringify(config?.params || {})}`
+  if (inFlightGetMap.has(key)) {
+    return inFlightGetMap.get(key)!
+  }
+  const promise = rawGet(url, config).finally(() => {
+    inFlightGetMap.delete(key)
+  })
+  inFlightGetMap.set(key, promise)
+  return promise
+}
+
 export const refreshClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,

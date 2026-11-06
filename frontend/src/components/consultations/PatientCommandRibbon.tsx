@@ -90,14 +90,13 @@ export default function PatientCommandRibbon({
   }
 
   return (
-    <div className="card p-3.5 bg-gradient-to-r from-teal-50/50 via-white to-cyan-50/30 border-teal-200/90 shadow-xs">
+    <div className="card p-3.5 bg-white border border-[var(--color-border)] shadow-xs">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         {/* Patient Identity & Demographics */}
         <div className="flex items-center gap-3">
           <div
-            className="w-11 h-11 rounded-xl text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0"
+            className="w-11 h-11 rounded-md text-teal-200 bg-[#1E3A2E] border border-teal-600/30 flex items-center justify-center font-bold text-base shadow-xs shrink-0"
             style={{
-              background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
               fontFamily: 'var(--font-heading)'
             }}
           >

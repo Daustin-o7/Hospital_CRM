@@ -1,13 +1,14 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
-import Login from './pages/Login'
-import AuthCallback from './pages/AuthCallback'
+const Login = lazy(() => import('./pages/Login'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 import DashboardLayout from './components/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import { useAuth } from './context/AuthContext'
 import { useBranding } from './context/BrandingContext'
 import { SkeletonCard } from './components/ui/Skeleton'
+import WorkspaceSkeleton from './components/ui/WorkspaceSkeleton'
 
 // Lazy-loaded pages for mobile bundle optimization & fast cold start
 const Patients = lazy(() => import('./pages/Patients'))
@@ -75,12 +76,7 @@ function AccountSetupGate({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Suspense fallback={
-      <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-bg,#F2EFEA)] text-teal-800 dark:text-teal-200">
-        <div className="w-8 h-8 rounded-full border-2 border-teal-600 border-t-transparent animate-spin mr-3"></div>
-        <span className="font-semibold text-sm">Loading workspace…</span>
-      </div>
-    }>
+    <Suspense fallback={<WorkspaceSkeleton />}>
       <Routes>
         <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

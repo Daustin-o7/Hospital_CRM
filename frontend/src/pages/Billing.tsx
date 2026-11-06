@@ -781,9 +781,9 @@ export default function Billing() {
       )}
 
       {/* ── Regulatory & Clinic Tax Status Banner ── */}
-      <div className="p-4 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+      <div className="p-4 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-start gap-3">
-          <span className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+          <span className="p-2 rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               <path d="m9 12 2 2 4-4"/>
@@ -1491,7 +1491,7 @@ export default function Billing() {
       >
         {qrData && (
           <div className="space-y-4 text-center">
-            <div className="p-4 bg-white rounded-2xl border border-[var(--color-border)] inline-block shadow-sm">
+            <div className="p-4 bg-white rounded-lg border border-[var(--color-border)] inline-block shadow-sm">
               <div className="w-56 h-56 mx-auto flex items-center justify-center p-1">
                 {qrData.qrSvg ? (
                   <img
@@ -1799,7 +1799,7 @@ export default function Billing() {
         size="lg"
       >
         {printableData && (
-          <div className="space-y-4 p-4 border border-[var(--color-border)] rounded-2xl bg-white text-gray-900 font-sans print:border-none">
+          <div className="space-y-4 p-4 border border-[var(--color-border)] rounded-lg bg-white text-gray-900 font-sans print:border-none">
             {/* Header */}
             <div className="flex justify-between items-start border-b border-gray-200 pb-3">
               <div>

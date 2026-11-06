@@ -41,7 +41,7 @@ export default function AmendmentModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadein">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-scalein">
+      <div className="bg-white rounded-lg shadow-lg border border-[var(--color-border)] max-w-md w-full p-6 space-y-4 animate-scalein">
         <div>
           <h3 className="text-base font-bold text-slate-900 font-heading">
             Amend Clinical Consultation Record

@@ -202,6 +202,15 @@ docker compose build
 
 To accelerate full-stack development, database introspection, and end-to-end testing across Antigravity and OpenCode, the following Model Context Protocol (MCP) server toolchains and skill managers are integrated and referenced:
 
+### 5. Agent Harness Operating System (ECC)
+- **ECC Repository**: `https://github.com/affaan-m/ECC`
+- **Purpose**: Provides 71 specialized agents, 314 reusable skills, 98 commands, hooks, memory, and AgentShield security scanning for AI coding assistants (Claude Code, Codex, OpenCode, Cursor, Gemini, Zed, Qwen, Kimi, Antigravity, Copilot, etc.)
+- **OpenCode Integration**: Native plugin at `.opencode/` with skills, commands, and instructions
+- **Installation**: `npx ecc-universal@2.2.3 setup` (guided) or `/plugin marketplace add https://github.com/affaan-m/ECC` + `/plugin install ecc@ecc` (Claude Code native)
+- **Key Components Used in This Project**:
+  - Skills: `coding-standards`, `frontend-design`, `new-fr`, `ponytail`, `diagram-design`, `hallmark`, `impeccable`, `ui-ux-pro-max`
+  - Agents: Available for delegation via `/agent` commands
+
 ### 1. Database & SQL Management
 - **PostgreSQL MCP** (`@modelcontextprotocol/server-postgres`):
   - **Git Reference:** `https://github.com/modelcontextprotocol/servers/tree/main/src/postgres`

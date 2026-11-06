@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth, type TenantMembership } from '../context/AuthContext'
 import api from '../services/api'
 import { Alert, friendlyError } from '../components/ui/Alert'
 import { BrandLogo } from '../components/ui/BrandLogo'
-import { Medical3DCanvas } from '../components/ui/Medical3DCanvas'
+const Medical3DCanvas = lazy(() => import('../components/ui/Medical3DCanvas').then(m => ({ default: m.Medical3DCanvas })))
 import ServerAddress from '../components/ServerAddress'
 
 
@@ -133,7 +133,7 @@ export default function Login() {
         className="hide-tablet"
       >
         {/* 3D Interactive Medical Canvas */}
-        <Medical3DCanvas />
+        <Suspense fallback={<div className="absolute inset-0 bg-[#061118]" />}><Medical3DCanvas /></Suspense>
         {/* Subtle background pattern overlay */}
         <div
           style={{

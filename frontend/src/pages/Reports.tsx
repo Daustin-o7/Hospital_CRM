@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../services/api'
 import { friendlyError } from '../components/ui/Alert'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -62,6 +62,8 @@ export default function Reports() {
   const [exporting, setExporting] = useState<ReportFormat | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Helper function to safely access nested data with fallbacks
   const safeGet = <T,>(obj: Record<string, unknown> | null | undefined, path: string, fallback: T): T => {
     if (!obj) return fallback
@@ -79,15 +81,22 @@ export default function Reports() {
   // Compute platform health status color
   const platformStatusColor = ((): string => {
     const status = safeGet(platformHealth, 'overallStatus', 'unhealthy') as 'healthy' | 'degraded' | 'unhealthy'
-    if (status === 'healthy') return 'var(--brand-success)'
-    if (status === 'degraded') return 'var(--brand-warning)'
-    return 'var(--brand-error)'
+    if (status === 'healthy') return 'var(--color-success, #16a34a)'
+    if (status === 'degraded') return 'var(--color-warning, #d97706)'
+    return 'var(--color-danger, #dc2626)'
   })()
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const exportReport = async (format: 'ITR-4 CSV' | 'GSTR-1 JSON') => {
     try {
@@ -97,8 +106,9 @@ export default function Reports() {
       const a = document.createElement('a')
       a.href = url
       const disposition = String(res.headers?.['content-disposition'] ?? '')
+      const ext = format.startsWith('ITR') ? 'csv' : 'json'
       a.download = disposition.match(/filename="?([^";]+)"?/)?.[1]
-        ?? `${format.startsWith('ITR') ? 'ITR4' : 'GSTR1'}-${selectedMonth}`
+        ?? `${format.startsWith('ITR') ? 'ITR4' : 'GSTR1'}-${selectedMonth}.${ext}`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -111,23 +121,43 @@ export default function Reports() {
     }
   }
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Fetch all reports data in parallel
-      const [financialRes, presumptiveRes, paymentRes, healthRes] = await Promise.all([
-        api.get(`/reports/financial?month=${selectedMonth}`),
-        api.get(`/reports/tax/itr4?month=${selectedMonth}`),
-        api.get(`/reports/payment-distribution?month=${selectedMonth}`),
-        api.get(`/reports/platform-health?month=${selectedMonth}`)
+      // Fetch all reports data concurrently with resilient fault tolerance
+      const [financialRes, presumptiveRes, paymentRes, healthRes] = await Promise.allSettled([
+        api.get<FinancialData>(`/reports/financial?month=${selectedMonth}`),
+        api.get<PresumptiveData>(`/reports/tax/itr4?month=${selectedMonth}`),
+        api.get<PaymentDistribution>(`/reports/payment-distribution?month=${selectedMonth}`),
+        api.get<PlatformHealth>(`/reports/platform-health?month=${selectedMonth}`)
       ])
       
-      setFinancialData(financialRes.data)
-      setPresumptiveData(presumptiveRes.data)
-      setPaymentDistribution(paymentRes.data)
-      setPlatformHealth(healthRes.data)
+      let anyFulfilled = false
+
+      if (financialRes.status === 'fulfilled') {
+        setFinancialData(financialRes.value.data)
+        anyFulfilled = true
+      }
+      if (presumptiveRes.status === 'fulfilled') {
+        setPresumptiveData(presumptiveRes.value.data)
+        anyFulfilled = true
+      }
+      if (paymentRes.status === 'fulfilled') {
+        setPaymentDistribution(paymentRes.value.data)
+        anyFulfilled = true
+      }
+      if (healthRes.status === 'fulfilled') {
+        setPlatformHealth(healthRes.value.data)
+        anyFulfilled = true
+      }
+
+      if (!anyFulfilled && financialRes.status === 'rejected') {
+        const message = friendlyError(financialRes.reason)
+        setError(message)
+        showToast(message)
+      }
     } catch (err) {
       const message = friendlyError(err)
       setError(message)
@@ -135,17 +165,19 @@ export default function Reports() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedMonth, showToast])
 
   useEffect(() => {
     fetchData()
-  }, [selectedMonth, fetchData])
+  }, [fetchData])
+
+  const hasAnyData = Boolean(financialData || presumptiveData || paymentDistribution || platformHealth)
 
   return (
     <div className="space-y-6 pb-12 animate-fadein">
       {error && (
         <div className="alert alert-error">
-          {error}
+          <span>{error}</span>
           <button
             onClick={() => {
               setError(null)
@@ -161,15 +193,15 @@ export default function Reports() {
       {/* ── Page Header ── */}
       <div className="page-header sm:items-center">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="badge badge-brand">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
-              ITR-4 & GSTR-1 Summaries
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-slate-500">
+              Tax Audit &amp; Collections Telemetry
             </span>
-            <span className="text-xs text-slate-400 font-mono">Module 11 & 14</span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span className="text-[11px] text-slate-400 font-mono">Sec. 44ADA &amp; GSTR-1</span>
           </div>
-          <h1 className="page-title font-heading mt-1">
-            Financial Analytics & Tax Audit Reports
+          <h1 className="page-title font-heading">
+            Financial Analytics &amp; Tax Audit
           </h1>
           <p className="page-description">
             Presumptive Section 44ADA taxation, GSTR-1 GST reconciliation, and multi-tenant telemetry.
@@ -193,7 +225,7 @@ export default function Reports() {
             className="btn btn-primary btn-sm cursor-pointer"
           >
             {exporting ? 'Generating…' : 'Export ITR-4 CSV'}
-            <svg className="ml-2 w-3.5 h-3.5 fill-none stroke-currentColor viewBox-[0_0_24_24]">
+            <svg className="ml-2 w-3.5 h-3.5 fill-none stroke-currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           </button>
@@ -209,8 +241,8 @@ export default function Reports() {
         </div>
       )}
 
-      {/* Loading Skeletons */}
-      {loading && !financialData && !error && (
+      {/* Loading Skeletons on initial mount */}
+      {loading && !hasAnyData && !error && (
         <div className="space-y-6">
           {/* Financial Performance 4 KPI Cards Loading */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -231,15 +263,15 @@ export default function Reports() {
         </div>
       )}
 
-      {/* Empty States when no data */}
-      {!loading && !financialData && !presumptiveData && !paymentDistribution && !platformHealth && !error && (
+      {/* Empty States when no data across all categories */}
+      {!loading && !hasAnyData && !error && (
         <div className="space-y-6">
           <EmptyState
-            illustration={<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.3"/>
-              <path d="M28 36 L40 24 L52 36" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.5"/>
-              <path d="M40 44 L40 56" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.5"/>
-            </svg>}
+            illustration={
+              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 flex items-center justify-center text-xl shadow-xs border border-slate-200 dark:border-slate-700">
+                📊
+              </div>
+            }
             title="No Report Data Available"
             description="No financial data found for the selected period. This could be because there are no recorded transactions or the reporting period has no activity."
             action={{
@@ -252,8 +284,8 @@ export default function Reports() {
       )}
 
       {/* Financial Performance 4 KPI Cards */}
-      {!loading && financialData && (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {financialData && (
+        <div className={`grid grid-cols-1 sm:grid-cols-4 gap-4 transition-opacity duration-200 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="stat-card">
             <div className="flex items-center justify-between">
               <span className="stat-label">Gross Collections</span>
@@ -319,8 +351,8 @@ export default function Reports() {
       )}
 
       {/* Section 44ADA & Payment Collections Grid */}
-      {!loading && presumptiveData && paymentDistribution && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {presumptiveData && paymentDistribution && (
+        <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 transition-opacity duration-200 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
           {/* Section 44ADA Tax Card (6 cols) */}
           <div className="lg:col-span-6 card p-5 space-y-4">
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
@@ -408,8 +440,8 @@ export default function Reports() {
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
                   <div 
-                    className="w-full h-full bg-[var(--brand-primary)] rounded-full" 
-                    style={{ width: `${safeGet(paymentDistribution, 'upiPercentage', 0)}%` }}
+                    className="h-full bg-[var(--brand-primary)] rounded-full transition-all duration-300" 
+                    style={{ width: `${Math.min(100, Math.max(0, safeGet(paymentDistribution, 'upiPercentage', 0)))}%` }}
                   />
                 </div>
               </div>
@@ -425,8 +457,8 @@ export default function Reports() {
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
                   <div 
-                    className="w-full h-full bg-blue-500 rounded-full" 
-                    style={{ width: `${safeGet(paymentDistribution, 'cardPercentage', 0)}%` }}
+                    className="h-full bg-blue-500 rounded-full transition-all duration-300" 
+                    style={{ width: `${Math.min(100, Math.max(0, safeGet(paymentDistribution, 'cardPercentage', 0)))}%` }}
                   />
                 </div>
               </div>
@@ -442,8 +474,8 @@ export default function Reports() {
                 </div>
                 <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-raised)' }}>
                   <div 
-                    className="w-full h-full bg-amber-500 rounded-full" 
-                    style={{ width: `${safeGet(paymentDistribution, 'cashPercentage', 0)}%` }}
+                    className="h-full bg-amber-500 rounded-full transition-all duration-300" 
+                    style={{ width: `${Math.min(100, Math.max(0, safeGet(paymentDistribution, 'cashPercentage', 0)))}%` }}
                   />
                 </div>
               </div>
@@ -458,8 +490,8 @@ export default function Reports() {
       )}
 
       {/* Platform Admin Overview Card */}
-      {!loading && platformHealth && (
-        <div className="card p-5 space-y-4">
+      {platformHealth && (
+        <div className={`card p-5 space-y-4 transition-opacity duration-200 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
           <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--color-border)' }}>
             <div>
               <h2 className="text-sm font-bold tracking-tight font-heading text-[var(--color-text)]">
@@ -469,13 +501,13 @@ export default function Reports() {
                 Module 14 — Cross-tenant telemetry and database uptime
               </p>
             </div>
-            <span className="badge badge-brand">
-<span 
-                className="w-2 h-2 rounded-full" 
+            <span className="badge badge-brand flex items-center gap-1.5">
+              <span 
+                className="w-2 h-2 rounded-full inline-block" 
                 style={{ 
                   backgroundColor: platformStatusColor
                 }}
-              ></span>
+              />
               {safeGet(platformHealth, 'overallStatus', 'unknown').toUpperCase()}
             </span>
           </div>

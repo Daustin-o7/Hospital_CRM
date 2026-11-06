@@ -824,7 +824,7 @@ export default function Consultations() {
   return (
     <div className="space-y-4 pb-16 animate-fadein">
       {/* ── 1. UNIFIED CLINICAL DESK HEADER ── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[var(--color-border)] shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white p-3.5 rounded-lg border border-[var(--color-border)] shadow-xs">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-base shadow-xs">
@@ -853,7 +853,7 @@ export default function Consultations() {
 
         {/* Right Header Toolbar: Discipline Switcher, Save Draft & Finalize Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-md px-2 py-1">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-mono">Discipline:</span>
             <select
               value={selectedSpecialty}
@@ -1248,7 +1248,7 @@ export default function Consultations() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templateSections.map((sec, idx) => (
-              <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <div key={idx} className="p-3 rounded-md bg-slate-50 border border-slate-200 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">{sec.label}</span>
                   <span className="text-[10px] font-mono text-slate-400">#{sec.key}</span>

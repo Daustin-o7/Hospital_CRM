@@ -26,6 +26,25 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    target: 'es2022',
+    chunkSizeWarningLimit: 650,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/three')) {
+            return 'vendor-three'
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform') || id.includes('node_modules/zod')) {
+            return 'vendor-forms'
+          }
+        }
+      }
+    }
+  },
   server: {
     port: 5173,
     host: '0.0.0.0',

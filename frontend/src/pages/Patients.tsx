@@ -348,7 +348,6 @@ export default function Patients() {
           id="register-patient-btn"
           className="btn btn-primary"
           onClick={() => { setSubmitError(''); setShowRegister(true) }}
-          style={{ padding: '9px 18px', fontSize: '13px' }}
         >
           <PlusIcon />
           <span>New Patient Registration</span>
@@ -405,7 +404,7 @@ export default function Patients() {
                         onClick={() => { setSearchQuery(r.name); setShowSearchDropdown(false); fetchPatients(r.name); }}
                         className="flex items-center gap-3 text-left flex-1 min-w-0"
                       >
-                        <div className="avatar avatar-sm flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff', fontWeight: 700, fontSize: '11px' }}>
+                        <div className="avatar avatar-sm flex-shrink-0 bg-[#1E3A2E] text-teal-200 border border-teal-600/30 font-bold text-[11px]">
                           {getInitials(r.name)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -447,7 +446,7 @@ export default function Patients() {
             <button
               key={chip.id}
               onClick={() => handleFilterChange(chip.id as any)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 filterType === chip.id
                   ? 'btn-primary'
                   : 'btn-secondary'
@@ -521,13 +520,7 @@ export default function Patients() {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div
-                          className="avatar avatar-sm"
-                          style={{
-                            background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-                          }}
+                          className="avatar avatar-sm bg-[#1E3A2E] text-teal-200 border border-teal-600/30 font-bold shadow-xs"
                         >
                           {getInitials(p.name)}
                         </div>
@@ -746,7 +739,7 @@ export default function Patients() {
                 className="card p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="avatar avatar-md flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff', fontWeight: 700 }}>
+                  <div className="avatar avatar-md flex-shrink-0 bg-[#1E3A2E] text-teal-200 border border-teal-600/30 font-bold">
                     {getInitials(match.name)}
                   </div>
                   <div className="min-w-0">
@@ -865,16 +858,10 @@ export default function Patients() {
         {viewingPatient && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {/* Header banner */}
-            <div className="flex items-center justify-between p-4 rounded-2xl" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}>
+            <div className="flex items-center justify-between p-4 rounded-lg" style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
-                  className="avatar avatar-lg"
-                  style={{
-                    background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
-                    color: '#fff',
-                    fontWeight: 700,
-                    boxShadow: '0 4px 10px rgba(13, 148, 136, 0.3)',
-                  }}
+                  className="avatar avatar-lg bg-[#1E3A2E] text-teal-200 border border-teal-600/30 font-bold shadow-xs"
                 >
                   {getInitials(viewingPatient.name)}
                 </div>
@@ -902,7 +889,7 @@ export default function Patients() {
             </div>
 
             {/* Quick Details Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-lg" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
               {[
                 { label: 'Primary Contact', value: viewingPatient.phone, mono: true },
                 { label: 'Gender Identity', value: viewingPatient.gender },
@@ -1167,7 +1154,7 @@ function NursingCareSection({ patientId }: { patientId: string }) {
     `${formatDate(iso)} · ${new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
 
   return (
-    <div className="rounded-2xl" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+    <div className="rounded-lg" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
         <div>
           <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text)', fontFamily: 'var(--font-heading)' }}>

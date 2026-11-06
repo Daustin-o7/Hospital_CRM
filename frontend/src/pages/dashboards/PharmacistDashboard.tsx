@@ -146,7 +146,7 @@ export default function PharmacistDashboard() {
             className="btn btn-primary text-xs flex items-center gap-1.5 font-semibold"
             title="Launch Pharmacy POS Checkout [F8]"
           >
-            <span>🛒</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             <span>Open POS Counter (F8)</span>
           </button>
         </div>
@@ -158,7 +158,7 @@ export default function PharmacistDashboard() {
         <div className="stat-card hover-card border-amber-200 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">📋</span>
+              
               <span className="stat-label mt-0 text-amber-800 dark:text-amber-200">Prescriptions Pending</span>
             </div>
             <span className="badge badge-warning text-[10px]">Awaiting Pickup</span>
@@ -175,7 +175,7 @@ export default function PharmacistDashboard() {
         <div className="stat-card hover-card border-emerald-200 dark:border-emerald-900 bg-emerald-50/20 dark:bg-emerald-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">💵</span>
+              
               <span className="stat-label mt-0 text-emerald-800 dark:text-emerald-200">Dispensary Revenue</span>
             </div>
             <span className="badge badge-success text-[10px]">Today</span>
@@ -192,7 +192,7 @@ export default function PharmacistDashboard() {
         <div className="stat-card hover-card border-rose-200 dark:border-rose-900 bg-rose-50/20 dark:bg-rose-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">⏳</span>
+              
               <span className="stat-label mt-0 text-rose-800 dark:text-rose-200">FEFO Expiry Warnings</span>
             </div>
             <span className="badge badge-danger text-[10px]">&lt; 45 Days</span>

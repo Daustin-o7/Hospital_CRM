@@ -60,6 +60,22 @@ builder.Services.AddDbContext<HospitalCrmDbContext>((sp, options) =>
 
 builder.Services.AddMemoryCache();
 
+// PERF: Response compression (Brotli + Gzip) for clinical JSON payloads & reports
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Fastest;
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Fastest;
+});
+
 // Rate limiting (per IP + per user)
 builder.Services.AddRateLimiter(options =>
 {
@@ -573,6 +589,7 @@ app.UseForwardedHeaders(ForwardedProxies.Build(builder.Configuration));
 app.UseCorrelationId();
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 app.UseCors("AllowFrontend");
 
 app.UseRateLimiter();
@@ -612,6 +629,10 @@ app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
             ctx.Context.Response.Headers["WWW-Authenticate"] = "Bearer";
             ctx.Context.Response.ContentLength = 0;
             ctx.Context.Response.Body = Stream.Null;
+        }
+        else
+        {
+            ctx.Context.Response.Headers.CacheControl = "private, max-age=86400";
         }
     }
 });

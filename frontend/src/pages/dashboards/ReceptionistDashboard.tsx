@@ -185,7 +185,7 @@ export default function ReceptionistDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <span className="badge badge-brand">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 "></span>
               OPD Reception Desk
             </span>
             <span className="text-xs font-mono text-[var(--color-text-muted)]">Live Lobby Sync</span>
@@ -204,7 +204,7 @@ export default function ReceptionistDashboard() {
             className="btn btn-secondary text-xs flex items-center gap-1.5"
             title="Register new patient with DPDP consent [F2]"
           >
-            <span>👤</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>New Patient (F2)</span>
           </button>
           <button
@@ -212,7 +212,7 @@ export default function ReceptionistDashboard() {
             className="btn btn-primary text-xs flex items-center gap-1.5"
             title="Generate walk-in token or book slot [F3]"
           >
-            <span>🎫</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
             <span>Issue Token (F3)</span>
           </button>
         </div>
@@ -220,7 +220,7 @@ export default function ReceptionistDashboard() {
 
       {/* ── Calling Banner ── */}
       {callingToken && (
-        <div className="p-4 rounded-xl bg-teal-600 text-white font-bold flex items-center justify-between shadow-lg animate-bounce">
+        <div className="p-3.5 rounded-lg bg-[var(--palette-forest-900,#1E3A2E)] text-white font-medium flex items-center justify-between border border-[var(--palette-forest-800,#3E5A3F)] shadow-xs">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📢</span>
             <div>
@@ -238,7 +238,7 @@ export default function ReceptionistDashboard() {
         <div className="stat-card hover-card border-amber-200 dark:border-amber-900 bg-amber-50/30 dark:bg-amber-950/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🪑</span>
+              
               <span className="stat-label mt-0 text-amber-800 dark:text-amber-200">Waiting in Lobby</span>
             </div>
             <span className="badge badge-warning text-[10px] animate-pulse">Live</span>
@@ -255,7 +255,7 @@ export default function ReceptionistDashboard() {
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">📅</span>
+              
               <span className="stat-label mt-0">Expected Today</span>
             </div>
             <span className="badge badge-info text-[10px]">Upcoming</span>
@@ -272,7 +272,7 @@ export default function ReceptionistDashboard() {
         <div className="stat-card hover-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-lg">🎫</span>
+              
               <span className="stat-label mt-0">Tokens Generated</span>
             </div>
             <span className="badge badge-brand text-[10px]">Today</span>

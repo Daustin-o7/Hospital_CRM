@@ -7,17 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>SamStack AI — Doctor &amp; Clinic CRM</title>
     <meta name="description" content="Hospital CRM for doctors and clinics. Patient registration, OPD scheduling, consultations, billing and GST invoicing." />
-    <!-- Performance: preconnect before font request -->
+    <!-- Performance: Preload local OFL variable fonts for zero-latency clinical rendering -->
+    <link rel="preload" href="/fonts/inter/Inter-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/plus-jakarta-sans/PlusJakartaSans-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- External Google Fonts fallback -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Google Fonts: Space Grotesk (Headings), Plus Jakarta Sans (UI), JetBrains Mono (Telemetry) -->
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <!-- SIL OFL 1.1 Fonts: Inter (Body/UI), Plus Jakarta Sans (Headings), JetBrains Mono (Telemetry) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <!-- Touch highlight consistent with design -->
     <style>
       * { -webkit-tap-highlight-color: rgba(13, 148, 136, 0.08); }
     </style>
   </head>
-  <body class="antialiased" style="background:#f8fafc;color:#1e293b;font-family:'Plus Jakarta Sans',system-ui,sans-serif">
+  <body class="antialiased" style="background:#f8fafc;color:#1e293b;font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -604,7 +604,7 @@ export default function Staff() {
                     <tr key={s.id}>
                       <td>
                         <div className="flex items-center gap-2.5">
-                          <div className="avatar avatar-sm font-bold text-xs flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)', color: '#fff' }}>
+                          <div className="avatar avatar-sm font-bold text-xs flex items-center justify-center bg-[#1E3A2E] text-teal-200 border border-teal-600/30">
                             {getInitials(s.name)}
                           </div>
                           <div>

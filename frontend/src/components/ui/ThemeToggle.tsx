@@ -100,7 +100,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
       </button>
 
       {dropdownOpen && (
-        <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-[#111e2e] rounded-2xl shadow-xl border border-slate-200 dark:border-[#22364f] p-1.5 z-50 text-xs animate-fadein">
+        <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-[#111e2e] rounded-lg shadow-md border border-slate-200 dark:border-[#22364f] p-1.5 z-50 text-xs animate-fadein">
           <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
             Appearance
           </div>
@@ -111,7 +111,7 @@ export function ThemeToggle({ variant = 'compact', className = '' }: ThemeToggle
               setTheme('light')
               setDropdownOpen(false)
             }}
-            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-colors text-left cursor-pointer ${
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md transition-colors text-left cursor-pointer ${
               theme === 'light'
                 ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'

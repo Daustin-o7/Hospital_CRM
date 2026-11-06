@@ -91,11 +91,11 @@ export default function FinalizeSuccessModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadein">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-5 animate-scalein text-left">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-[var(--color-border)] max-w-lg w-full p-6 space-y-5 animate-scalein text-left">
         {/* Header with success badge */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 flex items-center justify-center text-xl font-bold">
+            <div className="w-12 h-12 rounded-md bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 flex items-center justify-center text-xl font-bold">
               <CheckIcon />
             </div>
             <div>

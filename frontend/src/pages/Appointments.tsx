@@ -473,16 +473,7 @@ export default function Appointments() {
                       {/* Queue token */}
                       <td>
                         {appt.queueToken ? (
-                          <span
-                            className="inline-flex items-center justify-center font-bold px-2.5 py-1 rounded-xl text-xs"
-                            style={{
-                              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                              color: '#38bdf8',
-                              fontFamily: 'var(--font-mono)',
-                              boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
-                              letterSpacing: '0.04em'
-                            }}
-                          >
+                          <span className="inline-flex items-center justify-center font-bold px-2.5 py-0.5 rounded-md text-xs font-mono bg-slate-900 text-teal-300 border border-slate-700 shadow-xs tracking-wider">
                             #{String(appt.queueToken).padStart(2, '0')}
                           </span>
                         ) : (
